@@ -64,11 +64,11 @@ function Shell({ children }: { children: ReactNode }) {
   return <div className="folder-backdrop">
     <div className="folder-shell">
       <header className="folder-cover">
+        <nav className="folder-tabs" aria-label="Main navigation">{nav}</nav>
         <div className="folder-top">
           <div className="brand folder-brand"><div className="brand-mark"><Leaf size={19} /></div><div><div className="brand-name">aliena<span>.</span></div><div className="folder-subtitle">YOUR PERSONAL MONEY FILE</div></div></div>
           <div className="folder-profile"><div className="avatar">{initials}</div><div className="folder-profile-copy"><strong>{displayName}</strong><span>{user?.email || 'Personal space'}</span></div><button className="icon-button folder-logout" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
         </div>
-        <nav className="folder-tabs" aria-label="Main navigation">{nav}</nav>
       </header>
       <main className="workspace"><div className="file-page">{children}</div></main>
     </div>

@@ -839,3 +839,84 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .page-heading { margin-bottom:20px; padding:12px 4px; }
   .paper-pin { right:10px; }
 }
+
+/* Make the navigation read as physical folder tabs on the folder's top edge. */
+.folder-shell {
+  margin:22px auto 0;
+  min-height:calc(100vh - 100px);
+  overflow:visible;
+  background:var(--folder-cream);
+}
+.folder-shell::before {
+  display:block;
+  content:"";
+  position:absolute;
+  z-index:0;
+  top:-20px;
+  left:24px;
+  width:236px;
+  height:21px;
+  border:1px solid rgba(1,30,72,.26);
+  border-bottom:0;
+  border-radius:8px 8px 0 0;
+  background:var(--folder-cream);
+}
+.folder-cover {
+  position:relative;
+  z-index:1;
+  background:var(--folder-cream);
+}
+.folder-tabs {
+  position:relative;
+  z-index:2;
+  align-items:flex-end;
+  gap:5px;
+  min-height:46px;
+  padding:0 16px;
+  margin:0 0 0 20px;
+  border-bottom:1px solid rgba(1,30,72,.24);
+  background:var(--folder-cream);
+}
+.folder-tabs .nav-link {
+  min-height:41px;
+  padding:10px 13px 9px;
+  margin-bottom:-1px;
+  border:1px solid rgba(1,30,72,.24);
+  border-bottom:1px solid rgba(1,30,72,.24);
+  border-radius:7px 7px 0 0;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+  font-size:11px;
+  font-weight:600;
+}
+.folder-tabs .nav-link:hover {
+  transform:translateY(-2px);
+  border-color:var(--folder-olive);
+  border-bottom-color:var(--folder-cream);
+  background:var(--folder-cream);
+  color:var(--folder-burgundy);
+}
+.folder-tabs .nav-link.active {
+  min-height:45px;
+  border:1px solid var(--folder-olive);
+  border-bottom:1px solid var(--folder-cream);
+  border-top:3px solid var(--folder-burgundy);
+  background:var(--folder-cream);
+  color:var(--folder-burgundy);
+}
+.folder-top {
+  min-height:75px;
+  padding:13px 16px 14px;
+  border-bottom:1px solid rgba(1,30,72,.2);
+}
+.folder-top .brand { padding-bottom:0; }
+.workspace,.file-page { background:var(--folder-cream); }
+@media(max-width:760px) {
+  .folder-shell { margin-top:18px; min-height:calc(100vh - 58px); }
+  .folder-shell::before { top:-17px; left:16px; width:165px; height:18px; }
+  .folder-tabs { min-height:43px; gap:3px; margin-left:8px; padding:0 4px; }
+  .folder-tabs .nav-link { min-height:38px; gap:5px; padding:9px 9px 8px; font-size:10px; }
+  .folder-tabs .nav-link.active { min-height:41px; }
+  .folder-tabs .nav-link svg { width:13px; height:13px; }
+  .folder-top { min-height:62px; padding:10px 5px 11px; }
+}
