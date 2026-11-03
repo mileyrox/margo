@@ -22,5 +22,6 @@ export interface BudgetPlan {
   /** @minimum 0 */
   monthlySpendingTarget: number;
   goalFeasible: boolean;
+  setupComplete: boolean;
   categories: BudgetCategoryPlan[];
 }

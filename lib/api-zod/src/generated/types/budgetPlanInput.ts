@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { BudgetPlanInputCategoryBudgetsItem } from './budgetPlanInputCategoryBudgetsItem';
 import type { BudgetPlanInputPriorityCategoriesItem } from './budgetPlanInputPriorityCategoriesItem';
 
 export interface BudgetPlanInput {
@@ -16,4 +17,5 @@ export interface BudgetPlanInput {
   monthlyRent: number;
   /** @maxItems 3 */
   priorityCategories: BudgetPlanInputPriorityCategoriesItem[];
+  categoryBudgets: BudgetPlanInputCategoryBudgetsItem[];
 }

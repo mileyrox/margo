@@ -699,7 +699,7 @@ components:
         annualSavings: { type: number }
     BudgetPlanInput:
       type: object
-      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories]
+      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories, categoryBudgets]
       properties:
         annualIncome: { type: number, minimum: 0 }
         annualSavingsGoal: { type: number, minimum: 0 }
@@ -724,6 +724,16 @@ components:
               - Travel
               - Family & giving
               - Other
+        categoryBudgets:
+          type: array
+          items:
+            type: object
+            required: [category, monthlyTarget]
+            properties:
+              category:
+                type: string
+                enum: [Housing, Groceries, Dining & coffee, Transportation, Utilities, Health, Debt payments, Personal care, Shopping, Entertainment, Travel, Family & giving, Other]
+              monthlyTarget: { type: number, minimum: 0 }
     BudgetCategoryPlan:
       type: object
       required: [category, monthlyTarget, spentThisMonth, priority, sharePercent]
@@ -735,7 +745,7 @@ components:
         sharePercent: { type: number, minimum: 0, maximum: 100 }
     BudgetPlan:
       type: object
-      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories, monthlyIncomeTarget, monthlySavingsTarget, monthlySpendingTarget, goalFeasible, categories]
+      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories, monthlyIncomeTarget, monthlySavingsTarget, monthlySpendingTarget, goalFeasible, setupComplete, categories]
       properties:
         annualIncome: { type: number, minimum: 0 }
         annualSavingsGoal: { type: number, minimum: 0 }
@@ -747,6 +757,7 @@ components:
         monthlySavingsTarget: { type: number, minimum: 0 }
         monthlySpendingTarget: { type: number, minimum: 0 }
         goalFeasible: { type: boolean }
+        setupComplete: { type: boolean }
         categories:
           type: array
           items: { $ref: "#/components/schemas/BudgetCategoryPlan" }

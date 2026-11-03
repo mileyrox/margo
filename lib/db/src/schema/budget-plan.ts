@@ -4,6 +4,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./auth";
 
+export type SavedCategoryBudget = { category: string; monthlyTarget: number };
+
 export const budgetPlansTable = pgTable("budget_plans", {
   userId: varchar("user_id")
     .primaryKey()
@@ -31,6 +33,10 @@ export const budgetPlansTable = pgTable("budget_plans", {
     .default(0),
   priorityCategories: jsonb("priority_categories")
     .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  categoryBudgets: jsonb("category_budgets")
+    .$type<SavedCategoryBudget[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
   updatedAt: timestamp("updated_at", { withTimezone: true })

@@ -166,6 +166,8 @@ function buildBudgetPlan(
   annualSavingsGoal: number,
   monthlyRent: number,
   priorityCategories: string[],
+  categoryBudgets: Array<{ category: string; monthlyTarget: number }>,
+  setupComplete: boolean,
   spendingRows: Array<{ category: string; amount: number }>,
 ): ApiBudgetPlan {
   const goalFeasible = annualSavingsGoal + monthlyRent * 12 <= annualIncome;
@@ -190,20 +192,30 @@ function buildBudgetPlan(
   }
 
   let allocated = 0;
-  const categories = weightedCategories.map((entry, index) => {
-    const sharePercent = (entry.adjustedWeight / totalWeight) * 100;
-    const monthlyTarget = index === weightedCategories.length - 1
-      ? Math.round((monthlySpendingTarget - allocated) * 100) / 100
-      : Math.round((monthlySpendingTarget * sharePercent / 100) * 100) / 100;
-    allocated += monthlyTarget;
-    return {
+  const categories = categoryBudgets.length
+    ? categoryBudgets.map((entry) => ({
       category: entry.category,
-      monthlyTarget,
+      monthlyTarget: entry.monthlyTarget,
       spentThisMonth: Math.round((spendingByCategory.get(entry.category) ?? 0) * 100) / 100,
       priority: priorities.has(entry.category),
-      sharePercent: Math.round(sharePercent * 10) / 10,
-    };
-  });
+      sharePercent: categoryBudgets.reduce((sum, item) => sum + item.monthlyTarget, 0) > 0
+        ? Math.round((entry.monthlyTarget / categoryBudgets.reduce((sum, item) => sum + item.monthlyTarget, 0)) * 1000) / 10
+        : 0,
+    }))
+    : weightedCategories.map((entry, index) => {
+      const sharePercent = (entry.adjustedWeight / totalWeight) * 100;
+      const monthlyTarget = index === weightedCategories.length - 1
+        ? Math.round((monthlySpendingTarget - allocated) * 100) / 100
+        : Math.round((monthlySpendingTarget * sharePercent / 100) * 100) / 100;
+      allocated += monthlyTarget;
+      return {
+        category: entry.category,
+        monthlyTarget,
+        spentThisMonth: Math.round((spendingByCategory.get(entry.category) ?? 0) * 100) / 100,
+        priority: priorities.has(entry.category),
+        sharePercent: Math.round(sharePercent * 10) / 10,
+      };
+    });
 
   return {
     annualIncome,
@@ -214,6 +226,7 @@ function buildBudgetPlan(
     monthlySavingsTarget,
     monthlySpendingTarget,
     goalFeasible,
+    setupComplete,
     categories,
   };
 }
@@ -239,6 +252,8 @@ async function getBudgetPlanForUser(userId: string): Promise<ApiBudgetPlan> {
     saved?.annualSavingsGoal ?? 0,
     saved?.monthlyRent ?? 0,
     saved?.priorityCategories ?? [],
+    saved?.categoryBudgets ?? [],
+    Boolean(saved),
     spendingRows,
   );
 }
@@ -282,7 +297,7 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
     getUserComparisons(req.user.id),
   ]);
   const [savedSettings] = settings;
-  const taxReserveRate = savedSettings?.taxReserveRate ?? 25;
+  const taxReserveRate = savedSettings?.taxReserveRate ?? 0;
   const taxableIncomeThisYear = yearIncome.reduce((total, row) => total + row.amount, 0);
   const dashboard: FinanceDashboard = {
     monthlySpending: monthlyExpenses.reduce((total, row) => total + row.amount, 0),
@@ -365,7 +380,7 @@ router.get("/settings", async (req, res): Promise<void> => {
     .from(financeSettingsTable)
     .where(eq(financeSettingsTable.userId, req.user.id));
   res.json(GetFinanceSettingsResponse.parse({
-    taxReserveRate: settings?.taxReserveRate ?? 25,
+    taxReserveRate: settings?.taxReserveRate ?? 0,
   }));
 });
 
@@ -410,6 +425,7 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
       annualSavingsGoal: parsed.data.annualSavingsGoal,
       monthlyRent: parsed.data.monthlyRent,
       priorityCategories: parsed.data.priorityCategories,
+      categoryBudgets: parsed.data.categoryBudgets,
     })
     .onConflictDoUpdate({
       target: budgetPlansTable.userId,
@@ -418,6 +434,7 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
         annualSavingsGoal: parsed.data.annualSavingsGoal,
         monthlyRent: parsed.data.monthlyRent,
         priorityCategories: parsed.data.priorityCategories,
+        categoryBudgets: parsed.data.categoryBudgets,
         updatedAt: new Date(),
       },
     });

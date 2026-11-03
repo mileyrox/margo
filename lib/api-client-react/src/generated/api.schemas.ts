@@ -212,6 +212,31 @@ export const BudgetPlanInputPriorityCategoriesItem = {
   Other: 'Other',
 } as const;
 
+export type BudgetPlanInputCategoryBudgetsItemCategory = typeof BudgetPlanInputCategoryBudgetsItemCategory[keyof typeof BudgetPlanInputCategoryBudgetsItemCategory];
+
+
+export const BudgetPlanInputCategoryBudgetsItemCategory = {
+  Housing: 'Housing',
+  Groceries: 'Groceries',
+  'Dining_&_coffee': 'Dining & coffee',
+  Transportation: 'Transportation',
+  Utilities: 'Utilities',
+  Health: 'Health',
+  Debt_payments: 'Debt payments',
+  Personal_care: 'Personal care',
+  Shopping: 'Shopping',
+  Entertainment: 'Entertainment',
+  Travel: 'Travel',
+  'Family_&_giving': 'Family & giving',
+  Other: 'Other',
+} as const;
+
+export type BudgetPlanInputCategoryBudgetsItem = {
+  category: BudgetPlanInputCategoryBudgetsItemCategory;
+  /** @minimum 0 */
+  monthlyTarget: number;
+};
+
 export interface BudgetPlanInput {
   /** @minimum 0 */
   annualIncome: number;
@@ -221,6 +246,7 @@ export interface BudgetPlanInput {
   monthlyRent: number;
   /** @maxItems 3 */
   priorityCategories: BudgetPlanInputPriorityCategoriesItem[];
+  categoryBudgets: BudgetPlanInputCategoryBudgetsItem[];
 }
 
 export interface BudgetCategoryPlan {
@@ -252,6 +278,7 @@ export interface BudgetPlan {
   /** @minimum 0 */
   monthlySpendingTarget: number;
   goalFeasible: boolean;
+  setupComplete: boolean;
   categories: BudgetCategoryPlan[];
 }
 

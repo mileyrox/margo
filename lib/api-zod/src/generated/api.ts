@@ -401,6 +401,7 @@ export const GetBudgetPlanResponse = zod.object({
   "monthlySavingsTarget": zod.number().min(getBudgetPlanResponseMonthlySavingsTargetMin),
   "monthlySpendingTarget": zod.number().min(getBudgetPlanResponseMonthlySpendingTargetMin),
   "goalFeasible": zod.boolean(),
+  "setupComplete": zod.boolean(),
   "categories": zod.array(zod.object({
   "category": zod.string(),
   "monthlyTarget": zod.number().min(getBudgetPlanResponseCategoriesItemMonthlyTargetMin),
@@ -422,13 +423,19 @@ export const updateBudgetPlanBodyMonthlyRentMin = 0;
 
 export const updateBudgetPlanBodyPriorityCategoriesMax = 3;
 
+export const updateBudgetPlanBodyCategoryBudgetsItemMonthlyTargetMin = 0;
+
 
 
 export const UpdateBudgetPlanBody = zod.object({
   "annualIncome": zod.number().min(updateBudgetPlanBodyAnnualIncomeMin),
   "annualSavingsGoal": zod.number().min(updateBudgetPlanBodyAnnualSavingsGoalMin),
   "monthlyRent": zod.number().min(updateBudgetPlanBodyMonthlyRentMin),
-  "priorityCategories": zod.array(zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other'])).max(updateBudgetPlanBodyPriorityCategoriesMax)
+  "priorityCategories": zod.array(zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other'])).max(updateBudgetPlanBodyPriorityCategoriesMax),
+  "categoryBudgets": zod.array(zod.object({
+  "category": zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other']),
+  "monthlyTarget": zod.number().min(updateBudgetPlanBodyCategoryBudgetsItemMonthlyTargetMin)
+}))
 })
 
 export const updateBudgetPlanResponseAnnualIncomeMin = 0;
@@ -461,6 +468,7 @@ export const UpdateBudgetPlanResponse = zod.object({
   "monthlySavingsTarget": zod.number().min(updateBudgetPlanResponseMonthlySavingsTargetMin),
   "monthlySpendingTarget": zod.number().min(updateBudgetPlanResponseMonthlySpendingTargetMin),
   "goalFeasible": zod.boolean(),
+  "setupComplete": zod.boolean(),
   "categories": zod.array(zod.object({
   "category": zod.string(),
   "monthlyTarget": zod.number().min(updateBudgetPlanResponseCategoriesItemMonthlyTargetMin),

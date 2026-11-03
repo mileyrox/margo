@@ -45,6 +45,7 @@ const spendingCategories = [
   'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other',
 ] as const;
 type PriorityCategory = typeof spendingCategories[number];
+type CategoryBudgetDraft = { category: PriorityCategory; monthlyTarget: number };
 
 function Shell({ children }: { children: ReactNode }) {
   const [path] = useLocation();
@@ -180,6 +181,8 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
   const [annualSavingsGoal, setAnnualSavingsGoal] = useState('');
   const [monthlyRent, setMonthlyRent] = useState('');
   const [priorities, setPriorities] = useState<PriorityCategory[]>([]);
+  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudgetDraft[]>([]);
+  const [newBudgetCategory, setNewBudgetCategory] = useState<PriorityCategory | ''>('');
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState('');
   useEffect(() => {
@@ -188,9 +191,13 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
     setAnnualSavingsGoal(String(plan.data.annualSavingsGoal ?? 0));
     setMonthlyRent(String(plan.data.monthlyRent ?? 0));
     setPriorities((plan.data.priorityCategories || []).filter((item): item is PriorityCategory => spendingCategories.includes(item as PriorityCategory)));
+    setCategoryBudgets(plan.data.categories.filter((item) => spendingCategories.includes(item.category as PriorityCategory)).map((item) => ({
+      category: item.category as PriorityCategory,
+      monthlyTarget: Number(item.monthlyTarget) || 0,
+    })));
   }, [plan.data]);
-  const configured = Boolean(plan.data && (plan.data.annualIncome > 0 || plan.data.annualSavingsGoal > 0 || plan.data.monthlyRent > 0 || plan.data.priorityCategories.length > 0));
-  const canEdit = allowEdit || !configured;
+  const configured = Boolean(plan.data?.setupComplete);
+  const canEdit = allowEdit;
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthSpend = useMemo(() => {
     const amounts = new Map<string, number>();
@@ -204,6 +211,12 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
       ? current.filter((item) => item !== category)
       : current.length < 3 ? [...current, category] : current);
   };
+  const addBudgetCategory = () => {
+    if (!newBudgetCategory || categoryBudgets.some((item) => item.category === newBudgetCategory)) return;
+    setCategoryBudgets((current) => [...current, { category: newBudgetCategory, monthlyTarget: 0 }]);
+    setNewBudgetCategory('');
+    setSaved(false);
+  };
   const savePlan = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError('');
@@ -214,7 +227,11 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
       setFormError('Enter valid income, rent, and savings amounts of zero or more.');
       return;
     }
-    const payload: BudgetPlanInput = { annualIncome: income, annualSavingsGoal: savings, monthlyRent: rent, priorityCategories: priorities };
+    if (categoryBudgets.some((item) => !Number.isFinite(item.monthlyTarget) || item.monthlyTarget < 0)) {
+      setFormError('Category budgets must be zero or more.');
+      return;
+    }
+    const payload: BudgetPlanInput = { annualIncome: income, annualSavingsGoal: savings, monthlyRent: rent, priorityCategories: priorities, categoryBudgets };
     update.mutate({ data: payload }, {
       onSuccess: () => {
         setSaved(true);
@@ -234,7 +251,7 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
     </div>}
     {dashboard.isError && <ErrorPanel error={dashboard.error} retry={() => dashboard.refetch()} />}
     {plan.isLoading ? <LoadingPanel rows={3} /> : plan.isError ? <ErrorPanel error={plan.error} retry={() => plan.refetch()} /> : <>
-      {!configured && <div className="plan-welcome" data-testid="status-plan-unconfigured"><div className="plan-welcome-mark"><Sparkles /></div><div><strong>Your first plan starts with a few essentials.</strong><p>Set your take-home income, monthly rent, savings goal, and priorities. We’ll turn them into a flexible monthly starting point.</p></div></div>}
+      {!configured && <div className="plan-welcome" data-testid="status-plan-unconfigured"><div className="plan-welcome-mark"><Sparkles /></div><div><strong>Your first plan starts with a few essentials.</strong><p>Set your take-home income, monthly rent, savings goal, and priorities in account setup.</p><Link href="/profile" className="text-link" style={{ display: 'inline-block', marginTop: 8 }}>Start setup <ChevronRight size={13} /></Link></div></div>}
       {plan.data?.goalFeasible === false && configured && <div className="plan-warning" role="status" data-testid="status-plan-infeasible"><Info /><span>Your rent and savings goal are higher than the take-home amount available for this plan. Adjust the amounts to make the plan workable.</span></div>}
       {formError && <div className="error-box" role="alert" style={{ marginBottom: 16 }}><span>{formError}</span><button type="button" onClick={() => setFormError('')} aria-label="Dismiss error" data-testid="button-dismiss-plan-error"><X /></button></div>}
       {configured && !canEdit && <div className="plan-lock-notice"><span>Your income, rent, savings goal, and priorities are saved. To update your plan, open your profile from the top-right corner.</span><Link href="/profile" className="btn btn-soft">Open profile <ChevronRight /></Link></div>}
@@ -250,13 +267,24 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
               <div className="priority-picker">{spendingCategories.map((category) => <button type="button" key={category} className={`priority-chip ${priorities.includes(category) ? 'selected' : ''}`} aria-pressed={priorities.includes(category)} disabled={!priorities.includes(category) && priorities.length >= 3} onClick={() => togglePriority(category)} data-testid={`button-priority-${category.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}>{category}{priorities.includes(category) && <Check aria-hidden="true" />}</button>)}</div>
               <div className="field-help">These are the things you want the plan to protect first.</div>
             </div>
+            <div className="field category-budget-editor" style={{ marginTop: 22 }}>
+              <label>Monthly category budgets</label>
+              <div className="field-help">Keep, remove, or add categories, then set the monthly amount that works for you.</div>
+              <div className="budget-category-list">{categoryBudgets.map((item) => <div className="budget-category-edit-row" key={item.category}>
+                <strong>{item.category}</strong>
+                <div className="money-input"><span>$</span><input className="input" type="number" min="0" step="25" value={item.monthlyTarget} aria-label={`${item.category} monthly budget`} onChange={(event) => { const amount = Number(event.target.value); setCategoryBudgets((current) => current.map((row) => row.category === item.category ? { ...row, monthlyTarget: amount } : row)); setSaved(false); }} data-testid={`input-budget-${item.category.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`} /></div>
+                <button type="button" className="icon-button" disabled={categoryBudgets.length <= 1} aria-label={`Remove ${item.category} budget`} onClick={() => { setCategoryBudgets((current) => current.filter((row) => row.category !== item.category)); setSaved(false); }}><Trash2 /></button>
+              </div>)}</div>
+              <div className="budget-category-add"><select className="input" aria-label="Category to add" value={newBudgetCategory} onChange={(event) => setNewBudgetCategory(event.target.value as PriorityCategory | '')}><option value="">Add a category…</option>{spendingCategories.filter((category) => !categoryBudgets.some((item) => item.category === category)).map((category) => <option key={category} value={category}>{category}</option>)}</select><button type="button" className="btn btn-soft" disabled={!newBudgetCategory} onClick={addBudgetCategory}><Plus />Add category</button></div>
+              <div className="field-help">Your category targets total {money(categoryBudgets.reduce((sum, item) => sum + (Number(item.monthlyTarget) || 0), 0))} per month. The available amount is {money(plan.data?.monthlySpendingTarget)}.</div>
+            </div>
             <div className="plan-disclaimer"><Info /><span>Recommendations are adjustable starting points, not financial advice.</span></div>
             <div className="form-actions"><button className="btn btn-primary" type="submit" disabled={update.isPending} data-testid="button-save-plan">{update.isPending ? 'Saving your plan…' : saved ? <><Check />Plan saved</> : 'Save my plan'}</button></div>
           </form>
         </section>}
         {configured && plan.data && <div className="plan-results">
           <section className="plan-summary" data-testid="section-plan-recommendations">
-            <div className="eyebrow">A monthly starting point</div>
+            <div className="eyebrow">Your monthly plan</div>
             <h2>Your money, in a rhythm.</h2>
             <p className="plan-summary-intro">Based on {money(plan.data.annualIncome)} take-home income per year.</p>
             <div className="plan-total-row"><span>Monthly take-home</span><strong data-testid="value-plan-monthly-income">{money(plan.data.monthlyIncomeTarget)}</strong></div>
@@ -618,10 +646,21 @@ function SettingsPage() {
   return <div className="content">
     <PageHeading eyebrow="Your preferences" title="Settings" subtitle="A few simple controls for how Aliena keeps your personal picture." />
     {settings.isError && <ErrorPanel error={settings.error} retry={() => settings.refetch()} />}
-    <section className="panel settings-section"><div className="eyebrow">Getting to know you</div><h2 className="panel-title">Your shopping and savings profile</h2><p className="panel-caption">Update what you’re saving for, what’s non-negotiable, and which swaps you’re open to.</p><Link className="btn btn-soft" href="/onboarding">Edit my profile <ChevronRight /></Link></section>
-    <section className="panel settings-section"><div className="eyebrow">Planning</div><h2 className="panel-title">Tax set-aside estimate</h2><p className="panel-caption">Your selected rate is applied to taxable non-W-2 income you’ve recorded.</p>
+     <section className="panel settings-section"><div className="eyebrow">Getting to know you</div><h2 className="panel-title">Your shopping and savings profile</h2><p className="panel-caption">Update what you’re saving for, what’s non-negotiable, and which swaps you’re open to.</p><Link className="btn btn-soft" href="/profile">Edit my profile <ChevronRight /></Link></section>
+     <section className="panel settings-section"><div className="eyebrow">Planning</div><h2 className="panel-title">Tax set-aside estimate</h2><p className="panel-caption">Choose a personal rate for your planning estimate. It starts at 0% until you set one; there is no universal rate.</p>
       {settings.isLoading ? <div className="skeleton" style={{ marginTop: 18 }} /> : <div className="settings-row"><div style={{ flex: 1 }}><div className="settings-label">Personal estimate rate</div><div className="settings-description">Choose 0% to 60%. This is user-configured for planning and is not tax advice.</div><div className="rate-control"><input aria-label="Tax reserve rate" type="range" min="0" max="60" step="1" value={rate ?? settings.data?.taxReserveRate ?? 0} onChange={(e) => { setRate(Number(e.target.value)); setSaved(false); }} data-testid="input-settings-tax-rate" /><span className="rate-number">{rate ?? settings.data?.taxReserveRate ?? 0}%</span></div></div><button className="btn btn-primary" onClick={save} disabled={update.isPending || rate === null} data-testid="button-settings-save">{update.isPending ? 'Saving…' : saved ? <><Check />Saved</> : 'Save rate'}</button></div>}
       {error && <p style={{ color: '#a44', fontSize: 10 }}>{error}</p>}
+      <div className="tax-factors">
+        <h3>What can affect your tax bill?</h3>
+        <p>There isn’t one set-aside rate that fits everyone. General factors include:</p>
+        <ul>
+          <li>Federal income tax and whether self-employment tax applies</li>
+          <li>Your state and local tax rules</li>
+          <li>Business expenses, deductions, credits, and other income</li>
+          <li>Tax already withheld or paid through estimated payments</li>
+        </ul>
+        <p>Use this estimate as a planning aid, not tax advice. Check current IRS guidance or ask a qualified tax professional about your situation.</p>
+      </div>
     </section>
      <section className="panel settings-section"><div className="eyebrow">Connections</div><h2 className="panel-title">Bank accounts</h2><p className="panel-caption">A sample bank view is available for preview.</p>
        <div className="settings-row"><div><div className="settings-label">Real bank linking</div><div className="settings-description">No real bank is linked. The sample accounts are fictional and are not part of your ledger or totals.</div><Link href="/accounts" className="text-link" style={{ display: 'inline-block', marginTop: 8 }}>Open sample accounts <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></div><span className="connection-pill"><span style={{ width: 6, height: 6, background: '#9a8060', borderRadius: '50%', display: 'inline-block', marginRight: 6 }} />Demo only</span></div>
@@ -639,7 +678,23 @@ function ProfilePage() {
   </div>;
 }
 
-function HomePlanRoute() { return <PlanPage />; }
+function AccountSetupPage() {
+  return <div className="content">
+    <PageHeading eyebrow="Account setup" title="Let’s build your starting plan." subtitle="Set your take-home income, rent, savings goal, and preferences. You can revise your plan later in settings." />
+    <PlanPage allowEdit />
+    <OnboardingPage />
+  </div>;
+}
+
+function HomePlanRoute() {
+  const plan = useGetBudgetPlan();
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    if (plan.data && !plan.data.setupComplete) setLocation('/onboarding');
+  }, [plan.data, setLocation]);
+  if (plan.data && !plan.data.setupComplete) return <div className="content"><LoadingPanel rows={2} /></div>;
+  return <PlanPage />;
+}
 
 function LoginScreen() {
   const { login } = useAuth();
@@ -659,7 +714,7 @@ function AuthenticatedApp() {
     <Route path="/swaps" component={SwapsPage} />
     <Route path="/profile" component={ProfilePage} />
     <Route path="/taxes" component={ProfilePage} />
-    <Route path="/onboarding" component={ProfilePage} />
+    <Route path="/onboarding" component={AccountSetupPage} />
     <Route path="/settings" component={ProfilePage} />
     <Route component={NotFound} />
   </Switch></RoutedErrorBoundary></Shell>;

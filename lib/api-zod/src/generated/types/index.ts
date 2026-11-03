@@ -13,6 +13,8 @@ export * from './beginBrowserLoginParams';
 export * from './budgetCategoryPlan';
 export * from './budgetPlan';
 export * from './budgetPlanInput';
+export * from './budgetPlanInputCategoryBudgetsItem';
+export * from './budgetPlanInputCategoryBudgetsItemCategory';
 export * from './budgetPlanInputPriorityCategoriesItem';
 export * from './errorEnvelope';
 export * from './financeDashboard';
