@@ -463,6 +463,116 @@ export const UpdateBudgetPlanResponse = zod.object({
 
 
 /**
+ * @summary Get the current user's savings and shopping preferences
+ */
+export const getSwapProfileResponseOneSavingForMax = 160;
+
+export const getSwapProfileResponseOneMonthlySavingsGoalMin = 0;
+export const getSwapProfileResponseOneMonthlySavingsGoalMax = 1000000;
+
+export const getSwapProfileResponseOneNonNegotiablesItemMax = 120;
+
+export const getSwapProfileResponseOneNonNegotiablesMax = 40;
+
+export const getSwapProfileResponseOneSwapCategoriesMax = 10;
+
+export const getSwapProfileResponseOneFavoriteBrandsItemMax = 80;
+
+export const getSwapProfileResponseOneFavoriteBrandsMax = 40;
+
+export const getSwapProfileResponseOneValuesMax = 12;
+
+export const getSwapProfileResponseOneDietaryNeedsMax = 500;
+
+export const getSwapProfileResponseOneProductPreferencesMax = 500;
+
+
+
+export const GetSwapProfileResponse = zod.object({
+  "savingFor": zod.string().max(getSwapProfileResponseOneSavingForMax),
+  "monthlySavingsGoal": zod.number().min(getSwapProfileResponseOneMonthlySavingsGoalMin).max(getSwapProfileResponseOneMonthlySavingsGoalMax),
+  "nonNegotiables": zod.array(zod.string().min(1).max(getSwapProfileResponseOneNonNegotiablesItemMax)).max(getSwapProfileResponseOneNonNegotiablesMax),
+  "swapCategories": zod.array(zod.enum(['beauty', 'groceries', 'clothes', 'household', 'travel', 'subscriptions'])).max(getSwapProfileResponseOneSwapCategoriesMax),
+  "favoriteBrands": zod.array(zod.string().min(1).max(getSwapProfileResponseOneFavoriteBrandsItemMax)).max(getSwapProfileResponseOneFavoriteBrandsMax),
+  "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(getSwapProfileResponseOneValuesMax),
+  "dietaryNeeds": zod.string().max(getSwapProfileResponseOneDietaryNeedsMax),
+  "productPreferences": zod.string().max(getSwapProfileResponseOneProductPreferencesMax)
+})
+
+
+/**
+ * @summary Save the current user's preferences
+ */
+export const updateSwapProfileBodySavingForMax = 160;
+
+export const updateSwapProfileBodyMonthlySavingsGoalMin = 0;
+export const updateSwapProfileBodyMonthlySavingsGoalMax = 1000000;
+
+export const updateSwapProfileBodyNonNegotiablesItemMax = 120;
+
+export const updateSwapProfileBodyNonNegotiablesMax = 40;
+
+export const updateSwapProfileBodySwapCategoriesMax = 10;
+
+export const updateSwapProfileBodyFavoriteBrandsItemMax = 80;
+
+export const updateSwapProfileBodyFavoriteBrandsMax = 40;
+
+export const updateSwapProfileBodyValuesMax = 12;
+
+export const updateSwapProfileBodyDietaryNeedsMax = 500;
+
+export const updateSwapProfileBodyProductPreferencesMax = 500;
+
+
+
+export const UpdateSwapProfileBody = zod.object({
+  "savingFor": zod.string().max(updateSwapProfileBodySavingForMax),
+  "monthlySavingsGoal": zod.number().min(updateSwapProfileBodyMonthlySavingsGoalMin).max(updateSwapProfileBodyMonthlySavingsGoalMax),
+  "nonNegotiables": zod.array(zod.string().min(1).max(updateSwapProfileBodyNonNegotiablesItemMax)).max(updateSwapProfileBodyNonNegotiablesMax),
+  "swapCategories": zod.array(zod.enum(['beauty', 'groceries', 'clothes', 'household', 'travel', 'subscriptions'])).max(updateSwapProfileBodySwapCategoriesMax),
+  "favoriteBrands": zod.array(zod.string().min(1).max(updateSwapProfileBodyFavoriteBrandsItemMax)).max(updateSwapProfileBodyFavoriteBrandsMax),
+  "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(updateSwapProfileBodyValuesMax),
+  "dietaryNeeds": zod.string().max(updateSwapProfileBodyDietaryNeedsMax),
+  "productPreferences": zod.string().max(updateSwapProfileBodyProductPreferencesMax)
+})
+
+export const updateSwapProfileResponseOneSavingForMax = 160;
+
+export const updateSwapProfileResponseOneMonthlySavingsGoalMin = 0;
+export const updateSwapProfileResponseOneMonthlySavingsGoalMax = 1000000;
+
+export const updateSwapProfileResponseOneNonNegotiablesItemMax = 120;
+
+export const updateSwapProfileResponseOneNonNegotiablesMax = 40;
+
+export const updateSwapProfileResponseOneSwapCategoriesMax = 10;
+
+export const updateSwapProfileResponseOneFavoriteBrandsItemMax = 80;
+
+export const updateSwapProfileResponseOneFavoriteBrandsMax = 40;
+
+export const updateSwapProfileResponseOneValuesMax = 12;
+
+export const updateSwapProfileResponseOneDietaryNeedsMax = 500;
+
+export const updateSwapProfileResponseOneProductPreferencesMax = 500;
+
+
+
+export const UpdateSwapProfileResponse = zod.object({
+  "savingFor": zod.string().max(updateSwapProfileResponseOneSavingForMax),
+  "monthlySavingsGoal": zod.number().min(updateSwapProfileResponseOneMonthlySavingsGoalMin).max(updateSwapProfileResponseOneMonthlySavingsGoalMax),
+  "nonNegotiables": zod.array(zod.string().min(1).max(updateSwapProfileResponseOneNonNegotiablesItemMax)).max(updateSwapProfileResponseOneNonNegotiablesMax),
+  "swapCategories": zod.array(zod.enum(['beauty', 'groceries', 'clothes', 'household', 'travel', 'subscriptions'])).max(updateSwapProfileResponseOneSwapCategoriesMax),
+  "favoriteBrands": zod.array(zod.string().min(1).max(updateSwapProfileResponseOneFavoriteBrandsItemMax)).max(updateSwapProfileResponseOneFavoriteBrandsMax),
+  "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(updateSwapProfileResponseOneValuesMax),
+  "dietaryNeeds": zod.string().max(updateSwapProfileResponseOneDietaryNeedsMax),
+  "productPreferences": zod.string().max(updateSwapProfileResponseOneProductPreferencesMax)
+})
+
+
+/**
  * @summary Request a private receipt upload URL
  */
 

@@ -14,6 +14,7 @@ import {
   GetFinanceSettingsResponse,
   GetProductComparisonsResponse,
   GetReceiptsResponse,
+  GetSwapProfileResponse,
   GetTransactionsQueryParams,
   GetTransactionsResponse,
   ProductComparison,
@@ -23,13 +24,18 @@ import {
   UpdateBudgetPlanResponse,
   UpdateFinanceSettingsBody,
   UpdateFinanceSettingsResponse,
+  UpdateSwapProfileBody,
+  UpdateSwapProfileResponse,
 } from "@workspace/api-zod";
 import {
   db,
   budgetPlansTable,
   financeSettingsTable,
   receiptsTable,
+  emptySwapProfile,
+  swapProfilesTable,
   transactionsTable,
+  type SwapProfileData,
   type StoredReceiptItem,
   type Transaction as DbTransaction,
 } from "@workspace/db";
@@ -125,11 +131,34 @@ function buildComparisons(items: StoredReceiptItem[]): ProductComparison[] {
 }
 
 async function getUserComparisons(userId: string): Promise<ProductComparison[]> {
-  const receipts = await db
-    .select({ items: receiptsTable.items })
-    .from(receiptsTable)
-    .where(eq(receiptsTable.userId, userId));
-  return buildComparisons(receipts.flatMap((receipt) => receipt.items));
+  const [receipts, [savedProfile]] = await Promise.all([
+    db.select({ items: receiptsTable.items }).from(receiptsTable).where(eq(receiptsTable.userId, userId)),
+    db.select({ profile: swapProfilesTable.profile }).from(swapProfilesTable).where(eq(swapProfilesTable.userId, userId)),
+  ]);
+  const profile = savedProfile?.profile as SwapProfileData | undefined;
+  if (!profile?.swapCategories?.length) return [];
+  // Current receipt data has no ingredient, certification, shade, or size metadata.
+  // Hold suggestions rather than risk violating a preference we cannot verify.
+  if (profile.values?.length || profile.dietaryNeeds?.trim() || profile.productPreferences?.trim()) return [];
+  const categoryAliases: Record<string, string[]> = {
+    beauty: ["beauty", "personal care", "makeup", "skin", "hair"],
+    groceries: ["grocery", "groceries", "food", "pantry", "produce"],
+    clothes: ["clothes", "clothing", "apparel", "shoes"],
+    household: ["household", "cleaning", "home"],
+    travel: ["travel"],
+    subscriptions: ["subscription", "streaming"],
+  };
+  const allowed = new Set(profile.swapCategories);
+  const normalizedItems = receipts.flatMap((receipt) => receipt.items).filter((item) => {
+    const category = item.category.toLowerCase();
+    if (!Object.entries(categoryAliases).some(([key, aliases]) => allowed.has(key) && aliases.some((alias) => category.includes(alias)))) return false;
+    const searchable = `${item.productName} ${item.brand ?? ""} ${item.category}`.toLowerCase();
+    return !(profile.nonNegotiables || []).some((term) => term.trim() && searchable.includes(term.trim().toLowerCase()));
+  });
+  const comparisons = buildComparisons(normalizedItems);
+  if (!profile.favoriteBrands?.length) return comparisons;
+  const preferredBrands = new Set(profile.favoriteBrands.map((brand) => brand.trim().toLowerCase()));
+  return comparisons.filter((item) => item.alternativeBrand && preferredBrands.has(item.alternativeBrand.trim().toLowerCase()));
 }
 
 function buildBudgetPlan(
@@ -389,6 +418,27 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
     });
   const plan = await getBudgetPlanForUser(req.user.id);
   res.json(UpdateBudgetPlanResponse.parse(plan));
+});
+
+router.get("/swap-profile", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const [saved] = await db.select({ profile: swapProfilesTable.profile }).from(swapProfilesTable).where(eq(swapProfilesTable.userId, req.user.id));
+  res.json(GetSwapProfileResponse.parse(saved?.profile ?? emptySwapProfile));
+});
+
+router.put("/swap-profile", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const parsed = UpdateSwapProfileBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const profile = parsed.data;
+  await db.insert(swapProfilesTable).values({ userId: req.user.id, profile }).onConflictDoUpdate({
+    target: swapProfilesTable.userId,
+    set: { profile, updatedAt: new Date() },
+  });
+  res.json(UpdateSwapProfileResponse.parse(profile));
 });
 
 router.get("/receipts", async (req, res): Promise<void> => {

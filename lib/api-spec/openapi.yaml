@@ -441,6 +441,53 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /swap-profile:
+    get:
+      tags: [Finance]
+      operationId: getSwapProfile
+      summary: Get the current user's savings and shopping preferences
+      responses:
+        "200":
+          description: Saved profile used to personalize product suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwapProfile"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      tags: [Finance]
+      operationId: updateSwapProfile
+      summary: Save the current user's preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwapProfileInput"
+      responses:
+        "200":
+          description: Updated preference profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwapProfile"
+        "400":
+          description: Invalid profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -701,6 +748,22 @@ components:
         categories:
           type: array
           items: { $ref: "#/components/schemas/BudgetCategoryPlan" }
+    SwapProfileInput:
+      type: object
+      required: [savingFor, monthlySavingsGoal, nonNegotiables, swapCategories, favoriteBrands, values, dietaryNeeds, productPreferences]
+      properties:
+        savingFor: { type: string, maxLength: 160 }
+        monthlySavingsGoal: { type: number, minimum: 0, maximum: 1000000 }
+        nonNegotiables: { type: array, maxItems: 40, items: { type: string, minLength: 1, maxLength: 120 } }
+        swapCategories: { type: array, maxItems: 10, uniqueItems: true, items: { type: string, enum: [beauty, groceries, clothes, household, travel, subscriptions] } }
+        favoriteBrands: { type: array, maxItems: 40, items: { type: string, minLength: 1, maxLength: 80 } }
+        values: { type: array, maxItems: 12, uniqueItems: true, items: { type: string, enum: [clean-beauty, organic, vegan, cruelty-free, local, budget-first] } }
+        dietaryNeeds: { type: string, maxLength: 500 }
+        productPreferences: { type: string, maxLength: 500 }
+    SwapProfile:
+      allOf:
+        - $ref: "#/components/schemas/SwapProfileInput"
+      required: [savingFor, monthlySavingsGoal, nonNegotiables, swapCategories, favoriteBrands, values, dietaryNeeds, productPreferences]
     UploadUrlRequest:
       type: object
       required: [name, size, contentType]

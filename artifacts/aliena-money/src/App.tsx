@@ -10,9 +10,10 @@ import {
   useGetTransactions, useCreateTransaction, useDeleteTransaction, useGetFinanceSettings,
   useUpdateFinanceSettings, useGetReceipts, useCreateReceipt, useDeleteReceipt,
   useGetProductComparisons, useRequestUploadUrl, useGetBudgetPlan, useUpdateBudgetPlan,
-  getGetBudgetPlanQueryKey,
+  getGetBudgetPlanQueryKey, useGetSwapProfile, useUpdateSwapProfile,
+  getGetSwapProfileQueryKey,
 } from '@workspace/api-client-react';
-import type { BudgetPlanInput, ReceiptLineItem, Transaction } from '@workspace/api-client-react';
+import type { BudgetPlanInput, ReceiptLineItem, SwapProfileInput, Transaction } from '@workspace/api-client-react';
 import {
   ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Banknote, Check,
   ChevronRight, FileImage, FilePlus2, FileText, HandCoins, Info, Leaf,
@@ -29,6 +30,7 @@ const routeItems = [
   { href: '/', label: 'Overview', icon: Wallet },
   { href: '/transactions', label: 'Transactions', icon: ArrowRightLeft },
   { href: '/plan', label: 'My plan', icon: Sparkles },
+  { href: '/onboarding', label: 'My profile', icon: SettingsIcon },
   { href: '/accounts', label: 'Sample accounts', icon: Landmark },
   { href: '/taxes', label: 'Tax set-aside', icon: BadgeDollarSign },
   { href: '/receipts', label: 'Receipts', icon: ReceiptText },
@@ -431,18 +433,103 @@ function ReceiptsPage() {
 function SwapsPage() {
   const comparisons = useGetProductComparisons();
   const dashboard = useGetFinanceDashboard();
+  const profile = useGetSwapProfile();
   const grouped = useMemo(() => {
     const groups = new Map<string, NonNullable<typeof comparisons.data>>();
     (comparisons.data || []).forEach((item) => groups.set(item.category, [...(groups.get(item.category) || []), item]));
     return Array.from(groups.entries());
   }, [comparisons.data]);
+  const needsVerifiedProductDetails = Boolean(profile.data && (
+    profile.data.values.length || profile.data.dietaryNeeds.trim() || profile.data.productPreferences.trim()
+  ));
   return <div className="content">
     <PageHeading eyebrow="Small changes add up" title="Better buys" subtitle="Compare products you’ve entered with lower-cost alternatives in the same category." />
     <section className="panel" style={{ background: '#e7eef0', borderColor: '#d5e1e3', padding: '19px 22px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 15 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}><div className="saving-icon" style={{ background: '#d3e3e8' }}><Leaf /></div><div><div className="eyebrow" style={{ marginBottom: 3 }}>Potential yearly difference</div><div style={{ font: '600 24px var(--app-font-serif)' }} data-testid="value-swap-total">{money(dashboard.data?.annualSavings)}</div></div></div><Link href="/receipts" className="btn btn-soft">Add products <ChevronRight /></Link>
     </section>
-    {comparisons.isLoading ? <LoadingPanel rows={5} /> : comparisons.isError ? <ErrorPanel error={comparisons.error} retry={() => comparisons.refetch()} /> : grouped.length ? <div className="panel">{grouped.map(([category, entries]) => <div key={category}><div className="category-heading">{category}</div>{entries.map((item, i) => <div className="comparison-row" key={`${item.productName}-${i}`} data-testid={`comparison-${i}-${category.toLowerCase().replaceAll(' ', '-')}`}><div className="product"><div className="product-name">{item.productName}</div><div className="product-brand">{item.brand || 'Current choice'} · {item.unitsPerYear} / year</div><div className="product-price">{money(item.unitPrice)} <small>each</small></div></div><div className="swap-arrow"><ArrowRightLeft /></div><div className="product"><div className="product-name">{item.alternativeName}</div><div className="product-brand">{item.alternativeBrand || 'Alternative'}</div><div className="product-price">{money(item.alternativePrice)} <small>each</small></div></div><div className="save-amount"><strong>{money(item.annualSavings)}</strong><span>per year</span></div></div>)}</div>)}</div> : <div className="panel"><EmptyState icon={Leaf} title="No comparisons just yet" body="Add product line items to your receipts. Comparable products and their estimated yearly savings will show up here." action={<Link href="/receipts" className="btn btn-primary"><Plus />Add a receipt</Link>} /></div>}
+    {comparisons.isLoading ? <LoadingPanel rows={5} /> : comparisons.isError ? <ErrorPanel error={comparisons.error} retry={() => comparisons.refetch()} /> : grouped.length ? <div className="panel">{grouped.map(([category, entries]) => <div key={category}><div className="category-heading">{category}</div>{entries.map((item, i) => <div className="comparison-row" key={`${item.productName}-${i}`} data-testid={`comparison-${i}-${category.toLowerCase().replaceAll(' ', '-')}`}><div className="product"><div className="product-name">{item.productName}</div><div className="product-brand">{item.brand || 'Current choice'} · {item.unitsPerYear} / year</div><div className="product-price">{money(item.unitPrice)} <small>each</small></div></div><div className="swap-arrow"><ArrowRightLeft /></div><div className="product"><div className="product-name">{item.alternativeName}</div><div className="product-brand">{item.alternativeBrand || 'Alternative'}</div><div className="product-price">{money(item.alternativePrice)} <small>each</small></div></div><div className="save-amount"><strong>{money(item.annualSavings)}</strong><span>per year</span></div></div>)}</div>)}</div> : <div className="panel"><EmptyState icon={Leaf} title={needsVerifiedProductDetails ? 'Waiting on verified product details' : profile.data?.swapCategories.length ? 'No comparisons just yet' : 'Choose what you’re open to'} body={needsVerifiedProductDetails ? 'You added product requirements we cannot verify from receipt names alone, so Aliena is holding suggestions instead of guessing.' : profile.data?.swapCategories.length ? 'Add product line items to your receipts. Comparable products and their estimated yearly savings will show up here.' : 'Pick the areas where you’re willing to consider a swap. Your non-negotiables stay out of the suggestions.'} action={<Link href={needsVerifiedProductDetails ? '/onboarding' : profile.data?.swapCategories.length ? '/receipts' : '/onboarding'} className="btn btn-primary"><Plus />{needsVerifiedProductDetails ? 'Review my preferences' : profile.data?.swapCategories.length ? 'Add a receipt' : 'Set my preferences'}</Link>} /></div>}
     <p style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', marginTop: 13, lineHeight: 1.5 }}>Savings are estimates based on product prices and annual usage you entered. Availability and prices may change.</p>
+  </div>;
+}
+
+const profileCategoryOptions = [
+  ['beauty', 'Beauty'], ['groceries', 'Groceries'], ['clothes', 'Clothes'],
+  ['household', 'Household'], ['travel', 'Travel'], ['subscriptions', 'Subscriptions'],
+] as const;
+const profileValueOptions = [
+  ['clean-beauty', 'Clean beauty'], ['organic', 'Organic'], ['vegan', 'Vegan'],
+  ['cruelty-free', 'Cruelty-free'], ['local', 'Local'], ['budget-first', 'Budget first'],
+] as const;
+const blankProfile: SwapProfileInput = {
+  savingFor: '', monthlySavingsGoal: 0, nonNegotiables: [], swapCategories: [],
+  favoriteBrands: [], values: [], dietaryNeeds: '', productPreferences: '',
+};
+
+function OnboardingPage() {
+  const qc = useQueryClient();
+  const query = useGetSwapProfile();
+  const saveProfile = useUpdateSwapProfile();
+  const [draft, setDraft] = useState<SwapProfileInput>(blankProfile);
+  const [initialized, setInitialized] = useState(false);
+  const [step, setStep] = useState(0);
+  const [tag, setTag] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (query.data && !initialized) {
+      setDraft(query.data);
+      setInitialized(true);
+    }
+  }, [query.data, initialized]);
+  const setList = (key: 'nonNegotiables' | 'favoriteBrands' | 'swapCategories' | 'values', value: string) => {
+    setDraft((current) => {
+      const list = current[key] as string[];
+      return { ...current, [key]: list.includes(value) ? list.filter((item) => item !== value) : [...list, value] };
+    });
+    setSaved(false);
+  };
+  const addTag = (key: 'nonNegotiables' | 'favoriteBrands') => {
+    const value = tag.trim();
+    if (!value) return;
+    setDraft((current) => ({ ...current, [key]: Array.from(new Set([...current[key], value])).slice(0, 40) }));
+    setTag('');
+    setSaved(false);
+  };
+  const persist = () => {
+    setError('');
+    saveProfile.mutate({ data: draft }, {
+      onSuccess: () => {
+        setSaved(true);
+        qc.invalidateQueries({ queryKey: getGetSwapProfileQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetProductComparisonsQueryKey() });
+      },
+      onError: (e) => setError(messageOf(e)),
+    });
+  };
+  const stepTitles = ['What are you saving for?', 'What will you not give up?', 'What are you open to swapping?', 'What should we keep in mind?'];
+  return <div className="content">
+    <PageHeading eyebrow="Get to know you" title="Your money, your rules." subtitle="A short profile helps Aliena keep suggestions focused on what matters to you." />
+    {query.isLoading && <LoadingPanel rows={2} />}
+    {query.isError && <ErrorPanel error={query.error} retry={() => query.refetch()} />}
+    {!query.isLoading && !query.isError && <section className="panel profile-wizard">
+      <div className="profile-progress"><span>QUESTION {step + 1} OF 4</span><div><i style={{ width: `${(step + 1) * 25}%` }} /></div></div>
+      <div className="profile-step-content">
+        <div className="eyebrow">A little about you</div><h2>{stepTitles[step]}</h2>
+        {step === 0 && <div className="profile-fields">
+          <div className="field"><label htmlFor="saving-for">What would you like to save for?</label><input id="saving-for" className="input" value={draft.savingFor} maxLength={160} onChange={(e) => setDraft({ ...draft, savingFor: e.target.value })} placeholder="A trip, an emergency cushion, a home…" /></div>
+          <div className="field"><label htmlFor="monthly-savings">How much do you want to save each month?</label><div className="money-input"><span>$</span><input id="monthly-savings" className="input" type="number" min="0" max="1000000" step="25" value={draft.monthlySavingsGoal} onChange={(e) => setDraft({ ...draft, monthlySavingsGoal: Number(e.target.value) || 0 })} /></div></div>
+        </div>}
+        {step === 1 && <><p className="panel-caption">These are your non-negotiables. Aliena will avoid recommending swaps that match them.</p><div className="profile-tag-entry"><input className="input" value={tag} onChange={(e) => setTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag('nonNegotiables'); } }} placeholder="e.g. my daily latte, cruelty-free makeup" /><button className="btn btn-soft" onClick={() => addTag('nonNegotiables')}><Plus />Add</button></div><div className="profile-tags">{draft.nonNegotiables.map((item) => <button key={item} className="profile-tag" onClick={() => setList('nonNegotiables', item)}>{item}<X size={13} /></button>)}</div></>}
+        {step === 2 && <><p className="panel-caption">Pick only the areas where you would actually consider a different product.</p><div className="profile-choice-grid">{profileCategoryOptions.map(([value, label]) => <button type="button" aria-pressed={draft.swapCategories.includes(value)} className={`profile-choice ${draft.swapCategories.includes(value) ? 'selected' : ''}`} key={value} onClick={() => setList('swapCategories', value)}><span className="profile-check">{draft.swapCategories.includes(value) ? '✓' : '+'}</span>{label}</button>)}</div></>}
+        {step === 3 && <div className="profile-fields">
+          <div className="field"><label>Favorite brands</label><div className="profile-tag-entry"><input className="input" value={tag} onChange={(e) => setTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag('favoriteBrands'); } }} placeholder="Add a brand" /><button className="btn btn-soft" onClick={() => addTag('favoriteBrands')}><Plus />Add</button></div><div className="profile-tags">{draft.favoriteBrands.map((item) => <button key={item} className="profile-tag" onClick={() => setList('favoriteBrands', item)}>{item}<X size={13} /></button>)}</div></div>
+          <div className="field"><label>Values and dealbreakers</label><div className="profile-choice-grid compact">{profileValueOptions.map(([value, label]) => <button type="button" aria-pressed={draft.values.includes(value)} className={`profile-choice ${draft.values.includes(value) ? 'selected' : ''}`} key={value} onClick={() => setList('values', value)}>{label}</button>)}</div></div>
+          <div className="field"><label htmlFor="dietary-needs">Dietary needs</label><input id="dietary-needs" className="input" value={draft.dietaryNeeds} maxLength={500} onChange={(e) => setDraft({ ...draft, dietaryNeeds: e.target.value })} placeholder="Allergies, dietary preferences…" /></div>
+          <div className="field"><label htmlFor="product-preferences">Sizes, shades, or other preferences</label><input id="product-preferences" className="input" value={draft.productPreferences} maxLength={500} onChange={(e) => setDraft({ ...draft, productPreferences: e.target.value })} placeholder="Anything that helps us avoid the wrong fit" /></div>
+        </div>}
+      </div>
+      <div className="profile-actions">{step > 0 && <button className="btn btn-soft" onClick={() => setStep((value) => value - 1)}>Back</button>}<span>{error && <span role="alert" className="profile-error">{error}</span>}{saved && <span className="profile-saved"><Check size={14} />Saved</span>}</span>{step < 3 ? <button className="btn btn-primary" onClick={() => { setStep((value) => value + 1); setTag(''); }}>Continue <ChevronRight /></button> : <button className="btn btn-primary" onClick={persist} disabled={saveProfile.isPending}>{saveProfile.isPending ? 'Saving…' : saved ? 'Save changes' : 'Save my profile'}</button>}</div>
+    </section>}
   </div>;
 }
 
@@ -458,6 +545,7 @@ function SettingsPage() {
   return <div className="content">
     <PageHeading eyebrow="Your preferences" title="Settings" subtitle="A few simple controls for how Aliena keeps your personal picture." />
     {settings.isError && <ErrorPanel error={settings.error} retry={() => settings.refetch()} />}
+    <section className="panel settings-section"><div className="eyebrow">Getting to know you</div><h2 className="panel-title">Your shopping and savings profile</h2><p className="panel-caption">Update what you’re saving for, what’s non-negotiable, and which swaps you’re open to.</p><Link className="btn btn-soft" href="/onboarding">Edit my profile <ChevronRight /></Link></section>
     <section className="panel settings-section"><div className="eyebrow">Planning</div><h2 className="panel-title">Tax set-aside estimate</h2><p className="panel-caption">Your selected rate is applied to taxable non-W-2 income you’ve recorded.</p>
       {settings.isLoading ? <div className="skeleton" style={{ marginTop: 18 }} /> : <div className="settings-row"><div style={{ flex: 1 }}><div className="settings-label">Personal estimate rate</div><div className="settings-description">Choose 0% to 60%. This is user-configured for planning and is not tax advice.</div><div className="rate-control"><input aria-label="Tax reserve rate" type="range" min="0" max="60" step="1" value={rate ?? settings.data?.taxReserveRate ?? 0} onChange={(e) => { setRate(Number(e.target.value)); setSaved(false); }} data-testid="input-settings-tax-rate" /><span className="rate-number">{rate ?? settings.data?.taxReserveRate ?? 0}%</span></div></div><button className="btn btn-primary" onClick={save} disabled={update.isPending || rate === null} data-testid="button-settings-save">{update.isPending ? 'Saving…' : saved ? <><Check />Saved</> : 'Save rate'}</button></div>}
       {error && <p style={{ color: '#a44', fontSize: 10 }}>{error}</p>}
@@ -486,6 +574,7 @@ function AuthenticatedApp() {
     <Route path="/taxes" component={TaxesPage} />
     <Route path="/receipts" component={ReceiptsPage} />
     <Route path="/swaps" component={SwapsPage} />
+    <Route path="/onboarding" component={OnboardingPage} />
     <Route path="/settings" component={SettingsPage} />
     <Route component={NotFound} />
   </Switch></RoutedErrorBoundary></Shell>;

@@ -251,6 +251,62 @@ export interface BudgetPlan {
   categories: BudgetCategoryPlan[];
 }
 
+export type SwapProfileInputSwapCategoriesItem = typeof SwapProfileInputSwapCategoriesItem[keyof typeof SwapProfileInputSwapCategoriesItem];
+
+
+export const SwapProfileInputSwapCategoriesItem = {
+  beauty: 'beauty',
+  groceries: 'groceries',
+  clothes: 'clothes',
+  household: 'household',
+  travel: 'travel',
+  subscriptions: 'subscriptions',
+} as const;
+
+export type SwapProfileInputValuesItem = typeof SwapProfileInputValuesItem[keyof typeof SwapProfileInputValuesItem];
+
+
+export const SwapProfileInputValuesItem = {
+  'clean-beauty': 'clean-beauty',
+  organic: 'organic',
+  vegan: 'vegan',
+  'cruelty-free': 'cruelty-free',
+  local: 'local',
+  'budget-first': 'budget-first',
+} as const;
+
+export interface SwapProfileInput {
+  /** @maxLength 160 */
+  savingFor: string;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  monthlySavingsGoal: number;
+  /**
+     * @maxItems 40
+     * @items.minLength 1
+     * @items.maxLength 120
+     */
+  nonNegotiables: string[];
+  /** @maxItems 10 */
+  swapCategories: SwapProfileInputSwapCategoriesItem[];
+  /**
+     * @maxItems 40
+     * @items.minLength 1
+     * @items.maxLength 80
+     */
+  favoriteBrands: string[];
+  /** @maxItems 12 */
+  values: SwapProfileInputValuesItem[];
+  /** @maxLength 500 */
+  dietaryNeeds: string;
+  /** @maxLength 500 */
+  productPreferences: string;
+}
+
+export type SwapProfile = SwapProfileInput;
+
 export interface UploadUrlRequest {
   /** @minLength 1 */
   name: string;

@@ -38,6 +38,8 @@ import type {
   ProductComparison,
   Receipt,
   ReceiptInput,
+  SwapProfile,
+  SwapProfileInput,
   Transaction,
   TransactionInput,
   UploadUrlRequest,
@@ -1607,6 +1609,171 @@ export const useUpdateBudgetPlan = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getUpdateBudgetPlanMutationOptions(options));
+    }
+
+export const getGetSwapProfileUrl = () => {
+
+
+
+
+  return `/api/swap-profile`
+}
+
+/**
+ * @summary Get the current user's savings and shopping preferences
+ */
+export const getSwapProfile = async ( options?: Parameters<typeof customFetch>[1]): Promise<SwapProfile> => {
+
+  return customFetch<SwapProfile>(getGetSwapProfileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSwapProfileQueryKey = () => {
+    return [
+    `/api/swap-profile`
+    ] as const;
+    }
+
+
+export const getGetSwapProfileQueryOptions = <TData = Awaited<ReturnType<typeof getSwapProfile>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwapProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSwapProfileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSwapProfile>>> = ({ signal }) => getSwapProfile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSwapProfile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSwapProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getSwapProfile>>>
+export type GetSwapProfileQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get the current user's savings and shopping preferences
+ */
+
+export function useGetSwapProfile<TData = Awaited<ReturnType<typeof getSwapProfile>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSwapProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSwapProfileQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSwapProfileUrl = () => {
+
+
+
+
+  return `/api/swap-profile`
+}
+
+/**
+ * @summary Save the current user's preferences
+ */
+export const updateSwapProfile = async (swapProfileInput: SwapProfileInput, options?: Parameters<typeof customFetch>[1]): Promise<SwapProfile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<SwapProfile>(getUpdateSwapProfileUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(swapProfileInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateSwapProfileMutationKey = () => ['updateSwapProfile'] as const;
+
+export const getUpdateSwapProfileMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSwapProfile>>, TError,UpdateSwapProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSwapProfile>>, TError,UpdateSwapProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdateSwapProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSwapProfile>>, UpdateSwapProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSwapProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSwapProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateSwapProfile>>>
+    export type UpdateSwapProfileMutationBody = BodyType<SwapProfileInput>
+    export type UpdateSwapProfileMutationError = ErrorType<ErrorEnvelope>
+    export type UpdateSwapProfileMutationVariables = {data: BodyType<SwapProfileInput>}
+
+    /**
+ * @summary Save the current user's preferences
+ */
+export const useUpdateSwapProfile = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSwapProfile>>, TError,UpdateSwapProfileMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSwapProfile>>,
+        TError,
+        UpdateSwapProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateSwapProfileMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {
