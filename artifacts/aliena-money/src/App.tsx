@@ -72,7 +72,7 @@ function Shell({ children }: { children: ReactNode }) {
     <main className="workspace">
       <div className="mobile-header"><div className="brand"><div className="brand-mark"><Leaf size={16} /></div><div className="brand-name">aliena<span>.</span></div></div><button className="icon-button" aria-label="Log out" onClick={logout} data-testid="button-mobile-log-out"><LogOut size={15} color="white" /></button></div>
       <nav className="mobile-nav">{nav()}</nav>
-      <div className="topbar"><div className="topbar-left">A calmer picture of your money</div><div className="topbar-right"><span className="top-status"><i className="online-dot" />Just you and your notes</span></div></div>
+       <div className="topbar"><div className="topbar-left">Your money, kept in one thoughtful file</div><div className="topbar-right"><span className="top-status"><i className="online-dot" />Your private money folder</span></div></div>
       {children}
     </main>
   </div>;
@@ -116,7 +116,7 @@ function Overview() {
         <div className="side-stack">
           <section className="panel reserve-card"><div className="eyebrow">A small cushion</div><div className="reserve-amount">{money(data?.taxSetAside)}</div><div className="reserve-sub">Your current estimate for taxable side income. This is a planning number you control, not tax advice.</div><div className="reserve-bar"><span style={{ width: data?.taxableIncomeThisYear ? `${Math.min(100, Math.max(12, (data.taxSetAside / data.taxableIncomeThisYear) * 100))}%` : '12%' }} /></div><div className="reserve-foot">Open your tax view to adjust the rate</div><Link href="/taxes" className="text-link" style={{ color: '#f2d66f', display: 'inline-block', marginTop: 13 }}>Review estimate <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></section>
           <section className="panel"><div className="savings-card"><div className="saving-icon"><Leaf /></div><div><div className="saving-value">{money(data?.annualSavings)}</div><div className="saving-copy">estimated yearly savings from lower-cost comparable products</div></div></div><div className="mini-bars" aria-label="Illustrative annual savings trend">{monthBars.map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></section>
-          <div className="notice"><Info /><span>Aliena only shows what you enter. Bank accounts are not linked and no transactions are imported.</span></div>
+           <div className="notice"><Info /><span>Sample account activity is only a preview. Real bank accounts are not linked, and demo entries never affect your totals.</span></div>
         </div>
       </div>
     </>}
@@ -155,7 +155,7 @@ function TransactionsPage() {
     remove.mutate({ id }, { onSuccess: refresh, onError: (e) => setError(messageOf(e)) });
   };
   return <div className="content">
-    <PageHeading eyebrow="The everyday" title="Transactions" subtitle="Keep a clear, manual record of your spending and income." action={<button className="btn btn-primary" onClick={() => setFormOpen(!formOpen)} data-testid="button-add-transaction"><Plus />{formOpen ? 'Close form' : 'Add transaction'}</button>} />
+    <PageHeading eyebrow="The everyday" title="Transactions" subtitle="Keep a clear record of spending and income. Saved entries stay separate from sample account activity." action={<button className="btn btn-primary" onClick={() => setFormOpen(!formOpen)} data-testid="button-add-transaction"><Plus />{formOpen ? 'Close form' : 'Add transaction'}</button>} />
     {error && <div className="error-box" role="alert" style={{ marginBottom: 15 }}><span>{error}</span><button onClick={() => setError('')}><X size={13} /></button></div>}
     {formOpen && <section className="panel form-panel"><div className="panel-head" style={{ padding: '0 0 16px' }}><div><h2 className="panel-title">Add something to your ledger</h2><p className="panel-caption">Just the details you want to remember.</p></div></div>
       <form onSubmit={submit}><div className="form-grid">
@@ -170,7 +170,7 @@ function TransactionsPage() {
         <div className="form-actions"><button type="button" className="btn btn-soft" onClick={() => setFormOpen(false)}>Cancel</button><button className="btn btn-primary" disabled={create.isPending} data-testid="button-save-transaction">{create.isPending ? 'Saving…' : 'Save transaction'}</button></div>
       </form>
     </section>}
-    <section className="panel"><div className="panel-head"><div><h2 className="panel-title">Your activity</h2><p className="panel-caption">A record you control, not a bank feed.</p></div><div className="filters">{(['all','income','expense'] as const).map((f) => <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)} data-testid={`filter-transactions-${f}`}>{f === 'all' ? 'Everything' : f === 'income' ? 'Income' : 'Spending'}</button>)}</div></div>
+     <section className="panel"><div className="panel-head"><div><h2 className="panel-title">Your activity</h2><p className="panel-caption">Only real entries saved to your private ledger.</p></div><div className="filters">{(['all','income','expense'] as const).map((f) => <button key={f} className={`filter-chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)} data-testid={`filter-transactions-${f}`}>{f === 'all' ? 'Everything' : f === 'income' ? 'Income' : 'Spending'}</button>)}</div></div>
       {transactions.isLoading ? <div style={{ padding: '0 20px 20px' }}>{[0,1,2,3].map((i) => <div className="skeleton" key={i} />)}</div> : transactions.isError ? <div style={{ padding: 18 }}><ErrorPanel error={transactions.error} retry={() => transactions.refetch()} /></div> : list.length ? <TransactionList items={list} onDelete={deleteOne} /> : <EmptyState icon={Banknote} title={filter === 'all' ? 'No entries yet' : `No ${filter} entries`} body="Your ledger is yours to build. Add income or expenses when you’re ready." action={<button className="btn btn-primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} />}
     </section>
   </div>;
@@ -192,7 +192,7 @@ function PlanPage() {
     setAnnualSavingsGoal(String(plan.data.annualSavingsGoal ?? 0));
     setPriorities((plan.data.priorityCategories || []).filter((item): item is PriorityCategory => spendingCategories.includes(item as PriorityCategory)));
   }, [plan.data]);
-  const configured = Boolean(plan.data && (plan.data.annualIncome > 0 || plan.data.categories.length > 0));
+   const configured = Boolean(plan.data && (plan.data.annualIncome > 0 || plan.data.annualSavingsGoal > 0));
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthSpend = useMemo(() => {
     const amounts = new Map<string, number>();
@@ -467,8 +467,8 @@ function SettingsPage() {
       {settings.isLoading ? <div className="skeleton" style={{ marginTop: 18 }} /> : <div className="settings-row"><div style={{ flex: 1 }}><div className="settings-label">Personal estimate rate</div><div className="settings-description">Choose 0% to 60%. This is user-configured for planning and is not tax advice.</div><div className="rate-control"><input aria-label="Tax reserve rate" type="range" min="0" max="60" step="1" value={rate ?? settings.data?.taxReserveRate ?? 0} onChange={(e) => { setRate(Number(e.target.value)); setSaved(false); }} data-testid="input-settings-tax-rate" /><span className="rate-number">{rate ?? settings.data?.taxReserveRate ?? 0}%</span></div></div><button className="btn btn-primary" onClick={save} disabled={update.isPending || rate === null} data-testid="button-settings-save">{update.isPending ? 'Saving…' : saved ? <><Check />Saved</> : 'Save rate'}</button></div>}
       {error && <p style={{ color: '#a44', fontSize: 10 }}>{error}</p>}
     </section>
-    <section className="panel settings-section"><div className="eyebrow">Connections</div><h2 className="panel-title">Bank accounts</h2><p className="panel-caption">Aliena is intentionally manual right now.</p>
-      <div className="settings-row"><div><div className="settings-label">Bank linking</div><div className="settings-description">No bank accounts are connected. No transaction data is imported. Add your own activity in Transactions.</div></div><span className="connection-pill"><span style={{ width: 6, height: 6, background: '#9a8060', borderRadius: '50%', display: 'inline-block', marginRight: 6 }} />Not connected</span></div>
+     <section className="panel settings-section"><div className="eyebrow">Connections</div><h2 className="panel-title">Bank accounts</h2><p className="panel-caption">A sample bank view is available for preview.</p>
+       <div className="settings-row"><div><div className="settings-label">Real bank linking</div><div className="settings-description">No real bank is linked. The sample accounts are fictional and are not part of your ledger or totals.</div><Link href="/accounts" className="text-link" style={{ display: 'inline-block', marginTop: 8 }}>Open sample accounts <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></div><span className="connection-pill"><span style={{ width: 6, height: 6, background: '#9a8060', borderRadius: '50%', display: 'inline-block', marginRight: 6 }} />Demo only</span></div>
     </section>
     <section className="panel settings-section"><div className="eyebrow">About your data</div><h2 className="panel-title">Only what you choose to add</h2><p className="panel-caption">Transactions, receipt totals, and product details in Aliena come from your manual entries.</p><div className="notice" style={{ marginTop: 16 }}><ShieldCheck /><span>Receipt images are uploaded only when you choose a JPG, PNG, or PDF file. You can save receipt details without attaching a file.</span></div></section>
   </div>;
@@ -476,7 +476,7 @@ function SettingsPage() {
 
 function LoginScreen() {
   const { login } = useAuth();
-  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'hsl(var(--background))' }}><section className="panel" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: '#244637' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
+  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'hsl(var(--background))' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PRIVATE MONEY FILE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: '#244637' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
 }
 
 function AuthenticatedApp() {

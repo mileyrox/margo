@@ -243,3 +243,151 @@ h1 { font:600 clamp(29px,3vw,39px)/1.1 var(--app-font-serif);letter-spacing:-1px
   .demo-stamp { margin-top:2px; }
   .plan-summary { padding:21px; }
 }
+
+/* Interactive file cabinet: ink blue, olive, burgundy, sky and warm paper. */
+:root {
+  --background: 44 38% 92%;
+  --foreground: 224 48% 17%;
+  --sidebar: 217 82% 20%;
+  --sidebar-foreground: 48 66% 94%;
+  --primary: 344 77% 22%;
+  --primary-foreground: 48 66% 96%;
+  --secondary: 58 33% 81%;
+  --secondary-foreground: 223 48% 17%;
+  --accent: 205 48% 87%;
+  --accent-foreground: 217 68% 24%;
+  --card: 48 70% 97%;
+  --card-foreground: 224 48% 17%;
+  --border: 43 26% 79%;
+  --card-border: 43 26% 79%;
+  --input: 43 26% 75%;
+  --ring: 344 77% 34%;
+}
+.sidebar { background:#082b56; }
+.mobile-header,.mobile-nav { background:#082b56; }
+.brand-mark { background:#e8d66a; color:#082b56; }
+.brand-name span { color:#e8d66a; }
+.nav-link.active { background:#d8e8f2; color:#082b56; border-left:3px solid #6d7127; padding-left:10px; }
+.nav-link:hover { background:rgba(232,214,106,.12); }
+.btn-primary { background:#610d29; }
+.btn-primary:hover { background:#45091e; }
+.eyebrow { color:#720f2c; }
+.workspace { background-color:#f2eedf; }
+.page-heading {
+  position:relative;
+  padding:23px 23px 20px;
+  margin-top:10px;
+  border:1px solid #d5c8a4;
+  border-radius:9px 11px 5px 5px;
+  background:#fffbe8;
+  box-shadow:0 2px 0 #d9cfb4,0 9px 22px rgba(8,43,86,.055);
+}
+.page-heading::before {
+  content:"";
+  position:absolute;
+  top:-10px;
+  left:24px;
+  width:118px;
+  height:10px;
+  border:1px solid #d5c8a4;
+  border-bottom:0;
+  border-radius:7px 7px 0 0;
+  background:#e8d7a7;
+}
+.page-heading .eyebrow {
+  display:table;
+  margin-bottom:11px;
+  padding:4px 8px 5px;
+  border-radius:3px 7px 0 0;
+  background:#6d7127;
+  color:#fffbd0;
+  letter-spacing:1px;
+}
+.login-file {
+  position:relative;
+  margin-top:10px;
+  border-color:#d5c8a4;
+  border-radius:9px 11px 5px 5px;
+  background:#fffbe8;
+  box-shadow:0 2px 0 #d9cfb4,0 12px 28px rgba(8,43,86,.08);
+}
+.login-file::before {
+  content:"";
+  position:absolute;
+  top:-10px;
+  left:24px;
+  width:128px;
+  height:10px;
+  border:1px solid #d5c8a4;
+  border-bottom:0;
+  border-radius:7px 7px 0 0;
+  background:#6d7127;
+}
+.login-file-tab {
+  width:max-content;
+  margin:-17px auto 22px;
+  padding:5px 10px;
+  background:#dceaf1;
+  color:#082b56;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:1px;
+}
+.content { padding-top:32px; }
+.panel {
+  border-color:#d8ceb2;
+  border-radius:8px;
+  background:#fffdf2;
+  box-shadow:0 2px 0 rgba(113,91,49,.11),0 8px 22px rgba(8,43,86,.045);
+}
+.priority-chip {
+  border-radius:4px 9px 4px 4px;
+  background:#fffbe8;
+}
+.priority-chip.selected {
+  border-color:#6d7127;
+  background:#e9ebd3;
+  color:#45491b;
+}
+.plan-form-panel,.plan-categories { background:#fffbe8; }
+.plan-summary {
+  border-color:#082b56;
+  background:#082b56;
+}
+.plan-total-row.spend-target { background:rgba(109,113,39,.48); }
+.plan-meter span { background:#6d7127; }
+.plan-category-spend { color:#610d29; }
+.account-card {
+  border-radius:8px 10px 5px 5px;
+  background:#f2e5be;
+}
+.account-card::before {
+  content:"";
+  position:absolute;
+  top:0;
+  left:24px;
+  width:112px;
+  height:10px;
+  border-radius:0 0 5px 5px;
+  background:#610d29;
+}
+.account-card-blue { background:#dceaf1; }
+.account-card-blue::before { background:#6d7127; }
+.demo-banner { background:#fff5c9; border-color:#d7c77c; }
+.demo-footnote { background:#dceaf1; color:#244d71; }
+.notice { background:#dceaf1; color:#244d71; }
+.filter-chip.active { background:#082b56; border-color:#082b56; }
+.text-link { color:#610d29; }
+.form-panel { background:#fffdf2; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
+  outline:3px solid #6d7127;
+  outline-offset:2px;
+}
+.nav-link,.priority-chip,.btn,.panel,.account-card {
+  transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease;
+}
+.account-card:hover { transform:translateY(-2px); box-shadow:0 4px 0 rgba(113,91,49,.12),0 13px 26px rgba(8,43,86,.09); }
+@media(max-width:760px) {
+  .page-heading { margin-top:7px; padding:20px 17px 17px; }
+  .content { padding-top:26px; }
+}

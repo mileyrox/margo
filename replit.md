@@ -31,18 +31,19 @@ A personal money app for tracking everyday spending, taxable non-W-2 income, tax
 
 ## Architecture decisions
 
-- Plaid is not connected; spending and income are entered manually until the user authorizes bank linking.
+- Plaid is not connected; the sample accounts view uses fictional data kept separate from real ledger totals.
+- The monthly spending plan is based on take-home income, savings goals, and user-selected priority categories.
 - Tax set-aside is a user-selected planning percentage applied to taxable non-W-2 income, not tax advice.
 - Receipt line items are entered manually; comparisons use matching user-entered categories and annual usage.
 - Receipt images are private and scoped to the authenticated account.
 
 ## Product
 
-The app provides an overview, manual income and expense tracking, an adjustable tax set-aside estimate, private receipt uploads with product details, and side-by-side cheaper alternatives with estimated annual savings.
+The app provides an overview, manual income and expense tracking, a priorities-based monthly plan, an adjustable tax set-aside estimate, private receipt uploads with product details, and side-by-side cheaper alternatives with estimated annual savings.
 
 ## User preferences
 
-- Keep the experience simple and use a wine, dark green, yellow, and blue palette.
+- Keep the experience simple, with an interactive file/folder feel and the wine, dark green or olive, yellow or cream, and blue palette.
 
 ## Gotchas
 
