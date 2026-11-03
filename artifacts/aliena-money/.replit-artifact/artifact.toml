@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Aliena Money"
+description = "A simple personal money app for tracking everyday spending, non-W-2 income and tax set-asides, and receipt-based product swaps with estimated yearly savings."
+version = "1.0.0"
+id = "artifacts/aliena-money"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19610
+
+[services.development]
+run = "pnpm --filter @workspace/aliena-money run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/aliena-money", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/aliena-money/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19610"
+BASE_PATH = "/"

@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: Finance
+    description: Personal finance, receipts, tax settings, and savings comparisons.
+  - name: Storage
+    description: Private receipt uploads and object serving.
 paths:
   /healthz:
     get:
@@ -24,8 +30,528 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the current authenticated user
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Authentication state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserEnvelope"
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start browser login
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to the identity provider.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete browser login
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        "302":
+          description: Redirect after login.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: End browser session
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect after logout.
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange mobile authorization code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileTokenExchangeRequest"
+      responses:
+        "200":
+          description: Session created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MobileTokenExchangeSuccess"
+        "400":
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Invalid authorization code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: End mobile session
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+      responses:
+        "200":
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutSuccess"
+  /finance/dashboard:
+    get:
+      tags: [Finance]
+      operationId: getFinanceDashboard
+      summary: Get finance overview
+      responses:
+        "200":
+          description: Finance dashboard summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceDashboard"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /transactions:
+    get:
+      tags: [Finance]
+      operationId: getTransactions
+      summary: List income and spending records
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [income, expense]
+      responses:
+        "200":
+          description: Transactions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      tags: [Finance]
+      operationId: createTransaction
+      summary: Add an income or spending record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Transaction created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Invalid transaction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /transactions/{id}:
+    delete:
+      tags: [Finance]
+      operationId: deleteTransaction
+      summary: Delete an income or spending record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Transaction deleted.
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Transaction not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /settings:
+    get:
+      tags: [Finance]
+      operationId: getFinanceSettings
+      summary: Get tax set-aside settings
+      responses:
+        "200":
+          description: Current finance settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceSettings"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      tags: [Finance]
+      operationId: updateFinanceSettings
+      summary: Update tax set-aside percentage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinanceSettingsInput"
+      responses:
+        "200":
+          description: Updated finance settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinanceSettings"
+        "400":
+          description: Invalid settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /receipts:
+    get:
+      tags: [Finance]
+      operationId: getReceipts
+      summary: List uploaded receipts and products
+      responses:
+        "200":
+          description: Receipts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Receipt"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    post:
+      tags: [Finance]
+      operationId: createReceipt
+      summary: Save receipt details and line items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptInput"
+      responses:
+        "201":
+          description: Receipt saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+        "400":
+          description: Invalid receipt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /receipts/{id}:
+    delete:
+      tags: [Finance]
+      operationId: deleteReceipt
+      summary: Delete a receipt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Receipt deleted.
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Receipt not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /comparisons:
+    get:
+      tags: [Finance]
+      operationId: getProductComparisons
+      summary: Find cheaper comparable products
+      responses:
+        "200":
+          description: Product comparisons derived from saved receipt items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductComparison"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /budget-plan:
+    get:
+      tags: [Finance]
+      operationId: getBudgetPlan
+      summary: Get a personalized monthly spending plan
+      responses:
+        "200":
+          description: Savings goal and suggested category targets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      tags: [Finance]
+      operationId: updateBudgetPlan
+      summary: Save annual income, savings goal, and priority categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BudgetPlanInput"
+      responses:
+        "200":
+          description: Saved plan and updated recommendations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPlan"
+        "400":
+          description: Invalid plan.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a private receipt upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Invalid upload metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded receipt image
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed with correct Content-Type.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      schema:
+        type: string
   schemas:
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id: { type: string }
+        email: { type: [string, "null"], format: email }
+        firstName: { type: [string, "null"] }
+        lastName: { type: [string, "null"] }
+        profileImageUrl: { type: [string, "null"] }
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code: { type: string, minLength: 1 }
+        code_verifier: { type: string, minLength: 1 }
+        redirect_uri: { type: string, format: uri, minLength: 1 }
+        state: { type: string, minLength: 1 }
+        nonce: { type: string, minLength: 1 }
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, const: true }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
     HealthStatus:
       type: object
       properties:
@@ -33,4 +559,160 @@ components:
           type: string
       required:
         - status
+    Transaction:
+      type: object
+      required: [id, type, label, amount, category, date, isTaxable, source, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [income, expense] }
+        label: { type: string }
+        amount: { type: number, minimum: 0 }
+        category: { type: string }
+        date: { type: string, format: date }
+        isTaxable: { type: boolean }
+        source: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+    TransactionInput:
+      type: object
+      required: [type, label, amount, category, date, isTaxable]
+      properties:
+        type: { type: string, enum: [income, expense] }
+        label: { type: string, minLength: 1, maxLength: 120 }
+        amount: { type: number, exclusiveMinimum: 0 }
+        category: { type: string, minLength: 1, maxLength: 60 }
+        date: { type: string, format: date }
+        isTaxable: { type: boolean }
+        source: { type: [string, "null"], maxLength: 120 }
+    FinanceSettings:
+      type: object
+      required: [taxReserveRate]
+      properties:
+        taxReserveRate: { type: number, minimum: 0, maximum: 60 }
+    FinanceSettingsInput:
+      type: object
+      required: [taxReserveRate]
+      properties:
+        taxReserveRate: { type: number, minimum: 0, maximum: 60 }
+    ReceiptLineItem:
+      type: object
+      required: [productName, category, unitPrice, unitsPerYear]
+      properties:
+        productName: { type: string, minLength: 1, maxLength: 120 }
+        brand: { type: [string, "null"], maxLength: 80 }
+        category: { type: string, minLength: 1, maxLength: 60 }
+        unitPrice: { type: number, exclusiveMinimum: 0 }
+        unitsPerYear: { type: number, minimum: 1, maximum: 1000 }
+    Receipt:
+      type: object
+      required: [id, merchant, purchasedAt, total, objectPath, items, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        merchant: { type: string }
+        purchasedAt: { type: string, format: date }
+        total: { type: number, minimum: 0 }
+        objectPath: { type: [string, "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReceiptLineItem" }
+        createdAt: { type: string, format: date-time }
+    ReceiptInput:
+      type: object
+      required: [merchant, purchasedAt, total, items]
+      properties:
+        merchant: { type: string, minLength: 1, maxLength: 120 }
+        purchasedAt: { type: string, format: date }
+        total: { type: number, minimum: 0 }
+        objectPath: { type: [string, "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReceiptLineItem" }
+    FinanceDashboard:
+      type: object
+      required: [monthlySpending, taxableIncomeThisYear, taxSetAside, annualSavings, recentTransactions]
+      properties:
+        monthlySpending: { type: number }
+        taxableIncomeThisYear: { type: number }
+        taxSetAside: { type: number }
+        annualSavings: { type: number }
+        recentTransactions:
+          type: array
+          items: { $ref: "#/components/schemas/Transaction" }
+    ProductComparison:
+      type: object
+      required: [category, productName, brand, unitPrice, alternativeName, alternativeBrand, alternativePrice, unitsPerYear, annualSavings]
+      properties:
+        category: { type: string }
+        productName: { type: string }
+        brand: { type: [string, "null"] }
+        unitPrice: { type: number }
+        alternativeName: { type: string }
+        alternativeBrand: { type: [string, "null"] }
+        alternativePrice: { type: number }
+        unitsPerYear: { type: number }
+        annualSavings: { type: number }
+    BudgetPlanInput:
+      type: object
+      required: [annualIncome, annualSavingsGoal, priorityCategories]
+      properties:
+        annualIncome: { type: number, minimum: 0 }
+        annualSavingsGoal: { type: number, minimum: 0 }
+        priorityCategories:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - Housing
+              - Groceries
+              - Dining & coffee
+              - Transportation
+              - Utilities
+              - Health
+              - Debt payments
+              - Personal care
+              - Shopping
+              - Entertainment
+              - Travel
+              - Family & giving
+              - Other
+    BudgetCategoryPlan:
+      type: object
+      required: [category, monthlyTarget, spentThisMonth, priority, sharePercent]
+      properties:
+        category: { type: string }
+        monthlyTarget: { type: number, minimum: 0 }
+        spentThisMonth: { type: number, minimum: 0 }
+        priority: { type: boolean }
+        sharePercent: { type: number, minimum: 0, maximum: 100 }
+    BudgetPlan:
+      type: object
+      required: [annualIncome, annualSavingsGoal, priorityCategories, monthlyIncomeTarget, monthlySavingsTarget, monthlySpendingTarget, goalFeasible, categories]
+      properties:
+        annualIncome: { type: number, minimum: 0 }
+        annualSavingsGoal: { type: number, minimum: 0 }
+        priorityCategories:
+          type: array
+          items: { type: string }
+        monthlyIncomeTarget: { type: number, minimum: 0 }
+        monthlySavingsTarget: { type: number, minimum: 0 }
+        monthlySpendingTarget: { type: number, minimum: 0 }
+        goalFeasible: { type: boolean }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/BudgetCategoryPlan" }
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        contentType: { type: string, minLength: 1 }
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath, metadata]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
+        metadata: { $ref: "#/components/schemas/UploadUrlRequest" }
 

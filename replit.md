@@ -1,6 +1,6 @@
-# [Project name]
+# Aliena Money
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A personal money app for tracking everyday spending, taxable non-W-2 income, tax set-aside estimates, and receipt-based product savings.
 
 ## Run & Operate
 
@@ -22,23 +22,32 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/aliena-money/` — Aliena Money web app and visual theme
+- `artifacts/api-server/src/routes/finance.ts` — authenticated finance and receipt API
+- `lib/api-spec/openapi.yaml` — API contract and generated client source
+- `lib/db/src/schema/finance.ts` — transactions, finance settings, and receipt schema
+- `lib/db/src/schema/auth.ts` — account and session schema
+- `artifacts/api-server/src/routes/storage.ts` — private receipt file upload and serving
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Plaid is not connected; spending and income are entered manually until the user authorizes bank linking.
+- Tax set-aside is a user-selected planning percentage applied to taxable non-W-2 income, not tax advice.
+- Receipt line items are entered manually; comparisons use matching user-entered categories and annual usage.
+- Receipt images are private and scoped to the authenticated account.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The app provides an overview, manual income and expense tracking, an adjustable tax set-aside estimate, private receipt uploads with product details, and side-by-side cheaper alternatives with estimated annual savings.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the experience simple and use a wine, dark green, yellow, and blue palette.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Regenerate API client and Zod schemas from `lib/api-spec/openapi.yaml` after contract changes.
+- Protect finance data and receipt images with the current authenticated user ID on every server route.
 
 ## Pointers
 
