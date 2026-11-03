@@ -54,32 +54,27 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const initials = `${user?.firstName?.[0] || user?.email?.[0] || 'A'}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your account';
-  const nav = () => routeItems.map(({ href, label, icon: Icon }) => (
-    <Link key={href} href={href} className={`nav-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
-      <Icon aria-hidden="true" /><span>{label}</span>
+  const nav = routeItems.map(({ href, label, icon: Icon }, index) => (
+    <Link key={href} href={href} aria-current={path === href ? 'page' : undefined} className={`nav-link folder-tab-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
+      <span className="tab-index">{String(index + 1).padStart(2, '0')}</span><Icon aria-hidden="true" /><span>{label}</span>
     </Link>
   ));
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <div className="brand"><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div>
-      <div className="nav-label">Your money, in view</div>
-      <nav className="nav-list">{nav()}</nav>
-      <div className="sidebar-bottom">
-        <div className="help-note"><strong>A little more clarity.</strong>Track the everyday, make room for what’s next.</div>
-        <div className="profile-row"><div className="avatar">{initials}</div><div><div className="profile-name">{displayName}</div><div className="profile-mail">{user?.email || 'Personal space'}</div></div><button className="icon-button" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={15} /></button></div>
-      </div>
-    </aside>
-    <main className="workspace">
-      <div className="mobile-header"><div className="brand"><div className="brand-mark"><Leaf size={16} /></div><div className="brand-name">aliena<span>.</span></div></div><button className="icon-button" aria-label="Log out" onClick={logout} data-testid="button-mobile-log-out"><LogOut size={15} color="white" /></button></div>
-      <nav className="mobile-nav">{nav()}</nav>
-       <div className="topbar"><div className="topbar-left">Your money, kept in one thoughtful file</div><div className="topbar-right"><span className="top-status"><i className="online-dot" />Your private money folder</span></div></div>
-      {children}
-    </main>
+  return <div className="folder-backdrop">
+    <div className="folder-shell">
+      <header className="folder-cover">
+        <div className="folder-top">
+          <div className="brand folder-brand"><div className="brand-mark"><Leaf size={19} /></div><div><div className="brand-name">aliena<span>.</span></div><div className="folder-subtitle">YOUR PERSONAL MONEY FILE</div></div></div>
+          <div className="folder-profile"><div className="avatar">{initials}</div><div className="folder-profile-copy"><strong>{displayName}</strong><span>{user?.email || 'Personal space'}</span></div><button className="icon-button folder-logout" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
+        </div>
+        <nav className="folder-tabs" aria-label="Main navigation">{nav}</nav>
+      </header>
+      <main className="workspace"><div className="file-page">{children}</div></main>
+    </div>
   </div>;
 }
 
 function PageHeading({ eyebrow, title, subtitle, action }: { eyebrow: string; title: string; subtitle: string; action?: ReactNode }) {
-  return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p className="page-subtitle">{subtitle}</p></div>{action}</div>;
+  return <div className="page-heading"><span className="paper-pin" aria-hidden="true" /><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p className="page-subtitle">{subtitle}</p></div>{action}</div>;
 }
 function LoadingPanel({ rows = 4 }: { rows?: number }) { return <div className="panel" aria-label="Loading"><div style={{ padding: '16px 22px' }}>{Array.from({ length: rows }, (_, i) => <div className="skeleton" key={i} />)}</div></div>; }
 function ErrorPanel({ error, retry }: { error: unknown; retry: () => void }) { return <div className="error-box" role="alert"><span>{messageOf(error)}</span><button onClick={retry} data-testid="button-retry">Try again</button></div>; }
@@ -114,7 +109,7 @@ function Overview() {
           {data?.recentTransactions?.length ? <div className="transaction-list">{data.recentTransactions.slice(0, 5).map((t) => <div className="transaction-row" key={t.id} data-testid={`recent-transaction-${t.id}`}><div className={`row-icon ${t.type}`} >{t.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</div><div><div className="row-title">{t.label}</div><div className="row-meta">{t.category} · {niceDate(t.date)}</div></div><div className={`row-amount ${t.type}`}>{t.type === 'income' ? '+' : '−'}{money(t.amount)}</div></div>)}</div> : <EmptyState icon={ArrowRightLeft} title="Nothing recorded yet" body="Once you add a few transactions, recent activity will live here." action={<Link className="btn btn-soft" href="/transactions">Add a transaction</Link>} />}
         </section>
         <div className="side-stack">
-          <section className="panel reserve-card"><div className="eyebrow">A small cushion</div><div className="reserve-amount">{money(data?.taxSetAside)}</div><div className="reserve-sub">Your current estimate for taxable side income. This is a planning number you control, not tax advice.</div><div className="reserve-bar"><span style={{ width: data?.taxableIncomeThisYear ? `${Math.min(100, Math.max(12, (data.taxSetAside / data.taxableIncomeThisYear) * 100))}%` : '12%' }} /></div><div className="reserve-foot">Open your tax view to adjust the rate</div><Link href="/taxes" className="text-link" style={{ color: '#f2d66f', display: 'inline-block', marginTop: 13 }}>Review estimate <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></section>
+           <section className="panel reserve-card"><div className="eyebrow">A small cushion</div><div className="reserve-amount">{money(data?.taxSetAside)}</div><div className="reserve-sub">Your current estimate for taxable side income. This is a planning number you control, not tax advice.</div><div className="reserve-bar"><span style={{ width: data?.taxableIncomeThisYear ? `${Math.min(100, Math.max(12, (data.taxSetAside / data.taxableIncomeThisYear) * 100))}%` : '12%' }} /></div><div className="reserve-foot">Open your tax view to adjust the rate</div><Link href="/taxes" className="text-link" style={{ color: 'var(--folder-cream)', display: 'inline-block', marginTop: 13 }}>Review estimate <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></section>
           <section className="panel"><div className="savings-card"><div className="saving-icon"><Leaf /></div><div><div className="saving-value">{money(data?.annualSavings)}</div><div className="saving-copy">estimated yearly savings from lower-cost comparable products</div></div></div><div className="mini-bars" aria-label="Illustrative annual savings trend">{monthBars.map((h, i) => <span key={i} style={{ height: `${h}%` }} />)}</div></section>
            <div className="notice"><Info /><span>Sample account activity is only a preview. Real bank accounts are not linked, and demo entries never affect your totals.</span></div>
         </div>
@@ -476,12 +471,12 @@ function SettingsPage() {
 
 function LoginScreen() {
   const { login } = useAuth();
-  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'hsl(var(--background))' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PRIVATE MONEY FILE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: '#244637' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
+  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--folder-powder)' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PRIVATE MONEY FILE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: 'var(--folder-imperial)' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
 }
 
 function AuthenticatedApp() {
   const auth = useAuth();
-  if (auth.isLoading) return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'hsl(var(--background))' }}><div style={{ width: 280 }}><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></main>;
+  if (auth.isLoading) return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--folder-powder)' }}><div style={{ width: 280 }}><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></main>;
   if (!auth.isAuthenticated) return <LoginScreen />;
   return <Shell><RoutedErrorBoundary><Switch>
     <Route path="/" component={Overview} />

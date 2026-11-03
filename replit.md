@@ -43,7 +43,8 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 
 ## User preferences
 
-- Keep the experience simple, with an interactive file/folder feel and the wine, dark green or olive, yellow or cream, and blue palette.
+- Keep the experience simple as one folder with horizontal tabs across the top; use pushpins or paperclips on content cards.
+- Match the attached palette exactly: Imperial Blue `#011E48`, Olive Green `#6C712E`, powder blue `#B8D3E9`, cream `#FFFDD0`, Burgundy `#48020C`, and Smoky Black `#100D08`.
 
 ## Gotchas
 
