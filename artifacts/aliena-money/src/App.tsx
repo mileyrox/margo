@@ -56,22 +56,24 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const initials = `${user?.firstName?.[0] || user?.email?.[0] || 'A'}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your account';
-  const nav = routeItems.map(({ href, label, icon: Icon }, index) => (
-    <Link key={href} href={href} aria-current={path === href ? 'page' : undefined} className={`nav-link folder-tab-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
-      <span className="tab-index">{String(index + 1).padStart(2, '0')}</span><Icon aria-hidden="true" /><span>{label}</span>
+  const primaryNav = routeItems.filter(({ href }) => ['/', '/transactions', '/receipts', '/swaps', '/taxes'].includes(href));
+  const moreNav = routeItems.filter(({ href }) => !primaryNav.some((item) => item.href === href));
+  const navLink = ({ href, label, icon: Icon }: typeof routeItems[number], compact = false) => (
+    <Link key={href} href={href} aria-current={path === href ? 'page' : undefined} className={`nav-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
+      <Icon aria-hidden="true" /><span>{compact && label === 'Overview' ? 'Home' : compact && label === 'Tax set-aside' ? 'Gigs' : compact && label === 'Receipts' ? 'Scan' : label}</span>
     </Link>
-  ));
-  return <div className="folder-backdrop">
-    <div className="folder-shell">
-      <header className="folder-cover">
-        <nav className="folder-tabs" aria-label="Main navigation">{nav}</nav>
-        <div className="folder-top">
-          <div className="brand folder-brand"><div className="brand-mark"><Leaf size={19} /></div><div><div className="brand-name">aliena<span>.</span></div><div className="folder-subtitle">YOUR PERSONAL MONEY FILE</div></div></div>
-          <div className="folder-profile"><div className="avatar">{initials}</div><div className="folder-profile-copy"><strong>{displayName}</strong><span>{user?.email || 'Personal space'}</span></div><button className="icon-button folder-logout" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
-        </div>
-      </header>
-      <main className="workspace"><div className="file-page">{children}</div></main>
-    </div>
+  );
+  return <div className="app-frame">
+    <header className="app-header">
+      <Link href="/" className="app-brand" aria-label="Aliena home"><span className="app-brand-mark"><Leaf size={19} /></span><span>aliena<span className="brand-period">.</span></span></Link>
+      <nav className="desktop-nav" aria-label="Main navigation">{routeItems.map((item) => navLink(item))}</nav>
+      <div className="account-actions"><div className="account-greeting"><strong>{displayName}</strong><span>{user?.email || 'Your personal money space'}</span></div><div className="avatar">{initials}</div><button className="icon-button" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
+    </header>
+    <main className="workspace"><div className="app-page">{children}</div></main>
+    <nav className="mobile-bottom-nav" aria-label="Main navigation">
+      {primaryNav.map((item) => navLink(item, true))}
+      <details className="mobile-more"><summary><SettingsIcon aria-hidden="true" /><span>More</span></summary><div className="mobile-more-menu">{moreNav.map((item) => navLink(item))}</div></details>
+    </nav>
   </div>;
 }
 
@@ -559,12 +561,12 @@ function SettingsPage() {
 
 function LoginScreen() {
   const { login } = useAuth();
-  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--folder-burgundy)' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PRIVATE MONEY FILE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: 'var(--folder-imperial)' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
+  return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--app-bg)' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PERSONAL MONEY SPACE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: 'var(--folder-imperial)' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
 }
 
 function AuthenticatedApp() {
   const auth = useAuth();
-  if (auth.isLoading) return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--folder-burgundy)' }}><div style={{ width: 280 }}><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></main>;
+  if (auth.isLoading) return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--app-bg)' }}><div style={{ width: 280 }}><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></main>;
   if (!auth.isAuthenticated) return <LoginScreen />;
   return <Shell><RoutedErrorBoundary><Switch>
     <Route path="/" component={Overview} />
