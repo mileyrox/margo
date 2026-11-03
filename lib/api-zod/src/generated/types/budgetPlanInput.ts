@@ -12,6 +12,8 @@ export interface BudgetPlanInput {
   annualIncome: number;
   /** @minimum 0 */
   annualSavingsGoal: number;
+  /** @minimum 0 */
+  monthlyRent: number;
   /** @maxItems 3 */
   priorityCategories: BudgetPlanInputPriorityCategoriesItem[];
 }

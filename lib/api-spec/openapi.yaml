@@ -699,10 +699,11 @@ components:
         annualSavings: { type: number }
     BudgetPlanInput:
       type: object
-      required: [annualIncome, annualSavingsGoal, priorityCategories]
+      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories]
       properties:
         annualIncome: { type: number, minimum: 0 }
         annualSavingsGoal: { type: number, minimum: 0 }
+        monthlyRent: { type: number, minimum: 0 }
         priorityCategories:
           type: array
           maxItems: 3
@@ -734,10 +735,11 @@ components:
         sharePercent: { type: number, minimum: 0, maximum: 100 }
     BudgetPlan:
       type: object
-      required: [annualIncome, annualSavingsGoal, priorityCategories, monthlyIncomeTarget, monthlySavingsTarget, monthlySpendingTarget, goalFeasible, categories]
+      required: [annualIncome, annualSavingsGoal, monthlyRent, priorityCategories, monthlyIncomeTarget, monthlySavingsTarget, monthlySpendingTarget, goalFeasible, categories]
       properties:
         annualIncome: { type: number, minimum: 0 }
         annualSavingsGoal: { type: number, minimum: 0 }
+        monthlyRent: { type: number, minimum: 0 }
         priorityCategories:
           type: array
           items: { type: string }

@@ -375,6 +375,8 @@ export const getBudgetPlanResponseAnnualIncomeMin = 0;
 
 export const getBudgetPlanResponseAnnualSavingsGoalMin = 0;
 
+export const getBudgetPlanResponseMonthlyRentMin = 0;
+
 export const getBudgetPlanResponseMonthlyIncomeTargetMin = 0;
 
 export const getBudgetPlanResponseMonthlySavingsTargetMin = 0;
@@ -393,6 +395,7 @@ export const getBudgetPlanResponseCategoriesItemSharePercentMax = 100;
 export const GetBudgetPlanResponse = zod.object({
   "annualIncome": zod.number().min(getBudgetPlanResponseAnnualIncomeMin),
   "annualSavingsGoal": zod.number().min(getBudgetPlanResponseAnnualSavingsGoalMin),
+  "monthlyRent": zod.number().min(getBudgetPlanResponseMonthlyRentMin),
   "priorityCategories": zod.array(zod.string()),
   "monthlyIncomeTarget": zod.number().min(getBudgetPlanResponseMonthlyIncomeTargetMin),
   "monthlySavingsTarget": zod.number().min(getBudgetPlanResponseMonthlySavingsTargetMin),
@@ -415,6 +418,8 @@ export const updateBudgetPlanBodyAnnualIncomeMin = 0;
 
 export const updateBudgetPlanBodyAnnualSavingsGoalMin = 0;
 
+export const updateBudgetPlanBodyMonthlyRentMin = 0;
+
 export const updateBudgetPlanBodyPriorityCategoriesMax = 3;
 
 
@@ -422,12 +427,15 @@ export const updateBudgetPlanBodyPriorityCategoriesMax = 3;
 export const UpdateBudgetPlanBody = zod.object({
   "annualIncome": zod.number().min(updateBudgetPlanBodyAnnualIncomeMin),
   "annualSavingsGoal": zod.number().min(updateBudgetPlanBodyAnnualSavingsGoalMin),
+  "monthlyRent": zod.number().min(updateBudgetPlanBodyMonthlyRentMin),
   "priorityCategories": zod.array(zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other'])).max(updateBudgetPlanBodyPriorityCategoriesMax)
 })
 
 export const updateBudgetPlanResponseAnnualIncomeMin = 0;
 
 export const updateBudgetPlanResponseAnnualSavingsGoalMin = 0;
+
+export const updateBudgetPlanResponseMonthlyRentMin = 0;
 
 export const updateBudgetPlanResponseMonthlyIncomeTargetMin = 0;
 
@@ -447,6 +455,7 @@ export const updateBudgetPlanResponseCategoriesItemSharePercentMax = 100;
 export const UpdateBudgetPlanResponse = zod.object({
   "annualIncome": zod.number().min(updateBudgetPlanResponseAnnualIncomeMin),
   "annualSavingsGoal": zod.number().min(updateBudgetPlanResponseAnnualSavingsGoalMin),
+  "monthlyRent": zod.number().min(updateBudgetPlanResponseMonthlyRentMin),
   "priorityCategories": zod.array(zod.string()),
   "monthlyIncomeTarget": zod.number().min(updateBudgetPlanResponseMonthlyIncomeTargetMin),
   "monthlySavingsTarget": zod.number().min(updateBudgetPlanResponseMonthlySavingsTargetMin),

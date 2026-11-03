@@ -217,6 +217,8 @@ export interface BudgetPlanInput {
   annualIncome: number;
   /** @minimum 0 */
   annualSavingsGoal: number;
+  /** @minimum 0 */
+  monthlyRent: number;
   /** @maxItems 3 */
   priorityCategories: BudgetPlanInputPriorityCategoriesItem[];
 }
@@ -240,6 +242,8 @@ export interface BudgetPlan {
   annualIncome: number;
   /** @minimum 0 */
   annualSavingsGoal: number;
+  /** @minimum 0 */
+  monthlyRent: number;
   priorityCategories: string[];
   /** @minimum 0 */
   monthlyIncomeTarget: number;

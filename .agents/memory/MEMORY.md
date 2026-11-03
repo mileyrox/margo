@@ -1,1 +1,2 @@
-- [Aliena visual direction](aliena-visual-direction.md) — Keep the app as one cream folder on wine, with restrained paper details and no decorative circles.
+- [Aliena visual direction](aliena-visual-direction.md) — Use the uploaded money-app screens: warm cream, navy, burgundy, powder blue, and olive; avoid folder motifs.
+- [Aliena navigation](aliena-navigation.md) — My Plan is the dashboard; editing plan assumptions belongs behind the top-right profile, not a profile tab.

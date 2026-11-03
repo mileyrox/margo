@@ -1018,6 +1018,50 @@ body {
   background:var(--app-blue);
   color:var(--app-navy);
 }
+.profile-avatar {
+  display:grid;
+  place-items:center;
+  color:var(--app-navy);
+  font-size:11px;
+  font-weight:800;
+  text-decoration:none;
+}
+.profile-avatar:hover { box-shadow:0 0 0 3px rgba(184,211,233,.45); }
+.plan-tax-tile { display:block; color:inherit; text-decoration:none; }
+.plan-tax-tile:hover { border-color:var(--app-blue); transform:translateY(-1px); }
+.plan-lock-notice {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:0 0 16px;
+  padding:14px 17px;
+  border:1px solid rgba(1,30,72,.12);
+  border-radius:12px;
+  background:rgba(184,211,233,.28);
+  color:var(--app-navy);
+  font-size:12px;
+  line-height:1.5;
+}
+.plan-lock-notice .btn { flex:none; }
+.home-activity { margin-top:18px; }
+.better-buy-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.better-buy-actions .btn { white-space:nowrap; }
+.barcode-scan-panel {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  margin-bottom:18px;
+  padding:14px;
+  border:1px solid rgba(1,30,72,.12);
+  border-radius:11px;
+  background:rgba(184,211,233,.24);
+}
+.barcode-scan-panel strong { color:var(--app-navy); font-size:12px; }
+.barcode-scan-panel p { margin:4px 0 0; color:var(--app-muted); font-size:10px; line-height:1.45; }
+.barcode-video { grid-column:1/-1; width:min(100%,430px); max-height:280px; justify-self:center; border-radius:10px; background:#101820; object-fit:cover; }
+.barcode-scan-status { grid-column:1/-1; font-weight:600; }
 .workspace { width:100%; min-height:calc(100vh - 72px); margin:0; background:transparent; }
 .app-page { width:100%; max-width:1280px; margin:0 auto; }
 .content { max-width:none; padding:34px clamp(18px,4vw,54px) 64px; }
@@ -1212,6 +1256,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .content { padding:25px 16px calc(96px + env(safe-area-inset-bottom)); }
   .page-heading { align-items:flex-start; flex-direction:column; gap:12px; margin-bottom:19px; }
   .page-heading .btn { align-self:stretch; }
+  .plan-lock-notice { align-items:stretch; flex-direction:column; }
+  .plan-lock-notice .btn { justify-content:center; }
+  .better-buy-actions { width:100%; }
+  .better-buy-actions .btn { flex:1; padding-inline:9px; font-size:10px; }
+  .barcode-scan-panel { grid-template-columns:1fr; }
+  .barcode-scan-panel>.btn { width:100%; }
   .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-bottom:13px; }
   .metric-card { min-height:108px; padding:14px; }
   .metric-card:first-child { grid-column:1/-1; min-height:152px; }
@@ -1282,7 +1332,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .mobile-more-menu .nav-link.active { background:rgba(184,211,233,.45); }
 }
 @media(max-width:420px) {
-  .account-actions .avatar { display:none; }
+  .account-actions .avatar { display:grid; }
   .metric-card { padding:12px; }
   .metric-label svg { width:13px; }
 }

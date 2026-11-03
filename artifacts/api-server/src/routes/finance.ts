@@ -164,14 +164,15 @@ async function getUserComparisons(userId: string): Promise<ProductComparison[]> 
 function buildBudgetPlan(
   annualIncome: number,
   annualSavingsGoal: number,
+  monthlyRent: number,
   priorityCategories: string[],
   spendingRows: Array<{ category: string; amount: number }>,
 ): ApiBudgetPlan {
-  const goalFeasible = annualSavingsGoal <= annualIncome;
+  const goalFeasible = annualSavingsGoal + monthlyRent * 12 <= annualIncome;
   const monthlyIncomeTarget = Math.round((annualIncome / 12) * 100) / 100;
   const monthlySavingsTarget = Math.round((annualSavingsGoal / 12) * 100) / 100;
   const monthlySpendingTarget = goalFeasible
-    ? Math.round((Math.max(0, annualIncome - annualSavingsGoal) / 12) * 100) / 100
+    ? Math.round((Math.max(0, annualIncome - annualSavingsGoal - monthlyRent * 12) / 12) * 100) / 100
     : 0;
   const priorities = new Set(priorityCategories);
   const weightedCategories = spendingCategories.map((entry) => ({
@@ -207,6 +208,7 @@ function buildBudgetPlan(
   return {
     annualIncome,
     annualSavingsGoal,
+    monthlyRent,
     priorityCategories,
     monthlyIncomeTarget,
     monthlySavingsTarget,
@@ -235,6 +237,7 @@ async function getBudgetPlanForUser(userId: string): Promise<ApiBudgetPlan> {
   return buildBudgetPlan(
     saved?.annualIncome ?? 0,
     saved?.annualSavingsGoal ?? 0,
+    saved?.monthlyRent ?? 0,
     saved?.priorityCategories ?? [],
     spendingRows,
   );
@@ -405,6 +408,7 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
       userId: req.user.id,
       annualIncome: parsed.data.annualIncome,
       annualSavingsGoal: parsed.data.annualSavingsGoal,
+      monthlyRent: parsed.data.monthlyRent,
       priorityCategories: parsed.data.priorityCategories,
     })
     .onConflictDoUpdate({
@@ -412,6 +416,7 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
       set: {
         annualIncome: parsed.data.annualIncome,
         annualSavingsGoal: parsed.data.annualSavingsGoal,
+        monthlyRent: parsed.data.monthlyRent,
         priorityCategories: parsed.data.priorityCategories,
         updatedAt: new Date(),
       },

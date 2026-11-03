@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -27,15 +27,10 @@ import { demoBankActivity } from '@/data/demo-bank';
 const queryClient = new QueryClient();
 
 const routeItems = [
-  { href: '/', label: 'Overview', icon: Wallet },
+  { href: '/', label: 'My plan', icon: Sparkles },
   { href: '/transactions', label: 'Transactions', icon: ArrowRightLeft },
-  { href: '/plan', label: 'My plan', icon: Sparkles },
-  { href: '/onboarding', label: 'My profile', icon: SettingsIcon },
-  { href: '/accounts', label: 'Sample accounts', icon: Landmark },
-  { href: '/taxes', label: 'Tax set-aside', icon: BadgeDollarSign },
-  { href: '/receipts', label: 'Receipts', icon: ReceiptText },
   { href: '/swaps', label: 'Better buys', icon: Leaf },
-  { href: '/settings', label: 'Settings', icon: SettingsIcon },
+  { href: '/accounts', label: 'Sample accounts', icon: Landmark },
 ];
 const money = (amount: number | undefined | null) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
 const niceDate = (value: string) => {
@@ -56,18 +51,18 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const initials = `${user?.firstName?.[0] || user?.email?.[0] || 'A'}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your account';
-  const primaryNav = routeItems.filter(({ href }) => ['/', '/transactions', '/receipts', '/swaps', '/taxes'].includes(href));
+  const primaryNav = routeItems.filter(({ href }) => ['/', '/transactions', '/swaps'].includes(href));
   const moreNav = routeItems.filter(({ href }) => !primaryNav.some((item) => item.href === href));
   const navLink = ({ href, label, icon: Icon }: typeof routeItems[number], compact = false) => (
     <Link key={href} href={href} aria-current={path === href ? 'page' : undefined} className={`nav-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
-      <Icon aria-hidden="true" /><span>{compact && label === 'Overview' ? 'Home' : compact && label === 'Tax set-aside' ? 'Gigs' : compact && label === 'Receipts' ? 'Scan' : label}</span>
+      <Icon aria-hidden="true" /><span>{compact && label === 'My plan' ? 'Home' : label}</span>
     </Link>
   );
   return <div className="app-frame">
     <header className="app-header">
       <Link href="/" className="app-brand" aria-label="Aliena home"><span className="app-brand-mark"><Leaf size={19} /></span><span>aliena<span className="brand-period">.</span></span></Link>
       <nav className="desktop-nav" aria-label="Main navigation">{routeItems.map((item) => navLink(item))}</nav>
-      <div className="account-actions"><div className="account-greeting"><strong>{displayName}</strong><span>{user?.email || 'Your personal money space'}</span></div><div className="avatar">{initials}</div><button className="icon-button" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
+      <div className="account-actions"><div className="account-greeting"><strong>{displayName}</strong><span>{user?.email || 'Your personal money space'}</span></div><Link href="/profile" className="avatar profile-avatar" aria-label="Open your profile and update your plan" data-testid="link-account-profile">{initials}</Link><button className="icon-button" aria-label="Log out" data-testid="button-log-out" onClick={logout}><LogOut size={16} /></button></div>
     </header>
     <main className="workspace"><div className="app-page">{children}</div></main>
     <nav className="mobile-bottom-nav" aria-label="Main navigation">
@@ -175,13 +170,15 @@ function TransactionsPage() {
   </div>;
 }
 
-function PlanPage() {
+function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
   const qc = useQueryClient();
   const plan = useGetBudgetPlan();
   const transactions = useGetTransactions();
+  const dashboard = useGetFinanceDashboard();
   const update = useUpdateBudgetPlan();
   const [annualIncome, setAnnualIncome] = useState('');
   const [annualSavingsGoal, setAnnualSavingsGoal] = useState('');
+  const [monthlyRent, setMonthlyRent] = useState('');
   const [priorities, setPriorities] = useState<PriorityCategory[]>([]);
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState('');
@@ -189,9 +186,11 @@ function PlanPage() {
     if (!plan.data) return;
     setAnnualIncome(String(plan.data.annualIncome ?? 0));
     setAnnualSavingsGoal(String(plan.data.annualSavingsGoal ?? 0));
+    setMonthlyRent(String(plan.data.monthlyRent ?? 0));
     setPriorities((plan.data.priorityCategories || []).filter((item): item is PriorityCategory => spendingCategories.includes(item as PriorityCategory)));
   }, [plan.data]);
-   const configured = Boolean(plan.data && (plan.data.annualIncome > 0 || plan.data.annualSavingsGoal > 0));
+  const configured = Boolean(plan.data && (plan.data.annualIncome > 0 || plan.data.annualSavingsGoal > 0 || plan.data.monthlyRent > 0 || plan.data.priorityCategories.length > 0));
+  const canEdit = allowEdit || !configured;
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthSpend = useMemo(() => {
     const amounts = new Map<string, number>();
@@ -210,11 +209,12 @@ function PlanPage() {
     setFormError('');
     const income = Number(annualIncome);
     const savings = Number(annualSavingsGoal);
-    if (!Number.isFinite(income) || income < 0 || !Number.isFinite(savings) || savings < 0) {
-      setFormError('Enter valid annual amounts of zero or more.');
+    const rent = Number(monthlyRent);
+    if (!Number.isFinite(income) || income < 0 || !Number.isFinite(savings) || savings < 0 || !Number.isFinite(rent) || rent < 0) {
+      setFormError('Enter valid income, rent, and savings amounts of zero or more.');
       return;
     }
-    const payload: BudgetPlanInput = { annualIncome: income, annualSavingsGoal: savings, priorityCategories: priorities };
+    const payload: BudgetPlanInput = { annualIncome: income, annualSavingsGoal: savings, monthlyRent: rent, priorityCategories: priorities };
     update.mutate({ data: payload }, {
       onSuccess: () => {
         setSaved(true);
@@ -225,16 +225,25 @@ function PlanPage() {
     });
   };
   return <div className="content">
-    <PageHeading eyebrow="A plan around your priorities" title="Make room for what matters." subtitle="Start with what arrives after tax, then shape a monthly plan that feels like yours." />
+    <PageHeading eyebrow="Your money, at a glance" title="My plan" subtitle="A clear view of what’s coming in, what matters most, and what you’re setting aside." action={<Link href="/transactions" className="btn btn-primary"><Plus />Add activity</Link>} />
+    {!dashboard.isLoading && !dashboard.isError && <div className="metric-grid plan-dashboard-metrics">
+      <div className="panel metric-card"><div className="metric-label"><ShoppingBag />Spent this month</div><div className="metric-value">{money(dashboard.data?.monthlySpending)}</div><div className="metric-note">From your saved expenses</div></div>
+      <div className="panel metric-card"><div className="metric-label"><HandCoins />Side income this year</div><div className="metric-value">{money(dashboard.data?.taxableIncomeThisYear)}</div><div className="metric-note">Taxable income you recorded</div></div>
+      <Link href="/profile" className="panel metric-card plan-tax-tile"><div className="metric-label"><BadgeDollarSign />Tax set-aside</div><div className="metric-value">{money(dashboard.data?.taxSetAside)}</div><div className="metric-note">Your estimate · update in profile</div></Link>
+      <div className="panel metric-card"><div className="metric-label"><Leaf />Potential yearly savings</div><div className="metric-value">{money(dashboard.data?.annualSavings)}</div><div className="metric-note">From Better Buys comparisons</div></div>
+    </div>}
+    {dashboard.isError && <ErrorPanel error={dashboard.error} retry={() => dashboard.refetch()} />}
     {plan.isLoading ? <LoadingPanel rows={3} /> : plan.isError ? <ErrorPanel error={plan.error} retry={() => plan.refetch()} /> : <>
-      {!configured && <div className="plan-welcome" data-testid="status-plan-unconfigured"><div className="plan-welcome-mark"><Sparkles /></div><div><strong>Your first plan starts with one number.</strong><p>Tell us your yearly take-home income and savings goal. We’ll turn them into a flexible monthly starting point.</p></div></div>}
-      {plan.data?.goalFeasible === false && configured && <div className="plan-warning" role="status" data-testid="status-plan-infeasible"><Info /><span>Your savings goal is higher than the take-home amount available for this plan. Adjust either number to make the plan workable.</span></div>}
+      {!configured && <div className="plan-welcome" data-testid="status-plan-unconfigured"><div className="plan-welcome-mark"><Sparkles /></div><div><strong>Your first plan starts with a few essentials.</strong><p>Set your take-home income, monthly rent, savings goal, and priorities. We’ll turn them into a flexible monthly starting point.</p></div></div>}
+      {plan.data?.goalFeasible === false && configured && <div className="plan-warning" role="status" data-testid="status-plan-infeasible"><Info /><span>Your rent and savings goal are higher than the take-home amount available for this plan. Adjust the amounts to make the plan workable.</span></div>}
       {formError && <div className="error-box" role="alert" style={{ marginBottom: 16 }}><span>{formError}</span><button type="button" onClick={() => setFormError('')} aria-label="Dismiss error" data-testid="button-dismiss-plan-error"><X /></button></div>}
+      {configured && !canEdit && <div className="plan-lock-notice"><span>Your income, rent, savings goal, and priorities are saved. To update your plan, open your profile from the top-right corner.</span><Link href="/profile" className="btn btn-soft">Open profile <ChevronRight /></Link></div>}
       <div className="plan-layout">
-        <section className="panel form-panel plan-form-panel">
-          <div className="panel-head" style={{ padding: '0 0 18px' }}><div><div className="eyebrow">Your starting point</div><h2 className="panel-title">What should your money make possible?</h2><p className="panel-caption">All amounts are annual, in USD.</p></div></div>
+        {canEdit && <section className="panel form-panel plan-form-panel">
+          <div className="panel-head" style={{ padding: '0 0 18px' }}><div><div className="eyebrow">Your starting point</div><h2 className="panel-title">What should your money make possible?</h2><p className="panel-caption">Income and savings are annual; rent is monthly, in USD.</p></div></div>
           <form onSubmit={savePlan}>
             <div className="field"><label htmlFor="plan-income">Annual take-home income</label><div className="money-input"><span>$</span><input id="plan-income" className="input" type="number" min="0" step="100" value={annualIncome} onChange={(event) => { setAnnualIncome(event.target.value); setSaved(false); }} placeholder="72,000" required data-testid="input-plan-income" /></div><div className="field-help">Use after-tax money you actually have available for this plan.</div></div>
+            <div className="field" style={{ marginTop: 17 }}><label htmlFor="plan-rent">Monthly rent</label><div className="money-input"><span>$</span><input id="plan-rent" className="input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => { setMonthlyRent(event.target.value); setSaved(false); }} placeholder="1,500" required data-testid="input-plan-rent" /></div><div className="field-help">Rent is set aside before the rest of your monthly spending guide.</div></div>
             <div className="field" style={{ marginTop: 17 }}><label htmlFor="plan-savings">Annual savings goal</label><div className="money-input"><span>$</span><input id="plan-savings" className="input" type="number" min="0" step="100" value={annualSavingsGoal} onChange={(event) => { setAnnualSavingsGoal(event.target.value); setSaved(false); }} placeholder="6,000" required data-testid="input-plan-savings" /></div><div className="field-help">A goal you can revisit whenever life changes.</div></div>
             <div className="field" style={{ marginTop: 22 }}>
               <label>Up to three priority categories <span className="priority-count" data-testid="text-priority-count">{priorities.length} of 3 selected</span></label>
@@ -244,13 +253,14 @@ function PlanPage() {
             <div className="plan-disclaimer"><Info /><span>Recommendations are adjustable starting points, not financial advice.</span></div>
             <div className="form-actions"><button className="btn btn-primary" type="submit" disabled={update.isPending} data-testid="button-save-plan">{update.isPending ? 'Saving your plan…' : saved ? <><Check />Plan saved</> : 'Save my plan'}</button></div>
           </form>
-        </section>
+        </section>}
         {configured && plan.data && <div className="plan-results">
           <section className="plan-summary" data-testid="section-plan-recommendations">
             <div className="eyebrow">A monthly starting point</div>
             <h2>Your money, in a rhythm.</h2>
             <p className="plan-summary-intro">Based on {money(plan.data.annualIncome)} take-home income per year.</p>
             <div className="plan-total-row"><span>Monthly take-home</span><strong data-testid="value-plan-monthly-income">{money(plan.data.monthlyIncomeTarget)}</strong></div>
+            <div className="plan-total-row"><span>Monthly rent</span><strong data-testid="value-plan-monthly-rent">{money(plan.data.monthlyRent)}</strong></div>
             <div className="plan-total-row savings-target"><span>Monthly savings goal</span><strong data-testid="value-plan-monthly-savings">{money(plan.data.monthlySavingsTarget)}</strong></div>
             <div className="plan-total-row spend-target"><span>Available for monthly spending</span><strong data-testid="value-plan-monthly-spending">{money(plan.data.monthlySpendingTarget)}</strong></div>
           </section>
@@ -270,6 +280,7 @@ function PlanPage() {
           </section>
         </div>}
       </div>
+      {dashboard.data?.recentTransactions?.length ? <section className="panel home-activity"><div className="panel-head"><div><h2 className="panel-title">Recent activity</h2><p className="panel-caption">Your latest saved transactions</p></div><Link href="/transactions" className="text-link">See all <ChevronRight size={13} /></Link></div><div className="transaction-list">{dashboard.data.recentTransactions.slice(0, 4).map((t) => <div className="transaction-row" key={t.id}><div className={`row-icon ${t.type}`}>{t.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</div><div><div className="row-title">{t.label}</div><div className="row-meta">{t.category} · {niceDate(t.date)}</div></div><div className={`row-amount ${t.type}`}>{t.type === 'income' ? '+' : '−'}{money(t.amount)}</div></div>)}</div></section> : null}
       {transactions.isError && <div style={{ marginTop: 16 }}><ErrorPanel error={transactions.error} retry={() => transactions.refetch()} /></div>}
     </>}
   </div>;
@@ -351,13 +362,66 @@ function ReceiptsPage() {
   const create = useCreateReceipt();
   const deleteReceipt = useDeleteReceipt();
   const getUploadUrl = useRequestUploadUrl();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => Boolean(new URLSearchParams(window.location.search).get('scan')));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
   const [items, setItems] = useState<DraftItem[]>([blankItem()]);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [scanNotice, setScanNotice] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanMode = new URLSearchParams(window.location.search).get('scan');
+  useEffect(() => {
+    if (!cameraActive) return;
+    type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
+    type DetectorConstructor = new (options?: { formats: string[] }) => Detector;
+    const DetectorApi = (window as Window & { BarcodeDetector?: DetectorConstructor }).BarcodeDetector;
+    let stream: MediaStream | undefined;
+    let frame = 0;
+    let stopped = false;
+    if (!DetectorApi) {
+      setScanNotice('Barcode camera scanning is not supported in this browser. You can still add the product details manually.');
+      setCameraActive(false);
+      return;
+    }
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+        if (stopped) { stream.getTracks().forEach((track) => track.stop()); return; }
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play();
+        const detector = new DetectorApi({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+        const scan = async () => {
+          if (stopped || !videoRef.current) return;
+          try {
+            const [result] = await detector.detect(videoRef.current);
+            if (result?.rawValue) {
+              setItems((current) => current.map((item, index) => index === 0 ? { ...item, productName: result.rawValue } : item));
+              setScanNotice(`Barcode ${result.rawValue} captured. Add the product name, price, and category to continue.`);
+              setCameraActive(false);
+              return;
+            }
+          } catch { /* Wait for the next camera frame. */ }
+          frame = requestAnimationFrame(scan);
+        };
+        frame = requestAnimationFrame(scan);
+      } catch (error) {
+        setScanNotice(error instanceof Error ? error.message : 'Camera access was unavailable. You can add the product details manually.');
+        setCameraActive(false);
+      }
+    };
+    void start();
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(frame);
+      stream?.getTracks().forEach((track) => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [cameraActive]);
   useEffect(() => {
     if (!selectedFile) { setPreview(''); return; }
     if (selectedFile.type.startsWith('image/')) { const url = URL.createObjectURL(selectedFile); setPreview(url); return () => URL.revokeObjectURL(url); }
@@ -409,11 +473,18 @@ function ReceiptsPage() {
     {open && <section className="panel form-panel">
       <div className="panel-head" style={{ padding: '0 0 15px' }}><div><h2 className="panel-title">Save a receipt</h2><p className="panel-caption">Upload an image or PDF, then enter the details and products.</p></div></div>
       <form onSubmit={submit}>
+        {(scanMode === 'barcode' || cameraActive || scanNotice) && <div className="barcode-scan-panel">
+          <div><strong>Scan a product barcode</strong><p>We’ll add the barcode to the first product row. Enter the product name and price for comparisons.</p></div>
+          {!cameraActive && <button type="button" className="btn btn-soft" onClick={() => { setScanNotice(''); setCameraActive(true); }}>Open camera</button>}
+          {cameraActive && <button type="button" className="btn btn-soft" onClick={() => setCameraActive(false)}>Stop camera</button>}
+          {cameraActive && <video ref={videoRef} className="barcode-video" muted playsInline aria-label="Barcode scanner camera" />}
+          {scanNotice && <p className="barcode-scan-status" role="status">{scanNotice}</p>}
+        </div>}
         <div className="form-grid">
           <div className="field"><label htmlFor="receipt-merchant">Merchant</label><input id="receipt-merchant" name="merchant" className="input" placeholder="Corner market" maxLength={120} required data-testid="input-receipt-merchant" /></div>
           <div className="field"><label htmlFor="receipt-date">Purchase date</label><input id="receipt-date" name="purchasedAt" type="date" defaultValue={today()} className="input" required data-testid="input-receipt-date" /></div>
           <div className="field"><label htmlFor="receipt-total">Receipt total</label><input id="receipt-total" name="total" type="number" min="0" step="0.01" className="input" placeholder="0.00" required data-testid="input-receipt-total" /></div>
-          <div className="field"><label>Receipt file <span style={{ fontWeight: 400 }}>(optional)</span></label><div className="upload-box"><input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" onChange={(e) => chooseFile(e.target.files?.[0])} data-testid="input-receipt-file" /><Upload /><strong>{selectedFile ? selectedFile.name : 'Choose a receipt image or PDF'}</strong><span>JPG, PNG, or PDF · up to 10 MB</span>{preview && <img className="upload-preview" src={preview} alt="Selected receipt preview" />}</div></div>
+          <div className="field"><label>Receipt file <span style={{ fontWeight: 400 }}>(optional)</span></label><div className="upload-box"><input type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" capture="environment" onChange={(e) => chooseFile(e.target.files?.[0])} data-testid="input-receipt-file" /><Upload /><strong>{selectedFile ? selectedFile.name : 'Take a photo or choose a receipt'}</strong><span>JPG, PNG, or PDF · up to 10 MB</span>{preview && <img className="upload-preview" src={preview} alt="Selected receipt preview" />}</div></div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '22px 0 9px' }}><div><h3 className="panel-title" style={{ fontSize: 16 }}>Product line items</h3><p className="panel-caption">Enter items manually; these details power product comparisons.</p></div><button type="button" className="btn btn-soft" onClick={() => setItems((old) => [...old, blankItem()])} data-testid="button-add-line-item"><Plus />Add item</button></div>
         {items.map((item, index) => <div className="receipt-item" key={index}>
@@ -447,7 +518,7 @@ function SwapsPage() {
   return <div className="content">
     <PageHeading eyebrow="Small changes add up" title="Better buys" subtitle="Compare products you’ve entered with lower-cost alternatives in the same category." />
     <section className="panel" style={{ background: '#e7eef0', borderColor: '#d5e1e3', padding: '19px 22px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 15 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}><div className="saving-icon" style={{ background: '#d3e3e8' }}><Leaf /></div><div><div className="eyebrow" style={{ marginBottom: 3 }}>Potential yearly difference</div><div style={{ font: '600 24px var(--app-font-serif)' }} data-testid="value-swap-total">{money(dashboard.data?.annualSavings)}</div></div></div><Link href="/receipts" className="btn btn-soft">Add products <ChevronRight /></Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}><div className="saving-icon" style={{ background: '#d3e3e8' }}><Leaf /></div><div><div className="eyebrow" style={{ marginBottom: 3 }}>Potential yearly difference</div><div style={{ font: '600 24px var(--app-font-serif)' }} data-testid="value-swap-total">{money(dashboard.data?.annualSavings)}</div></div></div><div className="better-buy-actions"><Link href="/receipts?scan=receipt" className="btn btn-soft"><ReceiptText />Scan receipt</Link><Link href="/receipts?scan=barcode" className="btn btn-soft"><ShoppingBag />Scan barcode</Link></div>
     </section>
     {comparisons.isLoading ? <LoadingPanel rows={5} /> : comparisons.isError ? <ErrorPanel error={comparisons.error} retry={() => comparisons.refetch()} /> : grouped.length ? <div className="panel">{grouped.map(([category, entries]) => <div key={category}><div className="category-heading">{category}</div>{entries.map((item, i) => <div className="comparison-row" key={`${item.productName}-${i}`} data-testid={`comparison-${i}-${category.toLowerCase().replaceAll(' ', '-')}`}><div className="product"><div className="product-name">{item.productName}</div><div className="product-brand">{item.brand || 'Current choice'} · {item.unitsPerYear} / year</div><div className="product-price">{money(item.unitPrice)} <small>each</small></div></div><div className="swap-arrow"><ArrowRightLeft /></div><div className="product"><div className="product-name">{item.alternativeName}</div><div className="product-brand">{item.alternativeBrand || 'Alternative'}</div><div className="product-price">{money(item.alternativePrice)} <small>each</small></div></div><div className="save-amount"><strong>{money(item.annualSavings)}</strong><span>per year</span></div></div>)}</div>)}</div> : <div className="panel"><EmptyState icon={Leaf} title={needsVerifiedProductDetails ? 'Waiting on verified product details' : profile.data?.swapCategories.length ? 'No comparisons just yet' : 'Choose what you’re open to'} body={needsVerifiedProductDetails ? 'You added product requirements we cannot verify from receipt names alone, so Aliena is holding suggestions instead of guessing.' : profile.data?.swapCategories.length ? 'Add product line items to your receipts. Comparable products and their estimated yearly savings will show up here.' : 'Pick the areas where you’re willing to consider a swap. Your non-negotiables stay out of the suggestions.'} action={<Link href={needsVerifiedProductDetails ? '/onboarding' : profile.data?.swapCategories.length ? '/receipts' : '/onboarding'} className="btn btn-primary"><Plus />{needsVerifiedProductDetails ? 'Review my preferences' : profile.data?.swapCategories.length ? 'Add a receipt' : 'Set my preferences'}</Link>} /></div>}
     <p style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', marginTop: 13, lineHeight: 1.5 }}>Savings are estimates based on product prices and annual usage you entered. Availability and prices may change.</p>
@@ -559,6 +630,17 @@ function SettingsPage() {
   </div>;
 }
 
+function ProfilePage() {
+  return <div className="content">
+    <PageHeading eyebrow="Your account" title="Profile & plan settings" subtitle="Your plan details and shopping preferences can be updated here whenever life changes." />
+    <PlanPage allowEdit />
+    <OnboardingPage />
+    <SettingsPage />
+  </div>;
+}
+
+function HomePlanRoute() { return <PlanPage />; }
+
 function LoginScreen() {
   const { login } = useAuth();
   return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--app-bg)' }}><section className="panel login-file" style={{ maxWidth: 430, width: '100%', padding: '38px 36px', textAlign: 'center' }}><div className="login-file-tab">YOUR PERSONAL MONEY SPACE</div><div className="brand" style={{ justifyContent: 'center', padding: '0 0 26px', color: 'var(--folder-imperial)' }}><div className="brand-mark"><Leaf size={19} /></div><div className="brand-name">aliena<span>.</span></div></div><div className="eyebrow">A little clarity, your way</div><h1 style={{ fontSize: 34 }}>Money feels better in view.</h1><p className="page-subtitle" style={{ marginBottom: 24 }}>A simple place for everyday spending, side income, and the small choices that add up.</p><button className="btn btn-primary" style={{ width: '100%', padding: 13 }} onClick={login} data-testid="button-login">Continue to Aliena <ArrowRightLeft /></button><div className="notice" style={{ textAlign: 'left', marginTop: 18 }}><Info /><span>No bank connection required. Your entries are added by you, not imported.</span></div></section></main>;
@@ -569,15 +651,16 @@ function AuthenticatedApp() {
   if (auth.isLoading) return <main style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', background: 'var(--app-bg)' }}><div style={{ width: 280 }}><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></main>;
   if (!auth.isAuthenticated) return <LoginScreen />;
   return <Shell><RoutedErrorBoundary><Switch>
-    <Route path="/" component={Overview} />
+    <Route path="/" component={HomePlanRoute} />
     <Route path="/transactions" component={TransactionsPage} />
-    <Route path="/plan" component={PlanPage} />
+    <Route path="/plan" component={HomePlanRoute} />
     <Route path="/accounts" component={AccountsPage} />
-    <Route path="/taxes" component={TaxesPage} />
     <Route path="/receipts" component={ReceiptsPage} />
     <Route path="/swaps" component={SwapsPage} />
-    <Route path="/onboarding" component={OnboardingPage} />
-    <Route path="/settings" component={SettingsPage} />
+    <Route path="/profile" component={ProfilePage} />
+    <Route path="/taxes" component={ProfilePage} />
+    <Route path="/onboarding" component={ProfilePage} />
+    <Route path="/settings" component={ProfilePage} />
     <Route component={NotFound} />
   </Switch></RoutedErrorBoundary></Shell>;
 }

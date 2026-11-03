@@ -22,6 +22,13 @@ export const budgetPlansTable = pgTable("budget_plans", {
   })
     .notNull()
     .default(0),
+  monthlyRent: numeric("monthly_rent", {
+    precision: 12,
+    scale: 2,
+    mode: "number",
+  })
+    .notNull()
+    .default(0),
   priorityCategories: jsonb("priority_categories")
     .$type<string[]>()
     .notNull()
