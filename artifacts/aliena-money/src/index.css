@@ -580,3 +580,262 @@ body { background:var(--folder-powder); color:var(--folder-imperial); }
   .profile-actions { padding:14px 16px; }
   .profile-actions>span { min-width:0; }
 }
+
+/* One wine field, one cream folder. Keep the stationery cues restrained. */
+body {
+  background:var(--folder-burgundy);
+  color:var(--folder-imperial);
+}
+.folder-backdrop {
+  min-height:100vh;
+  padding:30px 24px 48px;
+  background:var(--folder-burgundy);
+}
+.folder-shell {
+  width:min(1440px,100%);
+  min-height:calc(100vh - 78px);
+  padding:12px;
+  border:0;
+  border-radius:3px;
+  background:var(--folder-cream);
+  box-shadow:0 12px 28px rgba(16,13,8,.2);
+}
+.folder-shell::before { display:none; }
+.folder-cover { background:var(--folder-cream); }
+.folder-top {
+  min-height:80px;
+  padding:7px 16px 14px;
+  color:var(--folder-imperial);
+}
+.folder-brand { color:var(--folder-imperial); }
+.folder-brand .brand-mark {
+  width:34px;
+  height:34px;
+  border:1px solid var(--folder-olive);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-burgundy);
+}
+.folder-brand .brand-name { color:var(--folder-imperial); }
+.folder-brand .brand-name span { color:var(--folder-burgundy); }
+.folder-subtitle { color:var(--folder-olive); }
+.folder-profile .avatar {
+  border:1px solid var(--folder-olive);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+}
+.folder-profile-copy strong { color:var(--folder-imperial); }
+.folder-profile-copy span { color:var(--folder-olive); }
+.folder-logout { color:var(--folder-imperial); }
+.folder-logout:hover { background:var(--folder-powder); color:var(--folder-imperial); }
+.folder-tabs {
+  gap:2px;
+  padding:0 16px;
+  background:var(--folder-cream);
+  scrollbar-color:var(--folder-olive) var(--folder-cream);
+}
+.folder-tabs .nav-link {
+  min-height:45px;
+  padding:11px 14px;
+  gap:8px;
+  border:0;
+  border-bottom:2px solid transparent;
+  border-radius:0;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+  font-size:12px;
+  font-weight:600;
+}
+.folder-tabs .nav-link:hover {
+  transform:none;
+  background:var(--folder-cream);
+  border-bottom-color:var(--folder-powder);
+  color:var(--folder-burgundy);
+}
+.folder-tabs .nav-link.active {
+  border:0;
+  border-bottom:3px solid var(--folder-olive);
+  background:var(--folder-cream);
+  color:var(--folder-burgundy);
+  font-weight:800;
+}
+.tab-index { color:var(--folder-olive); }
+.workspace,.file-page {
+  min-height:72vh;
+  border:0;
+  border-radius:0;
+  background:var(--folder-cream);
+}
+.content { max-width:1280px; padding:34px 38px 58px; }
+.page-heading {
+  align-items:center;
+  margin:0 0 26px;
+  padding:14px 18px 14px 0;
+  border:0;
+  border-bottom:1px solid rgba(1,30,72,.28);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.page-heading::before { display:none; }
+.page-heading .eyebrow {
+  display:block;
+  margin-bottom:8px;
+  padding:0;
+  background:none;
+  color:var(--folder-olive);
+}
+.page-heading h1 { color:var(--folder-imperial); }
+.page-heading .page-subtitle { max-width:680px; color:var(--folder-olive); }
+.panel,.metric-card,.plan-categories,.plan-form-panel,.demo-activity-panel,.form-panel,.settings-section {
+  border:1px solid rgba(1,30,72,.25);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+  box-shadow:0 2px 0 rgba(16,13,8,.07);
+}
+.metric-card::after,.reserve-card::after { display:none; }
+.panel::before,.plan-summary::before,.plan-welcome::before,.plan-warning::before,
+.demo-banner::before,.account-card::before,.notice::before,.error-box::before {
+  top:9px;
+  right:16px;
+  left:auto;
+  width:8px;
+  height:17px;
+  border:1.5px solid var(--folder-olive);
+  border-bottom-color:transparent;
+  border-radius:7px 7px 3px 3px;
+  background:transparent;
+  box-shadow:none;
+}
+.paper-pin {
+  top:8px;
+  right:16px;
+  width:8px;
+  height:17px;
+  border:1.5px solid var(--folder-olive);
+  border-bottom-color:transparent;
+  border-radius:7px 7px 3px 3px;
+  background:transparent;
+  box-shadow:none;
+  transform:rotate(7deg);
+}
+.reserve-card,.plan-summary {
+  border:1px solid var(--folder-burgundy);
+  border-radius:2px;
+  background:var(--folder-burgundy);
+  color:var(--folder-cream);
+}
+.reserve-card .eyebrow,.plan-summary .eyebrow,
+.reserve-card .reserve-amount,.reserve-card .reserve-sub,
+.plan-summary h2,.plan-summary-intro,.plan-total-row,.plan-total-row strong {
+  color:var(--folder-cream);
+}
+.reserve-card .reserve-sub,.reserve-foot { opacity:.85; }
+.plan-total-row.savings-target strong { color:var(--folder-powder); }
+.plan-total-row.spend-target { background:rgba(108,113,46,.35); }
+.plan-meter { background:var(--folder-powder); }
+.plan-meter span { background:var(--folder-olive); }
+.plan-category-spend,.text-link { color:var(--folder-burgundy); }
+.priority-chip,.profile-choice,.input,.money-input>span,.upload-box {
+  border-color:rgba(1,30,72,.35);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+}
+.priority-chip.selected,.profile-choice.selected {
+  border-color:var(--folder-olive);
+  background:var(--folder-olive);
+  color:var(--folder-cream);
+}
+.profile-check { border-radius:2px; }
+.profile-actions { background:rgba(184,211,233,.2); }
+.profile-tags .profile-tag { border-radius:2px; }
+.priority-label,.badge-demo,.demo-stamp,.sample-tag {
+  border-radius:2px;
+  background:var(--folder-olive);
+  color:var(--folder-cream);
+}
+.account-card,.account-card-blue {
+  border:1px solid rgba(1,30,72,.28);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+}
+.account-card::before { display:none; }
+.account-card .account-kind,.account-card .account-balance-label { color:var(--folder-olive); }
+.demo-banner,.plan-welcome,.demo-footnote,.notice,.plan-disclaimer {
+  border:1px solid rgba(1,30,72,.24);
+  border-left:3px solid var(--folder-olive);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+}
+.plan-warning,.error-box {
+  border:1px solid var(--folder-burgundy);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-burgundy);
+}
+.btn,.filter-chip { border-radius:2px; }
+.btn-primary,.filter-chip.active {
+  border-color:var(--folder-burgundy);
+  background:var(--folder-burgundy);
+  color:var(--folder-cream);
+}
+.btn-primary:hover { background:var(--folder-imperial); }
+.btn-soft,.filter-chip {
+  border-color:rgba(1,30,72,.35);
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+}
+.brand-mark { border-radius:2px; background:var(--folder-cream); color:var(--folder-burgundy); }
+.eyebrow { color:var(--folder-olive); }
+.row-icon,.saving-icon {
+  border:1px solid rgba(108,113,46,.35);
+  border-radius:2px;
+  background:var(--folder-cream);
+  color:var(--folder-olive);
+}
+.row-icon.income { background:var(--folder-cream); color:var(--folder-burgundy); }
+.row-amount.income { color:var(--folder-olive); }
+.badge { border-radius:2px; }
+.badge-income,.badge-expense,.badge-tax,.badge-muted {
+  background:var(--folder-cream);
+  color:var(--folder-imperial);
+  outline:1px solid rgba(1,30,72,.22);
+}
+.input:focus { border-color:var(--folder-olive); box-shadow:0 0 0 2px rgba(108,113,46,.14); }
+.login-file {
+  border:1px solid rgba(1,30,72,.3);
+  border-radius:2px;
+  box-shadow:0 4px 0 rgba(16,13,8,.12),0 16px 32px rgba(16,13,8,.2);
+}
+.login-file::before {
+  border-color:rgba(1,30,72,.3);
+  background:var(--folder-cream);
+}
+.login-file-tab {
+  background:var(--folder-cream);
+  color:var(--folder-olive);
+}
+.login-file .notice { border-left:3px solid var(--folder-olive); }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
+  outline:2px solid var(--folder-olive);
+  outline-offset:2px;
+}
+.nav-link,.priority-chip,.btn,.panel,.account-card {
+  transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+.account-card:hover { transform:none; box-shadow:0 3px 0 rgba(16,13,8,.12); }
+@media(max-width:760px) {
+  .folder-backdrop { padding:14px 8px 24px; }
+  .folder-shell { min-height:calc(100vh - 38px); padding:8px; }
+  .folder-top { min-height:65px; padding:4px 5px 10px; }
+  .folder-tabs { padding:0 3px; }
+  .folder-tabs .nav-link { min-height:42px; padding:10px 10px; font-size:10px; }
+  .content { padding:26px 14px 42px; }
+  .page-heading { margin-bottom:20px; padding:12px 4px; }
+  .paper-pin { right:10px; }
+}

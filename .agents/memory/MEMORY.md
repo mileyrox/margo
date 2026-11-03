@@ -1,0 +1,1 @@
+- [Aliena visual direction](aliena-visual-direction.md) — Keep the app as one cream folder on wine, with restrained paper details and no decorative circles.
