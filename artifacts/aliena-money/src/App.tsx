@@ -38,6 +38,18 @@ const dateLabel = (value: string) => {
 const today = () => new Date().toISOString().slice(0, 10);
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Try again.';
 const disclosure = 'Listings link to each platform. Availability, pay, and requirements vary by location and role.';
+type SwapCatalogRow = {
+  id: string; groupName: string; category: string; originalBrand: string; originalProduct: string; originalRetailer: string;
+  originalPrice: number | null; swapBrand: string; swapProduct: string; swapRetailer: string; swapPrice: number | null;
+  originalPricePerOz: number | null; swapPricePerOz: number | null; savingsPerOzPct: number | null;
+  matchType: string; similarity: number | null; confidence: string; whySimilar: string; differences: string; status: string; flags: string;
+};
+const productMoney = (value: number | null) => value == null ? 'Price unavailable' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+async function fetchSwapCatalog(admin = false): Promise<SwapCatalogRow[]> {
+  const response = await fetch(admin ? '/api/admin/swap-catalog' : '/api/swap-catalog', { credentials: 'include' });
+  if (!response.ok) throw new Error(response.status === 403 ? 'This account is not authorized to manage the swap catalog.' : 'Could not load the swap catalog.');
+  return response.json();
+}
 
 function Header() {
   const [path] = useLocation();
@@ -380,16 +392,92 @@ function SwapVoteCard({ productId, name, brand, category }: { productId: string;
 }
 
 function SwapsPage() {
-  const profile = useGetSwapProfile();
-  const history = useGetPurchaseHistory();
-  const comparisons = useGetProductComparisons();
-  const dashboard = useGetFinanceDashboard();
+  const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
   return <div className="page">
     <PageTitle title="Swaps" subtitle="Cheaper finds for the things you already buy." />
-    <section className="swap-banner"><div><span>Potential yearly savings</span><strong>{money(dashboard.data?.annualSavings)}</strong></div><Link className="button light" href="/receipts?scan=receipt"><ScanLine />Scan a receipt</Link></section>
-    {comparisons.isLoading || history.isLoading ? <Skeleton lines={5} /> : comparisons.isError ? <ErrorState error={comparisons.error} retry={() => comparisons.refetch()} /> : comparisons.data?.length ? <section className="swap-card-list">{comparisons.data.map((item, i) => <article className="swap-product-card surface" key={`${item.productName}-${i}`}><div className="swap-product-pair"><div><small>{item.category} · Your pick</small><strong>{item.productName}</strong><span>{money(item.unitPrice)} each</span></div><ArrowRightLeft aria-hidden="true" /><div><small>Possible swap</small><strong>{item.alternativeName}</strong><span>{money(item.alternativePrice)} each</span></div></div><div className="swap-product-footer"><span>Based on your saved purchase</span><strong>Save {money(item.annualSavings)} / year</strong></div></article>)}</section> : <section className="surface"><EmptyState title={profile.data?.swapCategories.length ? 'Your first swap is one receipt away' : 'What are you open to swapping?'} body={profile.data?.swapCategories.length ? 'Save a receipt and we’ll only show alternatives when product details are available.' : 'Pick the categories that could use a lower price. Your favorites stay yours.'} action={<Link className="button primary" href={profile.data?.swapCategories.length ? '/receipts?scan=receipt' : '/profile'}>{profile.data?.swapCategories.length ? 'Scan a receipt' : 'Set my preferences'}</Link>} /></section>}
-    {history.data?.length ? <section className="surface history-surface"><div className="section-heading"><div><h2>Products you’ve bought</h2><p>Alternatives are based on saved receipt details.</p></div></div>{history.data.map((item) => <div className="history-item" key={item.id}><div><strong>{item.productName}</strong><small>{item.brand} · {item.category} · {money(item.unitPrice)}</small></div>{item.productId ? <SwapVoteCard productId={item.productId} name={item.productName} brand={item.brand} category={item.category} /> : null}</div>)}</section> : null}
-    <p className="legal-line">Prices and availability can change. Savings are estimates based on your saved purchase details.</p>
+    {catalog.isLoading ? <Skeleton lines={5} /> : catalog.isError ? <ErrorState error={catalog.error} retry={() => catalog.refetch()} /> : catalog.data?.length ? <div className="swap-card-list">{catalog.data.map((row) => <Link className="swap-product-card surface catalog-swap-card" key={row.id} href={`/swaps/${encodeURIComponent(row.id)}`}>
+      <div className="swap-product-pair"><div><small>{row.groupName} · {row.category} · {row.matchType}</small><strong>{row.originalBrand ? `${row.originalBrand} ` : ''}{row.originalProduct}</strong><span>{productMoney(row.originalPrice)}{row.originalRetailer ? ` · ${row.originalRetailer}` : ''}</span></div><ArrowRightLeft aria-hidden="true" /><div><small>{row.similarity == null ? 'Match' : `${row.similarity}% match`}</small><strong>{row.swapBrand ? `${row.swapBrand} ` : ''}{row.swapProduct}</strong><span>{productMoney(row.swapPrice)}{row.swapRetailer ? ` · ${row.swapRetailer}` : ''}</span></div></div>
+      {row.originalPricePerOz != null && row.swapPricePerOz != null && <div className="catalog-unit-savings">Per ounce: {productMoney(row.originalPricePerOz)} → {productMoney(row.swapPricePerOz)}{row.savingsPerOzPct != null ? ` · ${Math.round(row.savingsPerOzPct)}% less` : ''}</div>}
+    </Link>)}</div> : <section className="surface"><EmptyState title="No priced swaps are ready yet" body="We’ll show catalog matches here once both products have prices." action={<Link className="button primary" href="/receipts?scan=receipt">Scan a receipt</Link>} /></section>}
+    <p className="legal-line">Prices may change. Similarity notes describe product attributes; check current packaging and pricing.</p>
+  </div>;
+}
+
+function SwapDetailPage({ id }: { id: string }) {
+  const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
+  const row = catalog.data?.find((item) => item.id === id);
+  if (catalog.isLoading) return <div className="page"><Skeleton lines={4} /></div>;
+  if (catalog.isError) return <div className="page"><ErrorState error={catalog.error} retry={() => catalog.refetch()} /></div>;
+  if (!row) return <div className="page"><PageTitle title="Swap not available" /><Link className="quiet-link" href="/swaps">Back to swaps</Link></div>;
+  return <div className="page swap-detail-page"><Link className="quiet-link" href="/swaps"><ChevronLeft />All swaps</Link><PageTitle title={row.swapProduct} subtitle={`${row.swapBrand || row.groupName} · ${row.category}`} />
+    <section className="surface detail-price-pair"><div><small>Original</small><h2>{row.originalBrand} {row.originalProduct}</h2><strong>{productMoney(row.originalPrice)}</strong><span>{row.originalRetailer}</span></div><ArrowRightLeft /><div><small>{row.matchType} · {row.similarity ?? '—'}% similarity</small><h2>{row.swapBrand} {row.swapProduct}</h2><strong>{productMoney(row.swapPrice)}</strong><span>{row.swapRetailer}</span></div></section>
+    {row.originalPricePerOz != null && row.swapPricePerOz != null && <section className="surface"><h2>Price per ounce</h2><p>{productMoney(row.originalPricePerOz)} original · {productMoney(row.swapPricePerOz)} swap{row.savingsPerOzPct != null ? ` · ${Math.round(row.savingsPerOzPct)}% less per ounce` : ''}</p></section>}
+    <section className="surface swap-reason"><h2>Why it’s similar</h2><p>{row.whySimilar || 'No similarity notes provided.'}</p>{row.differences && <div className="swap-differences"><h3>Differences</h3><p>{row.differences}</p></div>}</section>
+    <p className="legal-line">Prices may change. Review current product details before purchasing.</p>
+  </div>;
+}
+
+const adminFields: Array<{ key: keyof SwapCatalogRow; label: string; kind?: 'number' | 'long' }> = [
+  { key: 'groupName', label: 'Group' }, { key: 'category', label: 'Category' },
+  { key: 'originalBrand', label: 'Original brand' }, { key: 'originalProduct', label: 'Original product' },
+  { key: 'originalRetailer', label: 'Original retailer' }, { key: 'originalPrice', label: 'Original price', kind: 'number' },
+  { key: 'swapBrand', label: 'Swap brand' }, { key: 'swapProduct', label: 'Swap product' },
+  { key: 'swapRetailer', label: 'Swap retailer' }, { key: 'swapPrice', label: 'Swap price', kind: 'number' },
+  { key: 'originalPricePerOz', label: 'Original price per oz', kind: 'number' }, { key: 'swapPricePerOz', label: 'Swap price per oz', kind: 'number' },
+  { key: 'savingsPerOzPct', label: 'Savings per oz %', kind: 'number' }, { key: 'matchType', label: 'Match type' },
+  { key: 'similarity', label: 'Similarity', kind: 'number' }, { key: 'confidence', label: 'Confidence' },
+  { key: 'whySimilar', label: 'Why it’s similar', kind: 'long' }, { key: 'differences', label: 'Differences', kind: 'long' },
+  { key: 'status', label: 'Status' }, { key: 'flags', label: 'Flags', kind: 'long' },
+];
+function AdminSwapsPage() {
+  const query = useQuery({ queryKey: ['admin-swap-catalog'], queryFn: () => fetchSwapCatalog(true) });
+  const [rows, setRows] = useState<SwapCatalogRow[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (query.data) setRows(query.data); }, [query.data]);
+  const refresh = async () => { await query.refetch(); };
+  const update = (id: string, key: keyof SwapCatalogRow, value: string) => setRows((current) => current.map((row) => row.id === id ? { ...row, [key]: key === 'originalPrice' || key === 'swapPrice' || key === 'originalPricePerOz' || key === 'swapPricePerOz' || key === 'savingsPerOzPct' || key === 'similarity' ? value === '' ? null : Number(value) : value } : row));
+  const payloadFor = (row: SwapCatalogRow) => ({
+    group: row.groupName, category: row.category, original_brand: row.originalBrand, original_product: row.originalProduct,
+    original_retailer: row.originalRetailer, original_price: row.originalPrice, swap_brand: row.swapBrand,
+    swap_product: row.swapProduct, swap_retailer: row.swapRetailer, swap_price: row.swapPrice,
+    original_price_per_oz: row.originalPricePerOz, swap_price_per_oz: row.swapPricePerOz,
+    savings_per_oz_pct: row.savingsPerOzPct, match_type: row.matchType, similarity: row.similarity,
+    confidence: row.confidence, why_similar: row.whySimilar, differences: row.differences, status: row.status, flags: row.flags,
+  });
+  const save = async (row: SwapCatalogRow) => {
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch(`/api/admin/swap-catalog/${encodeURIComponent(row.id)}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFor(row)) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not save this swap.');
+      setMessage(`${row.id} saved.`); await refresh();
+    } catch (error) { setMessage(messageOf(error)); } finally { setBusy(false); }
+  };
+  const approve = async (row: SwapCatalogRow) => {
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch(`/api/admin/swap-catalog/${encodeURIComponent(row.id)}/approve`, { method: 'POST', credentials: 'include' });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not approve this swap.');
+      setMessage(`${row.id} approved. It appears to users only after both prices are filled in.`); await refresh();
+    } catch (error) { setMessage(messageOf(error)); } finally { setBusy(false); }
+  };
+  const importCsv = async () => {
+    if (!file) return;
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch('/api/admin/swap-catalog/import', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: await file.text() }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Could not import CSV.');
+      setMessage(body.message); setFile(null); await refresh();
+    } catch (error) { setMessage(messageOf(error)); } finally { setBusy(false); }
+  };
+  return <div className="page admin-swaps-page"><PageTitle title="Swap catalog" subtitle="Review, edit, approve, and re-import catalog rows by ID." />
+    <section className="surface catalog-import"><label>Import updated CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><button className="button primary" disabled={!file || busy} onClick={() => void importCsv()}><Upload />Import / update</button><p>Existing IDs are updated; new IDs are added. Rows without both prices stay hidden from users.</p></section>
+    {message && <p className="inline-success" role="status">{message}</p>}
+    {query.isLoading ? <Skeleton lines={5} /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : rows.map((row) => <article className="surface admin-swap-row" key={row.id}>
+      <div className="admin-row-heading"><div><strong>{row.id}</strong><span>{row.status}</span></div><div>{row.status.startsWith('Review first') && <button className="button secondary" disabled={busy} onClick={() => void approve(row)}>Approve</button>}<button className="button primary" disabled={busy} onClick={() => void save(row)}>Save changes</button></div></div>
+      <div className="admin-swap-fields">{adminFields.map(({ key, label, kind }) => <label key={key}>{label}{kind === 'long' ? <textarea rows={key === 'flags' ? 3 : 4} value={String(row[key] ?? '')} onChange={(event) => update(row.id, key, event.target.value)} /> : <input type={kind === 'number' ? 'number' : 'text'} step={kind === 'number' ? 'any' : undefined} value={String(row[key] ?? '')} onChange={(event) => update(row.id, key, event.target.value)} />}</label>)}</div>
+    </article>)}
   </div>;
 }
 
@@ -741,6 +829,8 @@ function AppRoutes() {
     <Route path="/" component={HomePage} />
     <Route path="/transactions" component={SpendingPage} />
     <Route path="/swaps" component={SwapsPage} />
+    <Route path="/swaps/:id">{(params) => <SwapDetailPage id={params.id} />}</Route>
+    <Route path="/admin/swaps" component={AdminSwapsPage} />
     <Route path="/earn-save" component={GigsPage} />
     <Route path="/onboarding" component={OnboardingPage} />
     <Route path="/receipts" component={ReceiptPage} />

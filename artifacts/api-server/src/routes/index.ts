@@ -6,6 +6,7 @@ import healthRouter from "./health";
 import purchaseIntelligenceRouter from "./purchase-intelligence";
 import storageRouter from "./storage";
 import plaidRouter from "./plaid";
+import swapCatalogRouter from "./swap-catalog";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(purchaseIntelligenceRouter);
 router.use(extensionRouter);
 router.use(storageRouter);
 router.use(plaidRouter);
+router.use(swapCatalogRouter);
 
 export default router;
