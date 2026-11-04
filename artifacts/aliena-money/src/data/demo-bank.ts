@@ -7,7 +7,7 @@ const dateDaysAgo = (days: number) => {
 
 export const demoBankActivity = {
   isDemo: true,
-  institution: "Aliena sample bank",
+  institution: "Margo sample bank",
   accounts: [
     {
       id: "demo-checking",

@@ -1,6 +1,6 @@
 ---
-name: Aliena navigation
-description: Product information architecture for Aliena Money.
+name: Margo navigation
+description: Product information architecture for Margo.
 ---
 
 My Plan is the home dashboard and combines the earlier overview metrics/activity with the plan summary. First-time plan setup and editable category budgets belong in account onboarding/settings, not on the home view. Tax set-aside is a dashboard tile, not a main navigation destination. Receipt and barcode capture actions live in Better Buys. Income, monthly rent, savings goals, and priorities are locked on the home view after setup; updates belong on the account/profile page opened from the top-right avatar. Profile is an account destination, not a tab in the main navigation. Keep tax education general and leave the estimate rate user-controlled.

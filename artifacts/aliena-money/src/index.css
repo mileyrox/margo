@@ -165,7 +165,7 @@ h1 { font:600 clamp(29px,3vw,39px)/1.1 var(--app-font-serif);letter-spacing:-1px
 @media(max-width:760px){.sidebar{display:none}.workspace{margin-left:0;width:100%}.topbar{display:none}.mobile-header{display:flex;position:sticky;top:0;z-index:15;height:59px;background:#244637;color:#f9f5e8;align-items:center;justify-content:space-between;padding:0 17px}.mobile-header .brand{padding:0;gap:8px}.mobile-header .brand-mark{width:29px;height:29px;border-radius:9px}.mobile-header .brand-name{font-size:20px}.mobile-nav{display:flex;gap:4px;overflow:auto;padding:9px 12px;background:#244637;border-top:1px solid rgba(255,255,255,.12)}.mobile-nav .nav-link{white-space:nowrap;padding:8px 10px;font-size:10px}.mobile-nav .nav-link svg{width:14px;height:14px}.content{padding:29px 17px 50px}.page-heading{align-items:flex-start;flex-direction:column;margin-bottom:23px}.page-heading .btn{align-self:stretch}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric-card{padding:15px;min-height:122px}.metric-value{font-size:23px;margin-top:14px}.metric-label{font-size:10px}.overview-grid,.split-layout{grid-template-columns:1fr}.side-stack{grid-template-columns:1fr}.panel-head{padding:17px}.transaction-list{padding:0 17px 8px}.comparison-row{grid-template-columns:1fr 32px 1fr;gap:8px;padding:15px 14px}.comparison-row .save-amount{grid-column:1/-1;justify-self:end;min-width:110px}.product-price{font-size:16px}.receipt-item{grid-template-columns:1fr 1fr 32px;}.receipt-item .field:nth-child(1){grid-column:1/3}.receipt-item .field:nth-child(2){grid-column:1/2}.receipt-item .field:nth-child(3){grid-column:2/3}.receipt-item .field:nth-child(4){grid-column:1/3}.receipt-item button{grid-column:3;grid-row:1}.table th,.table td{padding-left:11px;padding-right:11px}.table td:first-child,.table th:first-child{padding-left:15px}.form-panel{padding:18px}.settings-section{padding:18px}.receipt-detail{grid-template-columns:1fr 1fr}.top-status{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
-/* Aliena's personal-space details: wine, evergreen, marigold and sky. */
+/* Margo's personal-space details: burgundy, navy, marigold and sky. */
 .brand-mark { background:#e9bf54; color:#173d31; }
 .brand-name span { color:#e9bf54; }
 .sidebar { background:#173d31; }
@@ -934,7 +934,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .folder-top { min-height:62px; padding:10px 5px 11px; }
 }
 
-/* Aliena's interface is inspired by the supplied mobile money-app screens. */
+/* Margo's interface follows the supplied brand mark and mobile money-app screens. */
 :root {
   --app-bg: #fbf7e8;
   --app-surface: #fffefa;
@@ -976,6 +976,31 @@ body {
   font:700 24px/1 var(--app-font-serif);
   letter-spacing:-.6px;
 }
+.margo-logo-header {
+  display:block;
+  width:auto;
+  height:48px;
+  max-width:150px;
+  object-fit:contain;
+  mix-blend-mode:multiply;
+}
+.margo-logo-login {
+  display:block;
+  width:min(100%,270px);
+  height:auto;
+  margin:0 auto 18px;
+  mix-blend-mode:multiply;
+}
+.getting-started-panel { display:grid; gap:18px; margin-bottom:18px; padding:22px 24px; }
+.getting-started-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.getting-started-card { display:flex; align-items:center; gap:11px; min-width:0; padding:13px; border:1px solid var(--app-line); border-radius:12px; color:var(--app-ink); text-decoration:none; background:var(--app-surface); transition:transform .15s ease,box-shadow .15s ease; }
+.getting-started-card:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(1,30,72,.09); }
+.getting-started-number { display:grid; flex:none; width:30px; height:30px; place-items:center; border-radius:50%; background:var(--app-blue); color:var(--app-navy); font-size:11px; font-weight:800; }
+.getting-started-card div { display:grid; gap:4px; min-width:0; }
+.getting-started-card strong { font-size:11px; }
+.getting-started-card div span { color:var(--app-muted); font-size:9px; line-height:1.4; }
+.getting-started-state { display:flex; align-items:center; gap:3px; margin-left:auto; color:var(--app-wine); font-size:9px; font-weight:700; white-space:nowrap; }
+.getting-started-state svg { width:13px; height:13px; }
 .app-brand-mark {
   display:grid;
   width:32px;
@@ -1376,4 +1401,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .account-actions .avatar { display:grid; }
   .metric-card { padding:12px; }
   .metric-label svg { width:13px; }
+  .margo-logo-header { height:38px; max-width:122px; }
+}
+@media(max-width:760px) {
+  .getting-started-panel { padding:18px; }
+  .getting-started-grid { grid-template-columns:1fr; }
 }
