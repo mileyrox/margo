@@ -8,6 +8,7 @@ import {
   numeric,
   pgTable,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -36,6 +37,7 @@ export const transactionsTable = pgTable(
     date: date("date", { mode: "string" }).notNull(),
     isTaxable: boolean("is_taxable").notNull().default(false),
     source: varchar("source", { length: 120 }),
+    plaidTransactionId: varchar("plaid_transaction_id", { length: 120 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -43,6 +45,7 @@ export const transactionsTable = pgTable(
   (table) => [
     index("transactions_user_date_idx").on(table.userId, table.date),
     index("transactions_user_type_idx").on(table.userId, table.type),
+    uniqueIndex("transactions_user_plaid_id_idx").on(table.userId, table.plaidTransactionId),
   ],
 );
 

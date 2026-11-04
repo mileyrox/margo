@@ -431,9 +431,9 @@ export const UpdateBudgetPlanBody = zod.object({
   "annualIncome": zod.number().min(updateBudgetPlanBodyAnnualIncomeMin),
   "annualSavingsGoal": zod.number().min(updateBudgetPlanBodyAnnualSavingsGoalMin),
   "monthlyRent": zod.number().min(updateBudgetPlanBodyMonthlyRentMin),
-  "priorityCategories": zod.array(zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other'])).max(updateBudgetPlanBodyPriorityCategoriesMax),
+  "priorityCategories": zod.array(zod.enum(['Rent', 'Groceries', 'Dining out', 'Shopping', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities'])).max(updateBudgetPlanBodyPriorityCategoriesMax),
   "categoryBudgets": zod.array(zod.object({
-  "category": zod.enum(['Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health', 'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other']),
+  "category": zod.enum(['Rent', 'Groceries', 'Dining out', 'Shopping', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities']),
   "monthlyTarget": zod.number().min(updateBudgetPlanBodyCategoryBudgetsItemMonthlyTargetMin)
 }))
 })

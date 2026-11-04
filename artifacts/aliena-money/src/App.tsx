@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -25,6 +25,7 @@ import {
 import { Route, Switch, Link, useLocation, Router as WouterRouter } from 'wouter';
 import NotFound from '@/pages/not-found';
 import { demoBankActivity } from '@/data/demo-bank';
+import { usePlaidLink } from 'react-plaid-link';
 
 const queryClient = new QueryClient();
 
@@ -42,9 +43,28 @@ const niceDate = (value: string) => {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+function parseCsvRow(line: string): string[] {
+  const cells: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (char === '"' && line[i + 1] === '"' && quoted) { cell += '"'; i += 1; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === ',' && !quoted) { cells.push(cell.trim()); cell = ''; }
+    else cell += char;
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+function normalizeCsvDate(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return match ? `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}` : null;
+}
 const spendingCategories = [
-  'Housing', 'Groceries', 'Dining & coffee', 'Transportation', 'Utilities', 'Health',
-  'Debt payments', 'Personal care', 'Shopping', 'Entertainment', 'Travel', 'Family & giving', 'Other',
+  'Rent', 'Groceries', 'Dining out', 'Shopping', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities',
 ] as const;
 type PriorityCategory = typeof spendingCategories[number];
 type CategoryBudgetDraft = { category: PriorityCategory; monthlyTarget: number };
@@ -80,6 +100,94 @@ function PageHeading({ eyebrow, title, subtitle, action }: { eyebrow: string; ti
 }
 function LoadingPanel({ rows = 4 }: { rows?: number }) { return <div className="panel" aria-label="Loading"><div style={{ padding: '16px 22px' }}>{Array.from({ length: rows }, (_, i) => <div className="skeleton" key={i} />)}</div></div>; }
 function ErrorPanel({ error, retry }: { error: unknown; retry: () => void }) { return <div className="error-box" role="alert"><span>{messageOf(error)}</span><button onClick={retry} data-testid="button-retry">Try again</button></div>; }
+
+type PlaidItemView = { id: string; institutionName: string | null; lastSyncAt: string | null };
+function PlaidConnectCard() {
+  const qc = useQueryClient();
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [syncingId, setSyncingId] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const items = useQuery({
+    queryKey: ['plaid-items'],
+    queryFn: async () => {
+      const response = await fetch('/api/plaid/items', { credentials: 'include' });
+      if (!response.ok) throw new Error('Could not load connected banks.');
+      return response.json() as Promise<PlaidItemView[]>;
+    },
+  });
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess: async (publicToken, metadata) => {
+      setBusy(true); setError(''); setNotice('');
+      try {
+        const exchange = await fetch('/api/plaid/exchange', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ publicToken, institutionId: metadata.institution?.institution_id, institutionName: metadata.institution?.name }),
+        });
+        const linked = await exchange.json();
+        if (!exchange.ok || !linked.itemId) throw new Error(linked.error || 'Could not finish the bank connection.');
+        const sync = await fetch('/api/plaid/sync', {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId: linked.itemId }),
+        });
+        const synced = await sync.json();
+        if (!sync.ok) throw new Error(synced.error || 'Bank connected, but transactions could not be synced.');
+        setNotice('Sandbox bank connected. Transactions are now in your activity.');
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ['plaid-items'] }),
+          qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }),
+          qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }),
+          qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }),
+        ]);
+      } catch (e) { setError(messageOf(e)); }
+      finally { setBusy(false); setLinkToken(null); }
+    },
+    onExit: () => { setLinkToken(null); setBusy(false); },
+  });
+  useEffect(() => { if (linkToken && ready) open(); }, [linkToken, ready, open]);
+  const connect = async () => {
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const response = await fetch('/api/plaid/link-token', { method: 'POST', credentials: 'include' });
+      const result = await response.json();
+      if (!response.ok || !result.linkToken) throw new Error(result.error || 'Could not start a Sandbox connection.');
+      setLinkToken(result.linkToken);
+    } catch (e) { setError(messageOf(e)); setBusy(false); }
+  };
+  const syncItem = async (id: string) => {
+    setSyncingId(id); setError(''); setNotice('');
+    try {
+      const response = await fetch('/api/plaid/sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: id }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not sync transactions.');
+      setNotice(`Synced ${result.imported} Sandbox transactions.`);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['plaid-items'] }),
+        qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }),
+      ]);
+    } catch (e) { setError(messageOf(e)); }
+    finally { setSyncingId(''); }
+  };
+  const disconnect = async (id: string) => {
+    setError(''); setNotice('');
+    const response = await fetch(`/api/plaid/items/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
+    if (!response.ok) { setError('Could not disconnect this bank. Try again.'); return; }
+    await qc.invalidateQueries({ queryKey: ['plaid-items'] });
+    setNotice('Bank disconnected. Previously imported transactions remain in your activity.');
+  };
+  return <section className="panel plaid-connect-card">
+    <div className="plaid-connect-copy"><div className="eyebrow">Optional connection · Sandbox</div><h2 className="panel-title">Connect your bank</h2><p className="panel-caption">Import test transactions into your activity. Manual entry remains available.</p></div>
+    <button className="btn btn-primary" onClick={connect} disabled={busy || !ready && Boolean(linkToken)} data-testid="button-connect-bank">{busy ? 'Connecting…' : 'Connect a test bank'}</button>
+    {items.isError && <p className="profile-error" role="alert">Could not load connected banks.</p>}
+    {items.data?.map((item) => <div className="plaid-connected-item" key={item.id}><span><strong>{item.institutionName || 'Sandbox bank'}</strong><small>{item.lastSyncAt ? `Last synced ${niceDate(item.lastSyncAt)}` : 'Not synced yet'}</small></span><div className="plaid-item-actions"><button type="button" className="text-link" disabled={syncingId === item.id} onClick={() => void syncItem(item.id)}>{syncingId === item.id ? 'Syncing…' : 'Sync now'}</button><button type="button" className="text-link" onClick={() => void disconnect(item.id)}>Disconnect</button></div></div>)}
+    {error && <p className="profile-error" role="alert">{error}</p>}
+    {notice && <p className="profile-saved" role="status">{notice}</p>}
+  </section>;
+}
 function EmptyState({ icon: Icon, title, body, action }: { icon: typeof Wallet; title: string; body: string; action?: ReactNode }) {
   return <div className="empty-state"><div className="empty-mark"><Icon /></div><h3>{title}</h3><p>{body}</p>{action}</div>;
 }
@@ -129,6 +237,8 @@ function TransactionsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [error, setError] = useState('');
+  const [importNotice, setImportNotice] = useState('');
+  const [csvImporting, setCsvImporting] = useState(false);
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetTransactionsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() });
@@ -147,13 +257,54 @@ function TransactionsPage() {
       source: String(fd.get('source') || '').trim() || null,
     } }, { onSuccess: () => { refresh(); setFormOpen(false); form.reset(); }, onError: (e) => setError(messageOf(e)) });
   };
+  const importCsv = async (file?: File) => {
+    if (!file) return;
+    setError(''); setImportNotice(''); setCsvImporting(true);
+    let imported = 0;
+    try {
+      const lines = (await file.text()).split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) throw new Error('The CSV needs a header row and at least one transaction.');
+      const headers = parseCsvRow(lines[0]!).map((value) => value.toLowerCase().replace(/[\s_-]+/g, ''));
+      const find = (...names: string[]) => headers.findIndex((header) => names.includes(header));
+      const dateIndex = find('date', 'transactiondate');
+      const labelIndex = find('description', 'name', 'merchant', 'label');
+      const amountIndex = find('amount', 'transactionamount');
+      const categoryIndex = find('category');
+      const typeIndex = find('type');
+      if ([dateIndex, labelIndex, amountIndex, categoryIndex].some((index) => index < 0)) {
+        throw new Error('CSV headers must include date, description, amount, and category. Type is optional.');
+      }
+      for (const line of lines.slice(1)) {
+        const cells = parseCsvRow(line);
+        const date = normalizeCsvDate(cells[dateIndex] || '');
+        const label = (cells[labelIndex] || '').trim();
+        const amountText = (cells[amountIndex] || '').replace(/[$,\s]/g, '');
+        const rawAmount = Number(amountText);
+        if (!date || !label || !Number.isFinite(rawAmount) || rawAmount === 0) continue;
+        const rawType = typeIndex >= 0 ? (cells[typeIndex] || '').toLowerCase() : '';
+        const transactionType = rawType === 'income' || (rawType !== 'expense' && rawAmount < 0) ? 'income' : 'expense';
+        const category = cells[categoryIndex]?.trim() || '';
+        if (!category) continue;
+        await create.mutateAsync({ data: {
+          type: transactionType, label: label.slice(0, 120), amount: Math.abs(rawAmount), category: category.slice(0, 60),
+          date, isTaxable: false, source: 'CSV upload',
+        } });
+        imported += 1;
+      }
+      if (!imported) throw new Error('No valid rows were found. Check dates and non-zero amounts.');
+      refresh();
+      setImportNotice(`Imported ${imported} transaction${imported === 1 ? '' : 's'}.`);
+    } catch (e) { setError(imported ? `Imported ${imported} rows before stopping: ${messageOf(e)}` : messageOf(e)); if (imported) refresh(); }
+    finally { setCsvImporting(false); }
+  };
   const deleteOne = (id: string) => {
     if (!window.confirm('Delete this transaction? This cannot be undone.')) return;
     remove.mutate({ id }, { onSuccess: refresh, onError: (e) => setError(messageOf(e)) });
   };
   return <div className="content">
-    <PageHeading eyebrow="The everyday" title="Transactions" subtitle="Keep a clear record of spending and income. Saved entries stay separate from sample account activity." action={<button className="btn btn-primary" onClick={() => setFormOpen(!formOpen)} data-testid="button-add-transaction"><Plus />{formOpen ? 'Close form' : 'Add transaction'}</button>} />
+    <PageHeading eyebrow="The everyday" title="Transactions" subtitle="Keep a clear record of spending and income. Saved entries stay separate from sample account activity." action={<div className="transaction-actions"><label className="btn btn-soft">{csvImporting ? 'Importing…' : 'Upload CSV'}<input type="file" accept=".csv,text/csv" disabled={csvImporting} onChange={(event) => { void importCsv(event.target.files?.[0]); event.currentTarget.value = ''; }} hidden /></label><button className="btn btn-primary" onClick={() => setFormOpen(!formOpen)} data-testid="button-add-transaction"><Plus />{formOpen ? 'Close form' : 'Add transaction'}</button></div>} />
     {error && <div className="error-box" role="alert" style={{ marginBottom: 15 }}><span>{error}</span><button onClick={() => setError('')}><X size={13} /></button></div>}
+    {importNotice && <div className="notice" role="status" style={{ marginBottom: 15 }}>{importNotice}</div>}
     {formOpen && <section className="panel form-panel"><div className="panel-head" style={{ padding: '0 0 16px' }}><div><h2 className="panel-title">Add something to your ledger</h2><p className="panel-caption">Just the details you want to remember.</p></div></div>
       <form onSubmit={submit}><div className="form-grid">
         <div className="field"><label htmlFor="transaction-type">Type</label><select id="transaction-type" className="input" value={type} onChange={(e) => setType(e.target.value as 'income' | 'expense')} data-testid="select-transaction-type"><option value="expense">Expense</option><option value="income">Income</option></select></div>
@@ -253,6 +404,7 @@ function PlanPage({ allowEdit = false }: { allowEdit?: boolean }) {
       <div className="panel metric-card"><div className="metric-label"><Leaf />Potential yearly savings</div><div className="metric-value">{money(dashboard.data?.annualSavings)}</div><div className="metric-note">From Better Buys comparisons</div></div>
     </div>}
     {dashboard.isError && <ErrorPanel error={dashboard.error} retry={() => dashboard.refetch()} />}
+    <PlaidConnectCard />
     {plan.isLoading ? <LoadingPanel rows={3} /> : plan.isError ? <ErrorPanel error={plan.error} retry={() => plan.refetch()} /> : <>
       {!configured && <div className="plan-welcome" data-testid="status-plan-unconfigured"><div className="plan-welcome-mark"><Sparkles /></div><div><strong>Your first plan starts with a few essentials.</strong><p>Set your take-home income, monthly rent, savings goal, and priorities in account setup.</p><Link href="/profile" className="text-link" style={{ display: 'inline-block', marginTop: 8 }}>Start setup <ChevronRight size={13} /></Link></div></div>}
       {configured && (!transactions.data?.length || !receipts.data?.length) && <section className="panel getting-started-panel">

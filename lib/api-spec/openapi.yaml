@@ -830,19 +830,14 @@ components:
           items:
             type: string
             enum:
-              - Housing
+              - Rent
               - Groceries
-              - Dining & coffee
-              - Transportation
-              - Utilities
-              - Health
-              - Debt payments
-              - Personal care
+              - Dining out
               - Shopping
-              - Entertainment
-              - Travel
-              - Family & giving
-              - Other
+              - Beauty
+              - Transportation
+              - Subscriptions
+              - Utilities
         categoryBudgets:
           type: array
           items:
@@ -851,7 +846,7 @@ components:
             properties:
               category:
                 type: string
-                enum: [Housing, Groceries, Dining & coffee, Transportation, Utilities, Health, Debt payments, Personal care, Shopping, Entertainment, Travel, Family & giving, Other]
+                enum: [Rent, Groceries, Dining out, Shopping, Beauty, Transportation, Subscriptions, Utilities]
               monthlyTarget: { type: number, minimum: 0 }
     BudgetCategoryPlan:
       type: object

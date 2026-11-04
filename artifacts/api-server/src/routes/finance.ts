@@ -48,19 +48,14 @@ import { ObjectStorageService } from "../lib/objectStorage";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 const spendingCategories = [
-  { category: "Housing", weight: 28 },
-  { category: "Groceries", weight: 14 },
-  { category: "Dining & coffee", weight: 6 },
+  { category: "Rent", weight: 30 },
+  { category: "Groceries", weight: 15 },
+  { category: "Dining out", weight: 8 },
+  { category: "Shopping", weight: 12 },
+  { category: "Beauty", weight: 5 },
   { category: "Transportation", weight: 10 },
-  { category: "Utilities", weight: 8 },
-  { category: "Health", weight: 7 },
-  { category: "Debt payments", weight: 7 },
-  { category: "Personal care", weight: 4 },
-  { category: "Shopping", weight: 5 },
-  { category: "Entertainment", weight: 4 },
-  { category: "Travel", weight: 3 },
-  { category: "Family & giving", weight: 2 },
-  { category: "Other", weight: 2 },
+  { category: "Subscriptions", weight: 5 },
+  { category: "Utilities", weight: 15 },
 ] as const;
 
 function requireUser(

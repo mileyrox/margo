@@ -10,17 +10,12 @@ export type BudgetPlanInputCategoryBudgetsItemCategory = typeof BudgetPlanInputC
 
 
 export const BudgetPlanInputCategoryBudgetsItemCategory = {
-  Housing: 'Housing',
+  Rent: 'Rent',
   Groceries: 'Groceries',
-  'Dining_&_coffee': 'Dining & coffee',
-  Transportation: 'Transportation',
-  Utilities: 'Utilities',
-  Health: 'Health',
-  Debt_payments: 'Debt payments',
-  Personal_care: 'Personal care',
+  Dining_out: 'Dining out',
   Shopping: 'Shopping',
-  Entertainment: 'Entertainment',
-  Travel: 'Travel',
-  'Family_&_giving': 'Family & giving',
-  Other: 'Other',
+  Beauty: 'Beauty',
+  Transportation: 'Transportation',
+  Subscriptions: 'Subscriptions',
+  Utilities: 'Utilities',
 } as const;

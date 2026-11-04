@@ -22,3 +22,4 @@ export * from "./finance";
 export * from "./budget-plan";
 export * from "./swap-profile";
 export * from "./purchase-intelligence";
+export * from "./plaid";

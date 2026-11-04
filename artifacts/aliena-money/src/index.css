@@ -1424,3 +1424,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {
   .getting-started-panel { padding:18px; }
   .getting-started-grid { grid-template-columns:1fr; }
 }
+.plaid-connect-card { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px 18px; align-items:center; margin:18px 0; padding:21px 23px; }
+.plaid-connect-copy .panel-title { margin:3px 0 4px; }
+.plaid-connect-copy .panel-caption { margin:0; }
+.plaid-connected-item { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:14px; padding-top:12px; border-top:1px solid var(--app-line); }
+.plaid-connected-item span { display:grid; gap:3px; }
+.plaid-connected-item strong { font-size:11px; }
+.plaid-connected-item small { color:var(--app-muted); font-size:9px; }
+.plaid-item-actions,.transaction-actions { display:flex; align-items:center; gap:10px; }
+@media(max-width:760px) {
+  .transaction-actions { width:100%; }
+  .transaction-actions .btn { flex:1; justify-content:center; }
+  .plaid-connected-item { align-items:flex-start; }
+}
+@media(max-width:560px) {
+  .plaid-connect-card { grid-template-columns:1fr; }
+  .plaid-connect-card>.btn { width:100%; }
+}
