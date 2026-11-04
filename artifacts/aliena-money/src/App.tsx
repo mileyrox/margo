@@ -17,7 +17,7 @@ import {
 } from '@workspace/api-client-react';
 import type { BudgetPlanInput, ReceiptInput, ReceiptScanResult, SwapProfileInput, Transaction } from '@workspace/api-client-react';
 import {
-  ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Check, ChevronRight, CircleHelp, FileImage,
+  ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleHelp, FileImage,
   HandCoins, Home, Leaf, LogOut, Plus, ReceiptText, ScanLine, ShieldCheck,
   ShoppingBag, Trash2, Upload, X,
 } from 'lucide-react';
@@ -90,8 +90,8 @@ function Shell({ children }: { children: ReactNode }) {
   </div>;
 }
 
-function PageTitle({ title, subtitle, action }: { title: string; subtitle: string; action?: ReactNode }) {
-  return <div className="page-title"><div><h1>{title}</h1><p>{subtitle}</p></div>{action}</div>;
+function PageTitle({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+  return <div className="page-title"><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div>{action}</div>;
 }
 function Skeleton({ lines = 3 }: { lines?: number }) { return <div className="skeleton-stack" aria-label="Loading">{Array.from({ length: lines }, (_, i) => <i key={i} />)}</div>; }
 function ErrorState({ error, retry }: { error: unknown; retry: () => void }) { return <div className="error-state" role="alert"><span>{messageOf(error)}</span><button className="button secondary" onClick={retry}>Try again</button></div>; }
@@ -156,8 +156,8 @@ function BudgetList({ categories: items, compact = false }: { categories: Array<
   })}</div>;
 }
 
-function TransactionRows({ items, onDelete }: { items: Transaction[]; onDelete?: (id: string) => void }) {
-  return <div className="transaction-rows">{items.map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon ${item.type}`}>{item.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</span><div className="activity-copy"><strong>{item.label}</strong><small>{item.category} · {dateLabel(item.date)}</small></div><strong className={`activity-amount ${item.type}`}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong>{onDelete && <button className="text-icon" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.label}`}><Trash2 /></button>}</div>)}</div>;
+function TransactionRows({ items, onDelete, showDate = true }: { items: Transaction[]; onDelete?: (id: string) => void; showDate?: boolean }) {
+  return <div className="transaction-rows">{items.map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon ${item.type}`}>{item.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</span><div className="activity-copy"><strong>{item.label}</strong><small>{item.category}{showDate ? ` · ${dateLabel(item.date)}` : item.source ? ` · ${item.source}` : ''}</small></div><strong className={`activity-amount ${item.type}`}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong>{onDelete && <button className="text-icon" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.label}`}><Trash2 /></button>}</div>)}</div>;
 }
 
 function SpendingPage() {
@@ -166,10 +166,34 @@ function SpendingPage() {
   const create = useCreateTransaction();
   const remove = useDeleteTransaction();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [formOpen, setFormOpen] = useState(() => new URLSearchParams(window.location.search).has('add'));
   const [kind, setKind] = useState<'expense' | 'income'>(() => new URLSearchParams(window.location.search).get('kind') === 'income' ? 'income' : 'expense');
   const [error, setError] = useState('');
-  const list = useMemo(() => (query.data || []).filter((item) => filter === 'all' || item.type === filter), [query.data, filter]);
+  const monthRows = useMemo(() => (query.data || []).filter((item) => item.date.slice(0, 7) === selectedMonth).sort((a, b) => b.date.localeCompare(a.date)), [query.data, selectedMonth]);
+  const list = useMemo(() => monthRows.filter((item) => filter === 'all' || item.type === filter), [monthRows, filter]);
+  const groups = useMemo(() => {
+    const grouped = new Map<string, Transaction[]>();
+    list.forEach((item) => grouped.set(item.date, [...(grouped.get(item.date) || []), item]));
+    const now = new Date();
+    const currentDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12);
+    const previousDay = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    return Array.from(grouped.entries()).map(([date, items]) => ({
+      date,
+      label: date === currentDay ? 'Today' : date === previousDay ? 'Yesterday' : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00`)),
+      items,
+    }));
+  }, [list]);
+  const monthLabel = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(`${selectedMonth}-01T12:00:00`));
+  const moveMonth = (offset: number) => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const next = new Date(year, month - 1 + offset, 1, 12);
+    setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+  };
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() })]);
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setError('');
@@ -187,7 +211,7 @@ function SpendingPage() {
     remove.mutate({ id }, { onSuccess: () => { void refresh(); }, onError: (reason) => setError(messageOf(reason)) });
   };
   return <div className="page">
-    <PageTitle title="Spending" subtitle={new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date())} action={<button className="button primary" onClick={() => setFormOpen((open) => !open)}><Plus />{formOpen ? 'Close' : 'Add transaction'}</button>} />
+    <PageTitle title="Spending" action={<div className="month-selector"><button type="button" aria-label="Previous month" onClick={() => moveMonth(-1)} data-testid="button-previous-month"><ChevronLeft /></button><strong>{monthLabel}</strong><button type="button" aria-label="Next month" onClick={() => moveMonth(1)} data-testid="button-next-month"><ChevronRight /></button></div>} />
     {error && <div className="error-state">{error}<button onClick={() => setError('')} aria-label="Dismiss"><X /></button></div>}
     {formOpen && <form className="surface entry-form" onSubmit={submit}><div className="form-heading"><h2>Add an entry</h2><p>Just the details you want to remember.</p></div>
       <div className="form-grid">
@@ -203,13 +227,14 @@ function SpendingPage() {
     </form>}
     <section className="spending-totals">
       {(['expense', 'income'] as const).map((type) => {
-        const total = (query.data || []).filter((item) => item.type === type && item.date.slice(0, 7) === today().slice(0, 7)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+        const total = monthRows.filter((item) => item.type === type).reduce((sum, item) => sum + Number(item.amount || 0), 0);
         return <div className={type === 'expense' ? 'expense-total' : 'income-total'} key={type}><span>{type === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(total)}</strong></div>;
       })}
     </section>
-    <section className="surface spending-surface"><div className="section-heading"><div><h2>Your activity</h2><p>Only entries saved to your private ledger.</p></div><div className="filter-row">{(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}</div></div>
-      {query.isLoading ? <Skeleton /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : list.length ? <TransactionRows items={list} onDelete={deleteOne} /> : <EmptyState title="Nothing here yet" body="Add an entry when you want to keep track." action={<button className="button primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} />}
-    </section>
+    <div className="spending-filter-row" role="group" aria-label="Filter spending">
+      {(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}
+    </div>
+    {query.isLoading ? <section className="surface spending-empty"><Skeleton /></section> : query.isError ? <section className="surface spending-empty"><ErrorState error={query.error} retry={() => query.refetch()} /></section> : groups.length ? <div className="spending-day-list">{groups.map((group) => <section className="surface day-group" key={group.date}><h3>{group.label}</h3><TransactionRows items={group.items} onDelete={deleteOne} showDate={false} /></section>)}</div> : <section className="surface spending-empty"><EmptyState title="Nothing here yet" body={`No entries for ${monthLabel}. Add one whenever you want to keep track.`} action={<button className="button primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} /></section>}
   </div>;
 }
 
