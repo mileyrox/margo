@@ -37,7 +37,7 @@ const dateLabel = (value: string) => {
 };
 const today = () => new Date().toISOString().slice(0, 10);
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Something went wrong. Try again.';
-const disclosure = "These are platforms I've used and trust. Some links are referral links, so I may earn a bonus if you sign up.";
+const disclosure = 'Listings link to each platform. Availability, pay, and requirements vary by location and role.';
 
 function Header() {
   const [path] = useLocation();
@@ -68,9 +68,12 @@ function Header() {
       <div className="plus-wrap">
         <button className="center-plus" aria-label="Create or scan" aria-expanded={plusOpen} onClick={() => setPlusOpen((open) => !open)} data-testid="button-open-create-menu">{plusOpen ? <X /> : <Plus />}</button>
         {plusOpen && <div className="plus-menu" role="menu">
-          <Link href="/receipts?scan=receipt" onClick={() => setPlusOpen(false)}><ScanLine />Scan receipt</Link>
-          <Link href="/receipts?scan=barcode" onClick={() => setPlusOpen(false)}><ShoppingBag />Scan barcode</Link>
-          <Link href="/transactions?add=1" onClick={() => setPlusOpen(false)}><Plus />Add transaction</Link>
+          <div className="plus-menu-heading"><strong>What are we adding?</strong><button type="button" onClick={() => setPlusOpen(false)} aria-label="Close create menu"><X /></button></div>
+          <Link href="/receipts?scan=receipt" onClick={() => setPlusOpen(false)}><span className="create-menu-icon burgundy"><ReceiptText /></span><span><strong>Scan a receipt</strong><small>I’ll read it and look for cheaper swaps</small></span></Link>
+          <Link href="/receipts?scan=barcode" onClick={() => setPlusOpen(false)}><span className="create-menu-icon blue"><ScanLine /></span><span><strong>Scan a barcode</strong><small>Check one product before you buy</small></span></Link>
+          <Link href="/transactions?add=1" onClick={() => setPlusOpen(false)}><span className="create-menu-icon cream"><ShoppingBag /></span><span><strong>Add a purchase</strong><small>Cash, Venmo, or anything I missed</small></span></Link>
+          <Link href="/transactions?add=1&kind=income" onClick={() => setPlusOpen(false)}><span className="create-menu-icon cream"><HandCoins /></span><span><strong>Log gig income</strong><small>Keep your income in one place</small></span></Link>
+          <button className="create-menu-cancel" onClick={() => setPlusOpen(false)}>Never mind</button>
         </div>}
       </div>
       {tabs.slice(2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`}><Icon />{label}</Link>)}
@@ -95,18 +98,22 @@ function ErrorState({ error, retry }: { error: unknown; retry: () => void }) { r
 function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) { return <div className="empty-state"><span className="empty-icon"><CircleHelp /></span><h2>{title}</h2><p>{body}</p>{action}</div>; }
 
 function HomePage() {
+  const { user } = useAuth();
   const dashboard = useGetFinanceDashboard();
   const plan = useGetBudgetPlan();
   const transactions = useGetTransactions();
   const comparisons = useGetProductComparisons();
+  const firstName = user?.firstName?.trim();
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
   const hasRealActivity = Boolean(transactions.data?.length);
   const spent = Number(dashboard.data?.monthlySpending || 0);
   const cap = Number(plan.data?.monthlySpendingTarget || 0);
   const left = Math.max(0, cap - spent);
-  if (dashboard.isLoading || plan.isLoading || transactions.isLoading) return <div className="page"><PageTitle title="Home" subtitle="A little more room for the things you love." /><Skeleton lines={6} /></div>;
-  if (dashboard.isError) return <div className="page"><PageTitle title="Home" subtitle="A little more room for the things you love." /><ErrorState error={dashboard.error} retry={() => dashboard.refetch()} /></div>;
+  if (dashboard.isLoading || plan.isLoading || transactions.isLoading) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><Skeleton lines={6} /></div>;
+  if (dashboard.isError) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><ErrorState error={dashboard.error} retry={() => dashboard.refetch()} /></div>;
   if (!hasRealActivity && !comparisons.data?.length) return <div className="page">
-    <PageTitle title="Home" subtitle="A little more room for the things you love." />
+    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." />
     <section className="welcome-card">
       <div className="welcome-art"><span className="orbit orbit-one" /><span className="orbit orbit-two" /><span className="welcome-spark"><Leaf /></span></div>
       <div><span className="note-label">A good place to start</span><h2>Keep your life. Spend a little less.</h2><p>Snap a receipt and I’ll help you spot lower-cost versions of the things you already love.</p><Link className="button primary" href="/receipts?scan=receipt"><ScanLine />Scan your first receipt</Link></div>
@@ -114,12 +121,18 @@ function HomePage() {
   </div>;
   const progress = cap > 0 ? Math.min(100, spent / cap * 100) : 0;
   return <div className="page">
-    <PageTitle title="Home" subtitle="Your money, in a way that feels like you." />
+    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="Here’s where things stand this month." />
     <section className="home-summary">
-      <div className="summary-top"><div><span className="summary-kicker">Spent this month</span><div className="summary-amount">{money(spent)}</div></div><div className="summary-budget"><span>Monthly budget</span><strong>{cap ? money(cap) : 'Not set yet'}</strong></div></div>
+      <div className="summary-top"><div><span className="summary-kicker">{cap ? 'Left to spend this month' : 'Spent this month'}</span><div className="summary-amount">{money(cap ? left : spent)}</div></div><div className="summary-budget"><span>{cap ? 'Monthly spending plan' : 'Monthly budget'}</span><strong>{cap ? money(cap) : 'Not set yet'}</strong></div></div>
       <div className="summary-track"><span style={{ width: `${progress}%` }} /></div>
-      <div className="summary-bottom"><span>{cap ? `${money(left)} left to spend` : 'Set category budgets in settings'}</span><span>Saved with swaps <b>{money(dashboard.data?.annualSavings)}</b></span></div>
+      <div className="summary-bottom"><span>{cap ? `${money(spent)} spent so far` : 'Set a monthly plan whenever you’re ready'}</span><span>{cap ? 'Spent so far' : 'Saved with swaps'} <b>{cap ? money(spent) : money(dashboard.data?.annualSavings)}</b></span></div>
     </section>
+    <div className="home-metrics">
+      <div><span>Saved with swaps</span><strong>{money(dashboard.data?.annualSavings)}</strong><small>Based on your saved purchases</small></div>
+      <div><span>Tax set-aside</span><strong>{money(dashboard.data?.taxSetAside)}</strong><small>Personal estimate</small></div>
+      <div><span>Savings goal</span><strong>{plan.data?.annualSavingsGoal ? `${money(plan.data.annualSavingsGoal / 12)} / mo` : 'Not set'}</strong><small>{plan.data?.annualSavingsGoal ? 'Your monthly target' : 'Choose what matters to you'}</small></div>
+    </div>
+    {comparisons.data?.length ? <Link href="/swaps" className="home-swap-callout"><span className="seal-mark">M</span><span><strong>Your money has a little more room.</strong><small>{comparisons.data.length} saved {comparisons.data.length === 1 ? 'swap' : 'swaps'} to explore</small></span><ChevronRight /></Link> : null}
     <div className="home-columns">
       <section className="surface budget-surface"><div className="section-heading"><div><h2>Your monthly categories</h2><p>A flexible guide, never a rule.</p></div><Link href="/settings" className="quiet-link">Edit</Link></div>
         {plan.data?.categories?.length ? <BudgetList categories={plan.data.categories} compact /> : <EmptyState title="Your budget, your way" body="Add a few monthly categories when you’re ready." action={<Link className="button secondary" href="/settings">Set budgets</Link>} />}
@@ -154,7 +167,7 @@ function SpendingPage() {
   const remove = useDeleteTransaction();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [formOpen, setFormOpen] = useState(() => new URLSearchParams(window.location.search).has('add'));
-  const [kind, setKind] = useState<'expense' | 'income'>('expense');
+  const [kind, setKind] = useState<'expense' | 'income'>(() => new URLSearchParams(window.location.search).get('kind') === 'income' ? 'income' : 'expense');
   const [error, setError] = useState('');
   const list = useMemo(() => (query.data || []).filter((item) => filter === 'all' || item.type === filter), [query.data, filter]);
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() })]);
@@ -174,7 +187,7 @@ function SpendingPage() {
     remove.mutate({ id }, { onSuccess: () => { void refresh(); }, onError: (reason) => setError(messageOf(reason)) });
   };
   return <div className="page">
-    <PageTitle title="Spending" subtitle="A clear picture of what comes in and goes out." action={<button className="button primary" onClick={() => setFormOpen((open) => !open)}><Plus />{formOpen ? 'Close' : 'Add transaction'}</button>} />
+    <PageTitle title="Spending" subtitle={new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date())} action={<button className="button primary" onClick={() => setFormOpen((open) => !open)}><Plus />{formOpen ? 'Close' : 'Add transaction'}</button>} />
     {error && <div className="error-state">{error}<button onClick={() => setError('')} aria-label="Dismiss"><X /></button></div>}
     {formOpen && <form className="surface entry-form" onSubmit={submit}><div className="form-heading"><h2>Add an entry</h2><p>Just the details you want to remember.</p></div>
       <div className="form-grid">
@@ -188,7 +201,13 @@ function SpendingPage() {
       {kind === 'income' && <label className="check-line"><input type="checkbox" name="taxable" defaultChecked />Include in my tax estimate</label>}
       <div className="form-footer"><button className="button secondary" type="button" onClick={() => setFormOpen(false)}>Cancel</button><button className="button primary" disabled={create.isPending}>{create.isPending ? 'Saving…' : 'Save entry'}</button></div>
     </form>}
-    <section className="surface spending-surface"><div className="section-heading"><div><h2>Your activity</h2><p>Only entries saved to your private ledger.</p></div><div className="filter-row">{(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'expense' ? 'Spending' : 'Income'}</button>)}</div></div>
+    <section className="spending-totals">
+      {(['expense', 'income'] as const).map((type) => {
+        const total = (query.data || []).filter((item) => item.type === type && item.date.slice(0, 7) === today().slice(0, 7)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+        return <div className={type === 'expense' ? 'expense-total' : 'income-total'} key={type}><span>{type === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(total)}</strong></div>;
+      })}
+    </section>
+    <section className="surface spending-surface"><div className="section-heading"><div><h2>Your activity</h2><p>Only entries saved to your private ledger.</p></div><div className="filter-row">{(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}</div></div>
       {query.isLoading ? <Skeleton /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : list.length ? <TransactionRows items={list} onDelete={deleteOne} /> : <EmptyState title="Nothing here yet" body="Add an entry when you want to keep track." action={<button className="button primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} />}
     </section>
   </div>;
@@ -419,6 +438,7 @@ function BankConnect() {
 
 function SettingsPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   const settings = useGetFinanceSettings();
   const plan = useGetBudgetPlan();
   const profileQuery = useGetSwapProfile();
@@ -499,6 +519,7 @@ function SettingsPage() {
   };
   return <div className="page">
     <PageTitle title="Settings" subtitle="Your preferences, budgets, and account." />
+    <section className="account-card"><span className="account-avatar">{user?.firstName?.[0] || user?.email?.[0] || 'M'}</span><span><strong>{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your Margo account'}</strong><small>{user?.email || 'Private to you'}</small></span></section>
     {error && <div className="inline-error" role="alert">{error}</div>}{message && <div className="inline-success" role="status">{message}</div>}
     <section className="surface settings-section"><div className="section-heading"><div><h2>What matters to you</h2><p>Keep the plan close to your real life.</p></div></div>
       {profileQuery.isLoading ? <Skeleton lines={2} /> : profileQuery.isError ? <ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /> : <div className="settings-fields"><label>Saving for<input className="field-input" value={savingFor} onChange={(event) => setSavingFor(event.target.value)} placeholder="A trip, more breathing room…" /></label><label>Monthly savings goal<input className="field-input" type="number" min="0" step="25" value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Monthly take-home pay<input className="field-input" type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} /></label><label>Monthly rent<input className="field-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label><div className="settings-choice-group"><strong>Non-negotiables</strong><div className="settings-chips">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profileDraft.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profileDraft.nonNegotiables.includes(item)} onClick={() => toggleSettingChoice('nonNegotiables', item)}>{item}</button>)}</div></div><div className="settings-choice-group"><strong>Open to swaps</strong><div className="settings-chips">{swapCategories.map(([value, label]) => <button key={value} className={`choice-chip ${profileDraft.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profileDraft.swapCategories.includes(value)} onClick={() => toggleSettingChoice('swapCategories', value)}>{label}</button>)}</div></div><button className="button secondary" onClick={() => void savePreferences()} disabled={saveProfile.isPending || updatePlan.isPending}>{saveProfile.isPending || updatePlan.isPending ? 'Saving…' : 'Save preferences'}</button></div>}
@@ -589,7 +610,19 @@ function OnboardingPage() {
 
 function LoginPage() {
   const { login } = useAuth();
-  return <main className="login-page"><section className="login-card"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo, your money friend" /><h1>Keep what you love.<br />Spend a little less on it.</h1><p>Find cheaper alternatives to the products you already buy. No budgeting rules required.</p><button className="button primary" onClick={login}>Continue to Margo <ChevronRight /></button></section></main>;
+  const benefits = [
+    { icon: <ArrowRightLeft />, text: 'See where your money actually goes' },
+    { icon: <ScanLine />, text: 'Get cheaper swaps for things you already buy' },
+    { icon: <HandCoins />, text: 'Tips on how to make extra money' },
+  ];
+  return <main className="login-page">
+    <section className="login-card">
+      <div className="login-brand"><img src={`${import.meta.env.BASE_URL}margo-welcome.png`} alt="Margo, xo your money friend" /></div>
+      <h1>Keep what you<br />love. Spend less<br />on it.</h1>
+      <div className="login-benefits">{benefits.map(({ icon, text }, index) => <div className="login-benefit" key={text}><span>{icon}</span><p>{text}</p></div>)}</div>
+      <div className="login-actions"><button className="button primary" onClick={login} data-testid="button-get-started">Get started</button><button className="login-existing" onClick={login} data-testid="button-existing-account">I already have an account</button></div>
+    </section>
+  </main>;
 }
 
 function AppRoutes() {
