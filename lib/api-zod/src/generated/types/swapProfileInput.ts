@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SwapProfileInputOnboardingAnswers } from './swapProfileInputOnboardingAnswers';
 import type { SwapProfileInputSwapCategoriesItem } from './swapProfileInputSwapCategoriesItem';
 import type { SwapProfileInputValuesItem } from './swapProfileInputValuesItem';
 
@@ -36,4 +37,5 @@ export interface SwapProfileInput {
   dietaryNeeds: string;
   /** @maxLength 500 */
   productPreferences: string;
+  onboardingAnswers?: SwapProfileInputOnboardingAnswers;
 }

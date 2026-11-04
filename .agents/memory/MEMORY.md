@@ -1,4 +1,4 @@
-- [Margo visual direction](aliena-visual-direction.md) — Use the uploaded money-app screens and Margo logo; favor cream, navy, burgundy, powder blue, and olive.
+- [Margo visual direction](aliena-visual-direction.md) — Follow the supplied screens’ exact cream/navy/burgundy/olive tokens, Fraunces/DM Sans, and five-position mobile navigation.
 - [Margo navigation](aliena-navigation.md) — My Plan is the dashboard; editing plan assumptions belongs behind the top-right profile, not a profile tab.
 - [Margo database direction](aliena-database-direction.md) — Keep using the existing PostgreSQL/Drizzle database; do not connect Supabase for now.
 - [Margo product mission](aliena-product-mission.md) — Help users keep their lifestyle while spending less by finding cheaper alternatives to products they already buy.

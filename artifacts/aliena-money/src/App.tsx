@@ -17,7 +17,7 @@ import {
 } from '@workspace/api-client-react';
 import type { BudgetPlanInput, ReceiptInput, ReceiptScanResult, SwapProfileInput, Transaction } from '@workspace/api-client-react';
 import {
-  ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleHelp, FileImage,
+  ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BarChart3, Check, ChevronLeft, ChevronRight, CircleHelp, FileImage,
   HandCoins, Home, Leaf, LogOut, Plus, ReceiptText, ScanLine, ShieldCheck,
   ShoppingBag, Trash2, Upload, X,
 } from 'lucide-react';
@@ -45,7 +45,7 @@ function Header() {
   const [plusOpen, setPlusOpen] = useState(false);
   const first = user?.firstName?.[0] || user?.email?.[0] || 'M';
   const last = user?.lastName?.[0] || '';
-  const tabs = [{ href: '/', label: 'Home', icon: Home }, { href: '/transactions', label: 'Spending', icon: ArrowRightLeft }, { href: '/swaps', label: 'Swaps', icon: Leaf }, { href: '/earn-save', label: 'Gigs', icon: HandCoins }];
+  const tabs = [{ href: '/', label: 'Home', icon: Home }, { href: '/transactions', label: 'Spending', icon: BarChart3 }, { href: '/swaps', label: 'Swaps', icon: ArrowRightLeft }, { href: '/earn-save', label: 'Gigs', icon: HandCoins }];
   return <>
     <header className="top-nav">
       <Link href="/" className="brand-link"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo, your money friend" /></Link>
@@ -57,6 +57,7 @@ function Header() {
             <Link href="/receipts?scan=receipt" onClick={() => setPlusOpen(false)}><ScanLine />Scan receipt</Link>
             <Link href="/receipts?scan=barcode" onClick={() => setPlusOpen(false)}><ShoppingBag />Scan barcode</Link>
             <Link href="/transactions?add=1" onClick={() => setPlusOpen(false)}><Plus />Add transaction</Link>
+            <Link href="/transactions?add=1&kind=income" onClick={() => setPlusOpen(false)}><HandCoins />Log gig income</Link>
           </div>}
         </div>
         {tabs.slice(2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`} aria-current={path === href ? 'page' : undefined}><Icon />{label}</Link>)}
@@ -103,48 +104,43 @@ function HomePage() {
   const plan = useGetBudgetPlan();
   const transactions = useGetTransactions();
   const comparisons = useGetProductComparisons();
+  const profile = useGetSwapProfile();
   const firstName = user?.firstName?.trim();
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
-  const hasRealActivity = Boolean(transactions.data?.length);
   const spent = Number(dashboard.data?.monthlySpending || 0);
   const cap = Number(plan.data?.monthlySpendingTarget || 0);
   const left = Math.max(0, cap - spent);
   const overBudgetCategory = plan.data?.categories?.find((item) => Number(item.monthlyTarget || 0) > 0 && Number(item.spentThisMonth || 0) > Number(item.monthlyTarget || 0));
+  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
+  const daysRemaining = Math.max(1, new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate() + 1);
+  const dailyAvailable = cap ? left / daysRemaining : 0;
+  const debtBalance = Number(profile.data?.onboardingAnswers?.debtBalance || 0);
+  const debtPayment = Number(profile.data?.onboardingAnswers?.debtPayment || 0);
+  const debtFreeDate = debtBalance > 0 && debtPayment > 0 ? new Date(new Date().getFullYear(), new Date().getMonth() + Math.ceil(debtBalance / debtPayment), 1) : null;
   if (dashboard.isLoading || plan.isLoading || transactions.isLoading) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><Skeleton lines={6} /></div>;
   if (dashboard.isError) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><ErrorState error={dashboard.error} retry={() => dashboard.refetch()} /></div>;
-  if (!hasRealActivity && !comparisons.data?.length) return <div className="page">
-    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." />
-    <section className="welcome-card">
-      <div className="welcome-art"><span className="orbit orbit-one" /><span className="orbit orbit-two" /><span className="welcome-spark"><Leaf /></span></div>
-      <div><span className="note-label">A good place to start</span><h2>Keep your life. Spend a little less.</h2><p>Snap a receipt and I’ll help you spot lower-cost versions of the things you already love.</p><Link className="button primary" href="/receipts?scan=receipt"><ScanLine />Scan your first receipt</Link></div>
-    </section>
-  </div>;
   const progress = cap > 0 ? Math.min(100, spent / cap * 100) : 0;
   return <div className="page">
-    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="Here’s where things stand this month." />
+    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} />
     <section className="home-summary">
-      <div className="summary-top"><div><span className="summary-kicker">{cap ? 'Left to spend this month' : 'Spent this month'}</span><div className="summary-amount">{money(cap ? left : spent)}</div></div><div className="summary-budget"><span>{cap ? 'Monthly spending plan' : 'Monthly budget'}</span><strong>{cap ? money(cap) : 'Not set yet'}</strong></div></div>
+      <div className="summary-top"><div><span className="summary-kicker">{cap ? `Left to spend in ${monthName}` : 'Set a monthly budget to get started'}</span><div className="summary-amount">{money(cap ? left : spent)}</div></div><div className="summary-budget"><span>Monthly budget</span><strong>{cap ? money(cap) : 'Not set yet'}</strong></div></div>
       <div className="summary-track"><span style={{ width: `${progress}%` }} /></div>
-      <div className="summary-bottom"><span>{cap ? `${money(spent)} spent so far` : 'Set a monthly plan whenever you’re ready'}</span><span>{cap ? 'Spent so far' : 'Saved with swaps'} <b>{cap ? money(spent) : money(dashboard.data?.annualSavings)}</b></span></div>
+      <div className="summary-bottom"><span>{cap ? `${money(spent)} of ${money(cap)} spent` : 'Your spending plan is ready when you are'}</span><span>{cap ? `About ${money(dailyAvailable)} a day` : 'Edit in Settings'}</span></div>
     </section>
     <div className="home-metrics">
       <div><span>Saved with swaps</span><strong>{money(dashboard.data?.annualSavings)}</strong><small>Based on your saved purchases</small></div>
       <div><span>Tax set-aside</span><strong>{money(dashboard.data?.taxSetAside)}</strong><small>Personal estimate</small></div>
-      <div><span>Savings goal</span><strong>{plan.data?.annualSavingsGoal ? `${money(plan.data.annualSavingsGoal / 12)} / mo` : 'Not set'}</strong><small>{plan.data?.annualSavingsGoal ? 'Your monthly target' : 'Choose what matters to you'}</small></div>
+      <div><span>Savings goal</span><strong>{plan.data?.annualIncome ? `${Math.round(Number(plan.data.annualSavingsGoal || 0) / Number(plan.data.annualIncome) * 100)}%` : 'Not set'}</strong><small>{plan.data?.annualSavingsGoal ? 'Of take-home pay' : 'Choose what matters to you'}</small></div>
     </div>
-    {overBudgetCategory && <Link href="/settings" className="budget-alert"><span><CircleHelp /></span><strong>{overBudgetCategory.category} is {money(Number(overBudgetCategory.spentThisMonth) - Number(overBudgetCategory.monthlyTarget))} over its plan</strong><ChevronRight /></Link>}
+    {overBudgetCategory && <Link href="/swaps" className="budget-alert"><span><CircleHelp /></span><strong>{overBudgetCategory.category} is {money(Number(overBudgetCategory.spentThisMonth) - Number(overBudgetCategory.monthlyTarget))} over its plan · See swaps</strong><ChevronRight /></Link>}
     {comparisons.data?.length ? <Link href="/swaps" className="home-swap-callout"><span className="seal-mark">M</span><span><strong>Your money has a little more room.</strong><small>{comparisons.data.length} saved {comparisons.data.length === 1 ? 'swap' : 'swaps'} to explore</small></span><ChevronRight /></Link> : null}
     <div className="home-columns">
       <section className="surface budget-surface"><div className="section-heading"><div><h2>Your monthly categories</h2><p>A flexible guide, never a rule.</p></div><Link href="/settings" className="quiet-link">Edit</Link></div>
         {plan.data?.categories?.length ? <BudgetList categories={plan.data.categories} compact /> : <EmptyState title="Your budget, your way" body="Add a few monthly categories when you’re ready." action={<Link className="button secondary" href="/settings">Set budgets</Link>} />}
       </section>
-      <div className="home-aside">
-        <section className="tip-card"><span className="tip-label">A small thought</span><h2>You don’t have to give up the good stuff.</h2><p>Swaps are about finding a better price for the things already in your routine.</p><Link href="/swaps" className="quiet-link">See your swaps <ChevronRight /></Link></section>
-        <section className="mini-card"><span>Saving for</span><strong>{plan.data?.annualSavingsGoal ? money(plan.data.annualSavingsGoal / 12) : 'Your next goal'}</strong><small>{plan.data?.annualSavingsGoal ? 'each month' : 'Add a goal in settings'}</small></section>
-        <Link href="/settings" className="mini-card mini-card-tax"><span>Tax set-aside</span><strong>{money(dashboard.data?.taxSetAside)}</strong><small>Personal estimate · edit settings</small></Link>
-      </div>
     </div>
+    {debtFreeDate && <section className="surface debt-payoff"><div><h2>Debt payoff</h2><p>{money(debtBalance)} left · At your current payments, before interest</p></div><strong>Debt-free by {new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(debtFreeDate)}</strong></section>}
     {dashboard.data?.recentTransactions?.length ? <section className="surface recent-surface"><div className="section-heading"><div><h2>Latest spending</h2><p>Your recent activity.</p></div><Link href="/transactions" className="quiet-link">See all</Link></div><TransactionRows items={dashboard.data.recentTransactions.slice(0, 4)} /></section> : null}
   </div>;
 }
@@ -409,7 +405,7 @@ function GigsPage() {
   </div>;
 }
 
-function BankConnect() {
+function BankConnect({ onConnected }: { onConnected?: () => void } = {}) {
   const qc = useQueryClient();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -432,6 +428,7 @@ function BankConnect() {
       if (!synced.ok) throw new Error('Bank connected, but activity could not be refreshed.');
       await Promise.all([qc.invalidateQueries({ queryKey: ['plaid-items'] }), qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() })]);
       setMessage('Your bank is connected.');
+      onConnected?.();
     } catch (error) { setMessage(messageOf(error)); } finally { setBusy(false); setLinkToken(null); }
   }, onExit: () => { setBusy(false); setLinkToken(null); } });
   useEffect(() => { if (linkToken && ready) open(); }, [linkToken, ready, open]);
@@ -508,7 +505,9 @@ function SettingsPage() {
   const toggleSettingChoice = (key: 'nonNegotiables' | 'swapCategories', value: string) => {
     setProfileDraft((current) => {
       const values = current[key] as string[];
-      return { ...current, [key]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] };
+      const updated = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+      const answerValues = key === 'swapCategories' ? updated.map((item) => swapCategories.find(([categoryKey]) => categoryKey === item)?.[1] || item) : updated;
+      return { ...current, [key]: updated, onboardingAnswers: { ...(current.onboardingAnswers || {}), [key]: JSON.stringify(answerValues) } };
     });
   };
   const saveBudget = async () => {
@@ -521,7 +520,7 @@ function SettingsPage() {
   const savePreferences = async () => {
     if (!profileQuery.data) return;
     try {
-      await saveProfile.mutateAsync({ data: { ...profileDraft, savingFor: savingFor.trim(), monthlySavingsGoal: Math.max(0, Number(goal) || 0) } });
+      await saveProfile.mutateAsync({ data: { ...profileDraft, savingFor: savingFor.trim(), monthlySavingsGoal: Math.max(0, Number(goal) || 0), onboardingAnswers: { ...(profileDraft.onboardingAnswers || {}), savingFor: savingFor.trim(), savingsGoal: goal, savingsGoalPeriod: 'month', takeHome: monthlyIncome, takeHomePeriod: 'month', rent: monthlyRent } } });
       if (plan.data) await updatePlan.mutateAsync({ data: { annualIncome: Math.max(0, Number(monthlyIncome) || 0) * 12, annualSavingsGoal: Math.max(0, Number(goal) || 0) * 12, monthlyRent: Math.max(0, Number(monthlyRent) || 0), priorityCategories: [], categoryBudgets: draft.map((item) => ({ category: item.category as BudgetPlanInput['categoryBudgets'][number]['category'], monthlyTarget: Number(item.monthlyTarget) || 0 })) } });
       await Promise.all([qc.invalidateQueries({ queryKey: getGetSwapProfileQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() })]); setMessage('Your preferences are saved.');
     } catch (reason) { setError(messageOf(reason)); }
@@ -534,6 +533,14 @@ function SettingsPage() {
     if (!addCategory || draft.some((item) => item.category === addCategory)) return;
     setDraft((items) => [...items, { category: addCategory, monthlyTarget: 0 }]); setAddCategory('');
   };
+  const answerLabels: Record<string, string> = {
+    takeHome: 'Take-home pay', takeHomePeriod: 'Take-home pay frequency', sideGig: 'Side gig income',
+    savingsGoal: 'Savings goal', savingsGoalPeriod: 'Savings goal frequency', savingFor: 'Biggest goal',
+    nonNegotiables: 'Non-negotiables', swapCategories: 'Open to swaps', rent: 'Rent', carPayment: 'Car payment',
+    phoneBill: 'Phone bill', pets: 'Pets', petCosts: 'Pet costs', otherBills: 'Other monthly bills',
+    hasDebt: 'Debt', debtTypes: 'Debt types', debtBalance: 'Debt balance', debtPayment: 'Monthly debt payment', connect: 'Bank connection choice',
+  };
+  const listAnswerKeys = new Set(['nonNegotiables', 'swapCategories', 'debtTypes']);
   const exportData = () => {
     const data = { transactions: transactions.data || [], receipts: receipts.data || [], purchaseHistory: purchaseHistory.data || [], budget: plan.data || null, shoppingPreferences: profileQuery.data || null, financeSettings: settings.data || null, dashboard: dashboard.data || null };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
@@ -549,10 +556,10 @@ function SettingsPage() {
     <PageTitle title="Settings" subtitle="Your preferences, budgets, and account." />
     <section className="account-card"><span className="account-avatar">{user?.firstName?.[0] || user?.email?.[0] || 'M'}</span><span><strong>{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your Margo account'}</strong><small>{user?.email || 'Private to you'}</small></span></section>
     {error && <div className="inline-error" role="alert">{error}</div>}{message && <div className="inline-success" role="status">{message}</div>}
-    <section className="surface settings-section"><div className="section-heading"><div><h2>What matters to you</h2><p>Keep the plan close to your real life.</p></div></div>
-      {profileQuery.isLoading ? <Skeleton lines={2} /> : profileQuery.isError ? <ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /> : <div className="settings-fields"><label>Saving for<input className="field-input" value={savingFor} onChange={(event) => setSavingFor(event.target.value)} placeholder="A trip, more breathing room…" /></label><label>Monthly savings goal<input className="field-input" type="number" min="0" step="25" value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Monthly take-home pay<input className="field-input" type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} /></label><label>Monthly rent<input className="field-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label><div className="settings-choice-group"><strong>Non-negotiables</strong><div className="settings-chips">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profileDraft.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profileDraft.nonNegotiables.includes(item)} onClick={() => toggleSettingChoice('nonNegotiables', item)}>{item}</button>)}</div></div><div className="settings-choice-group"><strong>Open to swaps</strong><div className="settings-chips">{swapCategories.map(([value, label]) => <button key={value} className={`choice-chip ${profileDraft.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profileDraft.swapCategories.includes(value)} onClick={() => toggleSettingChoice('swapCategories', value)}>{label}</button>)}</div></div><button className="button secondary" onClick={() => void savePreferences()} disabled={saveProfile.isPending || updatePlan.isPending}>{saveProfile.isPending || updatePlan.isPending ? 'Saving…' : 'Save preferences'}</button></div>}
+    <section className="surface settings-section"><div className="section-heading"><div><h2>About you</h2><p>Keep the plan close to your real life.</p></div></div>
+      {profileQuery.isLoading ? <Skeleton lines={2} /> : profileQuery.isError ? <ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /> : <div className="settings-fields"><label>Saving for<input className="field-input" value={savingFor} onChange={(event) => setSavingFor(event.target.value)} placeholder="A trip, more breathing room…" /></label><label>Monthly savings goal<input className="field-input" type="number" min="0" step="25" value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Monthly take-home pay<input className="field-input" type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} /></label><label>Monthly rent<input className="field-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label><div className="settings-choice-group"><strong>Non-negotiables</strong><div className="settings-chips">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profileDraft.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profileDraft.nonNegotiables.includes(item)} onClick={() => toggleSettingChoice('nonNegotiables', item)}>{item}</button>)}</div></div><div className="settings-choice-group"><strong>Open to swaps</strong><div className="settings-chips">{swapCategories.map(([value, label]) => <button key={value} className={`choice-chip ${profileDraft.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profileDraft.swapCategories.includes(value)} onClick={() => toggleSettingChoice('swapCategories', value)}>{label}</button>)}</div></div>{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories').length > 0 && <details className="onboarding-answer-details"><summary>Other setup answers</summary><div className="onboarding-answer-grid">{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories').map(([key, value]) => { let shown = value; if (listAnswerKeys.has(key)) { try { const parsed = JSON.parse(value); if (Array.isArray(parsed)) shown = parsed.join(', '); } catch { /* Keep editable text as entered. */ } } return <label key={key}>{answerLabels[key]}<input className="field-input" value={shown} onChange={(event) => { const next = event.target.value; setProfileDraft((current) => ({ ...current, onboardingAnswers: { ...(current.onboardingAnswers || {}), [key]: listAnswerKeys.has(key) ? JSON.stringify(next.split(',').map((item) => item.trim()).filter(Boolean)) : next } })); }} /></label>; })}</div></details>}<button className="button secondary" onClick={() => void savePreferences()} disabled={saveProfile.isPending || updatePlan.isPending}>{saveProfile.isPending || updatePlan.isPending ? 'Saving…' : 'Save preferences'}</button></div>}
     </section>
-    <section className="surface settings-section"><div className="section-heading"><div><h2>Monthly category budgets</h2><p>Change, add, or remove any category whenever life shifts.</p></div></div>
+    <section className="surface settings-section"><div className="section-heading"><div><h2>Your money</h2><p>Monthly category budgets.</p></div></div>
       {plan.isLoading ? <Skeleton /> : plan.isError ? <ErrorState error={plan.error} retry={() => plan.refetch()} /> : <div className="settings-budgets">{draft.map((item) => <div className="budget-edit" key={item.category}><strong>{item.category}</strong><label className="money-field"><span>$</span><input aria-label={`${item.category} monthly budget`} type="number" min="0" step="25" value={item.monthlyTarget} onChange={(event) => setDraft((rows) => rows.map((row) => row.category === item.category ? { ...row, monthlyTarget: Number(event.target.value) || 0 } : row))} /></label><button className="text-icon" aria-label={`Remove ${item.category}`} onClick={() => setDraft((rows) => rows.filter((row) => row.category !== item.category))}><Trash2 /></button></div>)}
         <div className="add-budget"><select className="field-input" value={addCategory} onChange={(event) => setAddCategory(event.target.value)}><option value="">Add a category</option>{categories.filter((item) => !draft.some((row) => row.category === item)).map((item) => <option key={item}>{item}</option>)}</select><button className="button secondary" disabled={!addCategory} onClick={addBudget}><Plus />Add</button></div><button className="button primary" onClick={() => void saveBudget()} disabled={updatePlan.isPending}>{updatePlan.isPending ? 'Saving…' : 'Save budgets'}</button>
       </div>}
@@ -573,66 +580,132 @@ function OnboardingPage() {
   const planQuery = useGetBudgetPlan();
   const saveProfile = useUpdateSwapProfile();
   const savePlan = useUpdateBudgetPlan();
-  const [profile, setProfile] = useState<SwapProfileInput>(blankProfile);
-  const [monthlyIncome, setMonthlyIncome] = useState('');
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [step, setStep] = useState(0);
-  const [custom, setCustom] = useState('');
+  const [draft, setDraft] = useState('');
+  const [period, setPeriod] = useState<'month' | 'year'>('month');
+  const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const initialized = useRef(false);
-  const steps = [
-    { title: 'What are you saving for?', note: 'And what feels doable to put away each month?' },
-    { title: 'What’s your monthly take-home pay?', note: 'A ballpark is fine. This stays private.' },
-    { title: 'What’s non-negotiable?', note: 'The things you love are off-limits for swaps.' },
-    { title: 'Where are you open to swaps?', note: 'Only choose categories where you’d consider a different pick.' },
-    { title: 'Connect your bank', note: 'See spending in one place, or skip and add things yourself.' },
+  const prompts: Array<{ key: string; text: string; kind: 'amount' | 'text' | 'single' | 'multi' | 'budget' | 'connect' | 'done'; choices?: string[]; periodKey?: string; skip?: string }> = [
+    { key: 'takeHome', text: 'What is your take-home pay?', kind: 'amount' as const, periodKey: 'takeHomePeriod' },
+    { key: 'sideGig', text: 'Do you earn money from side gigs?', kind: 'single' as const, choices: ['Yes', 'No'] },
+    { key: 'savingsGoal', text: 'How much would you like to save?', kind: 'amount' as const, periodKey: 'savingsGoalPeriod' },
+    { key: 'savingFor', text: 'What is your biggest goal?', kind: 'text' as const },
+    { key: 'nonNegotiables', text: 'What should never be part of a swap?', kind: 'multi' as const, choices: nonNegotiables },
+    { key: 'swapCategories', text: 'Where are you open to cheaper alternatives?', kind: 'multi' as const, choices: swapCategories.map(([, label]) => label) },
+    { key: 'rent', text: 'What do you pay for rent each month?', kind: 'amount' as const },
+    { key: 'carPayment', text: 'Do you have a monthly car payment?', kind: 'amount' as const, skip: 'No car payment' },
+    { key: 'phoneBill', text: 'What is your monthly phone bill?', kind: 'amount' as const },
+    { key: 'pets', text: 'Do you have pets?', kind: 'single' as const, choices: ['Yes', 'No'] },
+    ...(answers.pets === 'Yes' ? [{ key: 'petCosts', text: 'About how much do pet costs add up to each month?', kind: 'amount' as const }] : []),
+    { key: 'otherBills', text: 'Any other monthly bills to include?', kind: 'amount' as const },
+    { key: 'hasDebt', text: 'Are you paying down any debt?', kind: 'single' as const, choices: ['Yes', 'No'] },
+    ...(answers.hasDebt === 'Yes' ? [
+      { key: 'debtTypes', text: 'What kinds of debt are you paying down?', kind: 'multi' as const, choices: ['Credit cards', 'Student loans', 'Auto loan', 'Medical bills', 'Other'] },
+      { key: 'debtBalance', text: 'About how much debt do you have left in total?', kind: 'amount' as const },
+      { key: 'debtPayment', text: 'How much do you pay toward debt each month?', kind: 'amount' as const },
+    ] : []),
+    { key: 'budget', text: 'Here is a starting budget based on what you shared.', kind: 'budget' as const },
+    { key: 'connect', text: 'Want to connect a bank so spending can stay up to date?', kind: 'connect' as const },
+    { key: 'done', text: 'You’re all set. Your plan can change whenever life does.', kind: 'done' as const },
   ];
+  const current = prompts[Math.min(step, prompts.length - 1)];
+  const monthlyValue = (key: string) => {
+    const amount = Math.max(0, Number(answers[key]) || 0);
+    return answers[`${key}Period`] === 'year' ? amount / 12 : amount;
+  };
+  const monthlyIncome = monthlyValue('takeHome');
+  const monthlySavings = monthlyValue('savingsGoal');
+  const bills = ['rent', 'carPayment', 'phoneBill', 'petCosts', 'otherBills', 'debtPayment'].reduce((sum, key) => sum + (key === 'petCosts' && answers.pets !== 'Yes' || key === 'debtPayment' && answers.hasDebt !== 'Yes' ? 0 : Number(answers[key]) || 0), 0);
+  const budgetPool = Math.max(0, monthlyIncome - monthlySavings - bills);
+  const budgetRows = [
+    ['Groceries', .40], ['Transportation', .20], ['Dining out', .15],
+    ['Shopping', .12], ['Beauty', .08], ['Subscriptions', .05],
+  ] as const;
+  const selectedText = (value: string) => {
+    try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.join(', ') : value; } catch { return value; }
+  };
   useEffect(() => {
     if (initialized.current || profileQuery.isLoading || planQuery.isLoading || profileQuery.isError || planQuery.isError) return;
     initialized.current = true;
-    if (profileQuery.data) setProfile(profileQuery.data);
-    if (planQuery.data?.annualIncome) setMonthlyIncome(String(planQuery.data.annualIncome / 12));
+    if (profileQuery.data?.onboardingAnswers) setAnswers(profileQuery.data.onboardingAnswers);
   }, [profileQuery.data, profileQuery.isLoading, profileQuery.isError, planQuery.data, planQuery.isLoading, planQuery.isError]);
-  const toggle = (key: 'nonNegotiables' | 'swapCategories', value: string) => setProfile((current) => {
-    const values = current[key] as string[];
-    return { ...current, [key]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] };
-  });
-  const finish = async (connect: boolean) => {
+  useEffect(() => {
+    setDraft(answers[current.key] || '');
+    setPeriod(answers[`${current.key}Period`] === 'year' ? 'year' : 'month');
+    try { const parsed = JSON.parse(answers[current.key] || '[]'); setSelected(Array.isArray(parsed) ? parsed : []); } catch { setSelected([]); }
+    setError('');
+  }, [current.key]);
+  const saveAnswer = (key: string, value: string) => {
+    setAnswers((previous) => ({ ...previous, [key]: value }));
+    setStep((previous) => previous + 1);
+    setError('');
+  };
+  const submitDraft = () => {
+    if (current.kind === 'amount' && (!draft.trim() || !Number.isFinite(Number(draft)) || Number(draft) < 0)) { setError('Enter an amount of zero or more.'); return; }
+    if (current.kind === 'text' && !draft.trim()) { setError('Add a goal, even if it is just a first idea.'); return; }
+    const nextAnswers = { ...answers, [current.key]: draft.trim() };
+    if ('periodKey' in current && current.periodKey) nextAnswers[current.periodKey] = period;
+    setAnswers(nextAnswers);
+    setStep((previous) => previous + 1);
+    setError('');
+  };
+  const finish = async () => {
     setBusy(true); setError('');
-    const income = Math.max(0, Number(monthlyIncome) || 0);
-    const available = Math.max(0, income - Number(profile.monthlySavingsGoal || 0));
-    const draft: BudgetPlanInput = { annualIncome: income * 12, annualSavingsGoal: Number(profile.monthlySavingsGoal || 0) * 12, monthlyRent: Number(planQuery.data?.monthlyRent || 0), priorityCategories: [], categoryBudgets: categories.map((category) => ({ category: category as BudgetPlanInput['categoryBudgets'][number]['category'], monthlyTarget: Math.round(available * (category === 'Rent' ? .3 : category === 'Groceries' ? .2 : category === 'Transportation' ? .12 : category === 'Utilities' ? .1 : category === 'Shopping' ? .1 : category === 'Dining out' ? .08 : category === 'Beauty' ? .05 : .05)) })) };
+    const categoriesChosen = (() => { try { return JSON.parse(answers.swapCategories || '[]') as string[]; } catch { return []; } })();
+    const nonnegotiablesChosen = (() => { try { return JSON.parse(answers.nonNegotiables || '[]') as string[]; } catch { return []; } })();
+    const categoryValues = new Map<string, SwapProfileInput['swapCategories'][number]>(swapCategories.map(([key, label]) => [label, key]));
+    const profile: SwapProfileInput = {
+      ...blankProfile,
+      savingFor: answers.savingFor || '',
+      monthlySavingsGoal: monthlySavings,
+      nonNegotiables: nonnegotiablesChosen,
+      swapCategories: categoriesChosen.flatMap((label) => { const value = categoryValues.get(label); return value ? [value] : []; }),
+      onboardingAnswers: answers,
+    };
+    const budget: BudgetPlanInput = {
+      annualIncome: monthlyIncome * 12,
+      annualSavingsGoal: monthlySavings * 12,
+      monthlyRent: Number(answers.rent) || 0,
+      priorityCategories: [],
+      categoryBudgets: budgetRows.map(([category, ratio]) => ({ category: category as BudgetPlanInput['categoryBudgets'][number]['category'], monthlyTarget: Math.round(budgetPool * ratio) })),
+    };
     try {
-      await saveProfile.mutateAsync({ data: { ...profile, savingFor: profile.savingFor.trim() } });
-      await savePlan.mutateAsync({ data: draft });
+      await saveProfile.mutateAsync({ data: profile });
+      await savePlan.mutateAsync({ data: budget });
       await Promise.all([qc.invalidateQueries({ queryKey: getGetSwapProfileQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() })]);
-      if (connect) { setLocation('/settings'); return; }
       setLocation('/');
     } catch (reason) { setError(messageOf(reason)); } finally { setBusy(false); }
   };
-  const next = () => {
-    setError('');
-    if (step === 0 && !profile.savingFor.trim()) { setError('Add a goal, even if it’s just a first idea.'); return; }
-    if (step === 1 && (!monthlyIncome || Number(monthlyIncome) < 0)) { setError('Add your monthly take-home amount.'); return; }
-    if (step < 4) setStep((current) => current + 1);
-    else void finish(false);
-  };
   if (profileQuery.isLoading || planQuery.isLoading) return <main className="onboarding"><Skeleton lines={5} /></main>;
   if (profileQuery.isError) return <main className="onboarding"><ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /></main>;
-  return <main className="onboarding">
-    <div className="onboarding-brand"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo" /><Link href="/">Exit setup</Link></div>
-    <div className="onboarding-progress"><span style={{ transform: `scaleX(${(step + 1) / steps.length})` }} /></div>
-    <section className="onboarding-question" key={step}>
-      <span className="question-count">A quick hello · {step + 1} of {steps.length}</span><h1>{steps[step].title}</h1><p>{steps[step].note}</p>
-      {step === 0 && <div className="onboarding-fields"><label>My goal<input className="field-input" autoFocus value={profile.savingFor} maxLength={160} onChange={(event) => setProfile({ ...profile, savingFor: event.target.value })} placeholder="A trip, a cushion, more breathing room" /></label><label>Monthly goal<div className="currency-input"><span>$</span><input type="number" min="0" step="25" value={profile.monthlySavingsGoal} onChange={(event) => setProfile({ ...profile, monthlySavingsGoal: Number(event.target.value) || 0 })} /></div></label></div>}
-      {step === 1 && <label className="onboarding-income">Monthly take-home pay<div className="currency-input"><span>$</span><input autoFocus type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} placeholder="4,500" /></div></label>}
-      {step === 2 && <div className="chip-grid">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profile.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profile.nonNegotiables.includes(item)} onClick={() => toggle('nonNegotiables', item)}>{profile.nonNegotiables.includes(item) && <Check />}{item}</button>)}<div className="custom-chip"><input className="field-input" value={custom} onChange={(event) => setCustom(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && custom.trim()) { event.preventDefault(); toggle('nonNegotiables', custom.trim()); setCustom(''); } }} placeholder="Add your own" /><button className="button secondary" onClick={() => { if (custom.trim()) toggle('nonNegotiables', custom.trim()); setCustom(''); }}>Add</button></div>{profile.nonNegotiables.filter((item) => !nonNegotiables.includes(item)).map((item) => <button className="choice-chip selected" key={item} onClick={() => toggle('nonNegotiables', item)}>{item}<X /></button>)}</div>}
-      {step === 3 && <div className="chip-grid category-choices">{swapCategories.map(([key, label]) => <button key={key} className={`choice-chip ${profile.swapCategories.includes(key) ? 'selected' : ''}`} aria-pressed={profile.swapCategories.includes(key)} onClick={() => toggle('swapCategories', key)}>{profile.swapCategories.includes(key) ? <Check /> : <Plus />}{label}</button>)}</div>}
-      {step === 4 && <div className="connect-step"><span className="connect-illustration"><ShieldCheck /></span><strong>Your money stays yours.</strong><p>Bank connection is optional. You can also skip it and enter spending yourself.</p><BankConnect /></div>}
+  const setChoice = (value: string) => saveAnswer(current.key, value);
+  const toggleSelected = (value: string) => setSelected((existing) => existing.includes(value) ? existing.filter((item) => item !== value) : [...existing, value]);
+  return <main className="onboarding onboarding-chat-shell">
+    <div className="onboarding-brand"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo" /><button className="start-over" onClick={() => { setAnswers({}); setStep(0); }}>Start over</button></div>
+    <div className="onboarding-progress"><span style={{ transform: `scaleX(${Math.min(1, step / (prompts.length - 1))})` }} /></div>
+    <div className="conversation-scroll">
+      <div className="chat-message from-margo"><span className="chat-seal">M</span><p>Hi, I’m Margo. Let’s make a money plan that keeps the things you love.</p></div>
+      {prompts.slice(0, step).map((prompt) => <div className="chat-exchange" key={prompt.key}>
+        <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{prompt.text}</p></div>
+        {prompt.kind === 'budget' ? <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div> : <><div className="chat-message from-user"><p>{prompt.kind === 'multi' ? selectedText(answers[prompt.key] || '[]') : prompt.kind === 'amount' ? `${money(answers[prompt.key])} / ${answers[`${prompt.key}Period`] || 'month'}` : answers[prompt.key]}</p></div><div className="chat-message from-margo"><span className="chat-seal">M</span><p>{prompt.kind === 'amount' ? `Got it, about ${money(monthlyValue(prompt.key))} a month.` : 'Got it. I’ll keep that in mind.'}</p></div></>}
+      </div>)}
+      {step < prompts.length && current.kind !== 'done' && <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{current.text}</p></div>}
+      {current.kind === 'budget' && <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div>}
+      {current.kind === 'done' && <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{current.text}</p></div>}
+    </div>
+    <div className="answer-dock">
       {error && <div className="inline-error" role="alert">{error}</div>}
-      <div className="onboarding-buttons">{step > 0 && <button className="button secondary" onClick={() => { setError(''); setStep((current) => current - 1); }} disabled={busy}>Back</button>}{step === 4 && <button className="skip-link" onClick={() => void finish(false)} disabled={busy}>Skip, I’ll add things myself</button>}<button className="button primary" onClick={next} disabled={busy}>{busy ? 'Saving…' : step === 4 ? 'Finish setup' : 'Continue'}{!busy && <ChevronRight />}</button></div>
-    </section>
-    <p className="onboarding-footnote">No perfect answers needed. We can change everything later.</p>
+      {current.kind === 'amount' && <>{current.periodKey && <div className="period-toggle"><button className={period === 'month' ? 'selected' : ''} onClick={() => setPeriod('month')}>Per month</button><button className={period === 'year' ? 'selected' : ''} onClick={() => setPeriod('year')}>Per year</button></div>}<div className="chat-answer-row"><label className="chat-amount"><span>$</span><input autoFocus type="number" min="0" step="25" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="0" onKeyDown={(event) => { if (event.key === 'Enter') submitDraft(); }} /></label><button className="button primary chat-send" onClick={submitDraft} aria-label="Send answer"><ArrowUpRight /></button></div>{current.skip && <button className="skip-link" onClick={() => saveAnswer(current.key, '0')}>{current.skip}</button>}</>}
+      {current.kind === 'text' && <div className="chat-answer-row"><input className="field-input" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="A trip, a cushion, more breathing room" onKeyDown={(event) => { if (event.key === 'Enter') submitDraft(); }} /><button className="button primary chat-send" onClick={submitDraft} aria-label="Send answer"><ArrowUpRight /></button></div>}
+      {current.kind === 'single' && <div className="chat-choice-row">{(current.choices || []).map((choice) => <button key={choice} className="choice-chip" onClick={() => setChoice(choice)}>{choice}</button>)}</div>}
+      {current.kind === 'multi' && <><div className="chat-choice-row">{(current.choices || []).map((choice) => <button key={choice} className={`choice-chip ${selected.includes(choice) ? 'selected' : ''}`} aria-pressed={selected.includes(choice)} onClick={() => toggleSelected(choice)}>{selected.includes(choice) && <Check />}{choice}</button>)}</div><button className="button primary chat-done" onClick={() => saveAnswer(current.key, JSON.stringify(selected))}>Done</button></>}
+      {current.kind === 'budget' && <button className="button primary chat-done" onClick={() => setStep((value) => value + 1)}>Continue</button>}
+      {current.kind === 'connect' && <><BankConnect onConnected={() => saveAnswer('connect', 'Connected')} /><button className="button secondary chat-done" onClick={() => saveAnswer('connect', 'Not now')}>Not now</button></>}
+      {current.kind === 'done' && <button className="button primary chat-done" disabled={busy} onClick={() => void finish()}>{busy ? 'Saving your plan…' : 'Go to my home'}</button>}
+    </div>
   </main>;
 }
 

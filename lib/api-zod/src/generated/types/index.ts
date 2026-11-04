@@ -48,6 +48,7 @@ export * from './receiptScanResult';
 export * from './receiptScanResultItemsItem';
 export * from './swapProfile';
 export * from './swapProfileInput';
+export * from './swapProfileInputOnboardingAnswers';
 export * from './swapProfileInputSwapCategoriesItem';
 export * from './swapProfileInputValuesItem';
 export * from './transaction';

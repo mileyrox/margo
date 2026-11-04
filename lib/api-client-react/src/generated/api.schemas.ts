@@ -333,6 +333,8 @@ export const SwapProfileInputValuesItem = {
   'budget-first': 'budget-first',
 } as const;
 
+export type SwapProfileInputOnboardingAnswers = {[key: string]: string};
+
 export interface SwapProfileInput {
   /** @maxLength 160 */
   savingFor: string;
@@ -361,6 +363,7 @@ export interface SwapProfileInput {
   dietaryNeeds: string;
   /** @maxLength 500 */
   productPreferences: string;
+  onboardingAnswers?: SwapProfileInputOnboardingAnswers;
 }
 
 export type SwapProfile = SwapProfileInput;

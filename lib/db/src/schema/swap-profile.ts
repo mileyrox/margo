@@ -11,6 +11,7 @@ export type SwapProfileData = {
   values: string[];
   dietaryNeeds: string;
   productPreferences: string;
+  onboardingAnswers?: Record<string, string>;
 };
 
 export const emptySwapProfile: SwapProfileData = {
@@ -22,6 +23,7 @@ export const emptySwapProfile: SwapProfileData = {
   values: [],
   dietaryNeeds: "",
   productPreferences: "",
+  onboardingAnswers: {},
 };
 
 export const swapProfilesTable = pgTable("swap_profiles", {

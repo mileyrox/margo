@@ -2244,3 +2244,109 @@ body { min-width:320px; }
   .swap-product-pair strong { font-size:11px; }
   .swap-product-footer span { font-size:8px; }
 }
+
+/* Final Margo reference tokens. Keep every route on the same palette and type scale. */
+:root {
+  --app-paper:#FBF6E4;
+  --app-surface:#FFFFFF;
+  --app-line:#E8DFC4;
+  --app-ink:#0B1F4B;
+  --app-muted:#4A5578;
+  --app-wine:#5A0F1A;
+  --app-olive:#6D712E;
+}
+html,body,.app-frame,.workspace { background:var(--app-paper); color:var(--app-ink); font-family:'DM Sans',sans-serif; }
+.top-nav { background:rgba(251,246,228,.97); }
+.mobile-tabs { background:rgba(255,255,255,.98); border-color:var(--app-line); }
+.button { border-radius:14px; font-size:14px; }
+.button.primary { background:var(--app-ink); }
+.button.primary:hover:not(:disabled) { background:#173567; }
+.button.secondary { color:var(--app-ink); background:#fff; border-color:var(--app-line); }
+.center-plus,.desktop-plus-button,.login-actions .button { background:var(--app-wine); }
+.summary-track span { background:#C9DBEC; }
+.budget-meter { background:#F1EBD8; }
+.budget-meter i,.budget-row:nth-child(3n) .budget-meter i { background:var(--app-ink); }
+.budget-row.over .budget-meter i,.budget-row.over .budget-row-top span { background:transparent; color:var(--app-wine); }
+.budget-row.over .budget-meter i { background:var(--app-wine); }
+.spending-totals .expense-total { background:var(--app-ink); border-color:var(--app-ink); }
+.spending-totals .income-total { background:#fff; }
+.home-aside .tip-card,.mini-card,.mini-card-tax { background:#fff; border-color:var(--app-line); }
+.activity-icon { color:var(--app-ink); background:#FBF6E4; }
+.activity-icon.income { color:var(--app-ink); background:#C9DBEC; }
+.empty-icon { color:var(--app-ink); background:#FBF6E4; }
+.scan-icon,.photo-picker-icon,.gig-mark,.mark-1,.mark-2 { color:var(--app-ink); background:#FBF6E4; }
+.scan-card,.saved-receipts,.comparison-surface,.history-surface,.settings-section,.day-group,.swap-product-card { background:#fff; border-color:var(--app-line); }
+.alternative-card { background:#FBF6E4; }
+.swap-product-pair small { color:var(--app-muted); font-size:13px; text-transform:none; letter-spacing:normal; }
+.swap-product-pair strong { font-size:14px; }
+.swap-product-pair span { color:var(--app-wine); }
+.swap-product-footer strong { color:#fff; background:var(--app-olive); font-size:13px; }
+.swap-banner { background:var(--app-wine); }
+.button.light { color:var(--app-ink); background:#fff; }
+.legal-line,.page-title p,.section-heading p,.summary-kicker,.summary-bottom,.home-metrics span,.home-metrics small,.budget-row-top,.activity-copy small,.empty-state p,.filter-button,.gig-copy p,.gig-copy small,.settings-fields label,.scan-meta label,.form-grid label,.plus-menu a > span:last-child small { color:var(--app-muted); }
+.filter-button.selected,.spending-filter-row .filter-button.selected { color:#fff; background:var(--app-ink); }
+.field-input { border-color:var(--app-line); background:#fff; color:var(--app-ink); }
+.choice-chip.selected { color:var(--app-wine); border-color:var(--app-wine); background:#fff; }
+.onboarding-question { background:#fff; border-color:var(--app-line); }
+.plus-menu,.plus-menu a { background:#fff; border-color:var(--app-line); }
+.home-metrics small,.summary-kicker,.summary-bottom,.section-heading p,.activity-copy small,.budget-row-top,.legal-line,.gig-copy p,.gig-copy small,.settings-fields label,.scan-meta label,.form-grid label,.plus-menu a > span:last-child small { font-size:13px; }
+.nav-label,.eyebrow,.table th { text-transform:none; letter-spacing:normal; }
+.home-columns { grid-template-columns:minmax(0,1fr); }
+.summary-budget,.summary-bottom,.home-metrics span,.home-metrics small,.budget-row-top,.activity-copy small,.page-title p,.section-heading p,.legal-line,.settings-fields label,.scan-meta label,.form-grid label { color:var(--app-muted); }
+.home-summary .summary-kicker,.home-summary .summary-budget,.home-summary .summary-bottom,.home-summary .summary-budget span { color:#fff; }
+.home-summary .summary-bottom b,.home-summary .summary-budget strong { color:#fff; }
+.home-summary .summary-budget strong { font-size:17px; }
+.app-frame .page-title p,.app-frame .section-heading p,.app-frame .summary-kicker,.app-frame .summary-bottom,.app-frame .home-metrics span,.app-frame .home-metrics small,.app-frame .budget-row-top,.app-frame .activity-copy small,.app-frame .empty-state p,.app-frame .filter-button,.app-frame .legal-line,.app-frame .gig-copy p,.app-frame .gig-copy small,.app-frame .settings-fields label,.app-frame .scan-meta label,.app-frame .form-grid label { font-size:13px; }
+.app-frame .page-title p,.app-frame .section-heading p,.app-frame .summary-kicker,.app-frame .summary-bottom,.app-frame .home-metrics span,.app-frame .home-metrics small,.app-frame .budget-row-top,.app-frame .activity-copy small,.app-frame .empty-state p,.app-frame .legal-line,.app-frame .gig-copy p,.app-frame .gig-copy small,.app-frame .settings-fields label,.app-frame .scan-meta label,.app-frame .form-grid label { color:var(--app-muted); }
+.home-summary .summary-kicker,.home-summary .summary-bottom { color:#fff; }
+.app-frame :is(.field-input,.tab-link,.button,.filter-button,.small-link,.quiet-link,.month-selector strong,.day-group h3,.summary-budget span) { font-family:'DM Sans',sans-serif; }
+.app-frame p,.app-frame small,.app-frame label,.app-frame .tab-link { font-size:13px !important; }
+.app-frame .spending-filter-row .filter-button:not(.selected) { color:var(--app-ink); border-color:var(--app-ink); background:#fff; }
+.activity-icon.income,.create-menu-icon.blue { color:var(--app-ink); background:#FBF6E4; }
+.budget-alert > span,.conversation-avatar,.connect-illustration { color:var(--app-wine); background:#FBF6E4; }
+.tip-card,.mini-card,.mini-card-tax { color:var(--app-ink); background:#fff; border-color:var(--app-line); }
+.settings-fields p,.bank-row p,.bank-row small,.linked-bank small { color:var(--app-muted); font-size:13px; }
+.receipt-expanded,.photo-picker { color:var(--app-ink); background:#FBF6E4; }
+.home-summary .summary-track { background:rgba(255,255,255,.22); }
+.home-summary .summary-track span { background:#C9DBEC; }
+.app-frame .gig-number,.app-frame .question-count { color:var(--app-muted); font-size:13px; text-transform:none; letter-spacing:normal; }
+.app-frame .button,.app-frame .filter-button,.app-frame .quiet-link,.app-frame .small-link { font-size:13px; }
+.app-frame .button { font-size:14px; }
+.onboarding-chat-shell { width:min(100%,560px); min-height:100dvh; display:flex; flex-direction:column; gap:0; margin:0 auto; padding:18px 20px calc(12px + env(safe-area-inset-bottom)); background:var(--app-paper); }
+.onboarding-chat-shell .onboarding-brand { display:flex; justify-content:space-between; align-items:center; min-height:45px; }
+.onboarding-chat-shell .onboarding-brand img { width:108px; max-height:40px; }
+.start-over { border:0; color:var(--app-ink); background:transparent; font-size:13px; text-decoration:underline; }
+.onboarding-chat-shell .onboarding-progress { height:3px; margin:11px 0 8px; background:#E8DFC4; }
+.onboarding-chat-shell .onboarding-progress span { transform-origin:left center; background:var(--app-wine); }
+.conversation-scroll { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:14px; padding:14px 0 20px; }
+.chat-exchange { display:grid; gap:9px; }
+.chat-message { max-width:88%; display:flex; align-items:flex-end; gap:8px; }
+.chat-message p { margin:0; padding:11px 14px; border:1px solid var(--app-line); border-radius:16px 16px 16px 5px; color:var(--app-ink); background:#fff; font-size:14px; line-height:1.45; }
+.chat-seal { width:30px; height:30px; flex:none; display:grid; place-items:center; border-radius:50%; color:#fff; background:var(--app-wine); font:600 17px var(--app-font-serif); }
+.from-user { justify-content:flex-end; margin-left:auto; }
+.from-user p { border-color:var(--app-ink); border-radius:16px 16px 5px 16px; color:#fff; background:var(--app-ink); }
+.chat-budget-card { display:grid; gap:8px; margin:0 0 0 38px; padding:15px; border:1px solid var(--app-line); border-radius:16px; color:var(--app-ink); background:#fff; }
+.chat-budget-card > strong { font:600 17px var(--app-font-serif); }
+.chat-budget-card > span { color:var(--app-muted); font-size:13px; }
+.chat-budget-card > div { display:flex; justify-content:space-between; border-top:1px solid var(--app-line); padding-top:7px; font-size:14px; }
+.answer-dock { display:grid; gap:10px; padding:12px 0 max(4px,env(safe-area-inset-bottom)); border-top:1px solid var(--app-line); background:var(--app-paper); }
+.period-toggle { display:flex; gap:6px; }
+.period-toggle button { min-height:36px; padding:7px 13px; border:1px solid var(--app-line); border-radius:999px; color:var(--app-ink); background:#fff; font-size:13px; }
+.period-toggle button.selected { color:#fff; border-color:var(--app-ink); background:var(--app-ink); }
+.chat-answer-row { display:flex; align-items:center; gap:8px; }
+.chat-answer-row > .field-input { flex:1; min-width:0; min-height:48px; font-size:15px; }
+.chat-amount { flex:1; min-width:0; display:flex; align-items:center; gap:7px; min-height:48px; padding:0 14px; border:1px solid var(--app-line); border-radius:14px; color:var(--app-ink); background:#fff; font-size:16px; }
+.chat-amount input { width:100%; min-width:0; border:0; outline:0; color:var(--app-ink); background:transparent; font-size:16px; }
+.chat-send { width:48px; height:48px; flex:none; display:grid; place-items:center; padding:0; border-radius:14px; }
+.chat-choice-row { display:flex; flex-wrap:wrap; gap:8px; }
+.chat-choice-row .choice-chip { min-height:40px; color:var(--app-ink); background:#fff; font-size:13px; }
+.chat-choice-row .choice-chip.selected { color:var(--app-wine); border-color:var(--app-wine); }
+.chat-done { width:100%; min-height:48px; }
+.onboarding-answer-details { padding-top:8px; border-top:1px solid var(--app-line); }
+.onboarding-answer-details summary { margin-bottom:12px; color:var(--app-ink); font-weight:600; cursor:pointer; }
+.onboarding-answer-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.onboarding-answer-grid label { display:grid; gap:6px; color:var(--app-muted); font-size:13px; }
+@media(max-width:520px) {
+  .onboarding-chat-shell { padding-left:16px; padding-right:16px; }
+  .onboarding-answer-grid { grid-template-columns:1fr; }
+}

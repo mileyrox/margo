@@ -562,7 +562,8 @@ export const GetSwapProfileResponse = zod.object({
   "favoriteBrands": zod.array(zod.string().min(1).max(getSwapProfileResponseOneFavoriteBrandsItemMax)).max(getSwapProfileResponseOneFavoriteBrandsMax),
   "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(getSwapProfileResponseOneValuesMax),
   "dietaryNeeds": zod.string().max(getSwapProfileResponseOneDietaryNeedsMax),
-  "productPreferences": zod.string().max(getSwapProfileResponseOneProductPreferencesMax)
+  "productPreferences": zod.string().max(getSwapProfileResponseOneProductPreferencesMax),
+  "onboardingAnswers": zod.record(zod.string(), zod.string()).optional()
 })
 
 
@@ -600,7 +601,8 @@ export const UpdateSwapProfileBody = zod.object({
   "favoriteBrands": zod.array(zod.string().min(1).max(updateSwapProfileBodyFavoriteBrandsItemMax)).max(updateSwapProfileBodyFavoriteBrandsMax),
   "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(updateSwapProfileBodyValuesMax),
   "dietaryNeeds": zod.string().max(updateSwapProfileBodyDietaryNeedsMax),
-  "productPreferences": zod.string().max(updateSwapProfileBodyProductPreferencesMax)
+  "productPreferences": zod.string().max(updateSwapProfileBodyProductPreferencesMax),
+  "onboardingAnswers": zod.record(zod.string(), zod.string()).optional()
 })
 
 export const updateSwapProfileResponseOneSavingForMax = 160;
@@ -634,7 +636,8 @@ export const UpdateSwapProfileResponse = zod.object({
   "favoriteBrands": zod.array(zod.string().min(1).max(updateSwapProfileResponseOneFavoriteBrandsItemMax)).max(updateSwapProfileResponseOneFavoriteBrandsMax),
   "values": zod.array(zod.enum(['clean-beauty', 'organic', 'vegan', 'cruelty-free', 'local', 'budget-first'])).max(updateSwapProfileResponseOneValuesMax),
   "dietaryNeeds": zod.string().max(updateSwapProfileResponseOneDietaryNeedsMax),
-  "productPreferences": zod.string().max(updateSwapProfileResponseOneProductPreferencesMax)
+  "productPreferences": zod.string().max(updateSwapProfileResponseOneProductPreferencesMax),
+  "onboardingAnswers": zod.record(zod.string(), zod.string()).optional()
 })
 
 

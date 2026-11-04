@@ -954,6 +954,9 @@ components:
         values: { type: array, maxItems: 12, uniqueItems: true, items: { type: string, enum: [clean-beauty, organic, vegan, cruelty-free, local, budget-first] } }
         dietaryNeeds: { type: string, maxLength: 500 }
         productPreferences: { type: string, maxLength: 500 }
+        onboardingAnswers:
+          type: object
+          additionalProperties: { type: string }
     SwapProfile:
       allOf:
         - $ref: "#/components/schemas/SwapProfileInput"
