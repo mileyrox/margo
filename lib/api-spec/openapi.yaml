@@ -488,6 +488,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /purchase-history:
+    get:
+      tags: [Finance]
+      operationId: getPurchaseHistory
+      summary: List the current user's products found on receipts
+      responses:
+        "200":
+          description: Purchase history with canonical product details when available.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PurchaseHistoryItem" }
+  /products/{productId}/alternatives:
+    get:
+      tags: [Finance]
+      operationId: getProductAlternatives
+      summary: Get verified alternatives and affiliate offers for a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Alternatives, scores, votes, and active affiliate links.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProductAlternative" }
+  /product-alternatives/{alternativeId}/vote:
+    put:
+      tags: [Finance]
+      operationId: voteOnProductAlternative
+      summary: Save or update a community vote
+      parameters:
+        - name: alternativeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductVoteInput" }
+      responses:
+        "200":
+          description: Saved vote.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductVote" }
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -791,4 +843,44 @@ components:
         uploadURL: { type: string, format: uri }
         objectPath: { type: string }
         metadata: { $ref: "#/components/schemas/UploadUrlRequest" }
+    PurchaseHistoryItem:
+      type: object
+      required: [id, productName, brand, category, unitPrice, quantity, purchasedAt, source]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: ["string", "null"], format: uuid }
+        productName: { type: string }
+        brand: { type: string }
+        category: { type: string }
+        unitPrice: { type: number }
+        quantity: { type: number }
+        purchasedAt: { type: string, format: date }
+        source: { type: string }
+    ProductAlternative:
+      type: object
+      required: [id, productId, name, brand, category, similarityScore, savingsScore, isVerified, positiveVotes, negativeVotes, affiliateUrl]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        brand: { type: string }
+        category: { type: string }
+        similarityScore: { type: number, minimum: 0, maximum: 100 }
+        savingsScore: { type: number, minimum: 0, maximum: 100 }
+        isVerified: { type: boolean }
+        positiveVotes: { type: integer }
+        negativeVotes: { type: integer }
+        affiliateUrl: { type: ["string", "null"], format: uri }
+    ProductVoteInput:
+      type: object
+      required: [vote]
+      properties:
+        vote: { type: integer, enum: [-1, 1] }
+    ProductVote:
+      allOf:
+        - $ref: "#/components/schemas/ProductVoteInput"
+        - type: object
+          required: [alternativeId]
+          properties:
+            alternativeId: { type: string, format: uuid }
 

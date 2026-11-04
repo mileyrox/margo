@@ -31,7 +31,9 @@ import {
   db,
   budgetPlansTable,
   financeSettingsTable,
+  productsTable,
   receiptsTable,
+  userProductPurchasesTable,
   emptySwapProfile,
   swapProfilesTable,
   transactionsTable,
@@ -499,20 +501,33 @@ router.post("/receipts", async (req, res): Promise<void> => {
     return;
   }
 
-  const [receipt] = await db
-    .insert(receiptsTable)
-    .values({
+  const receipt = await db.transaction(async (tx) => {
+    const [savedReceipt] = await tx.insert(receiptsTable).values({
       userId: req.user.id,
       merchant: parsed.data.merchant,
       purchasedAt: parsed.data.purchasedAt.toISOString().slice(0, 10),
       total: parsed.data.total,
       objectPath,
-      items: parsed.data.items.map((item) => ({
-        ...item,
-        brand: item.brand ?? null,
-      })),
-    })
-    .returning();
+      items: parsed.data.items.map((item) => ({ ...item, brand: item.brand ?? null })),
+    }).returning();
+    if (!savedReceipt) return undefined;
+    for (const item of parsed.data.items) {
+      const brand = item.brand?.trim() ?? "";
+      const normalizedName = item.productName.trim().toLowerCase().replace(/\s+/g, " ");
+      const [inserted] = await tx.insert(productsTable).values({
+        name: item.productName.trim(), normalizedName, brand, category: item.category,
+      }).onConflictDoNothing({ target: [productsTable.normalizedName, productsTable.brand] }).returning();
+      const [product] = inserted ? [inserted] : await tx.select().from(productsTable).where(and(
+        eq(productsTable.normalizedName, normalizedName), eq(productsTable.brand, brand),
+      )).limit(1);
+      await tx.insert(userProductPurchasesTable).values({
+        userId: req.user.id, productId: product?.id ?? null, receiptId: savedReceipt.id,
+        source: "receipt", productNameSnapshot: item.productName.trim(), unitPrice: item.unitPrice,
+        quantity: 1, purchasedAt: parsed.data.purchasedAt.toISOString().slice(0, 10),
+      });
+    }
+    return savedReceipt;
+  });
   if (!receipt) {
     res.status(500).json({ error: "Could not save receipt" });
     return;

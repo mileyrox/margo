@@ -11,9 +11,10 @@ import {
   useUpdateFinanceSettings, useGetReceipts, useCreateReceipt, useDeleteReceipt,
   useGetProductComparisons, useRequestUploadUrl, useGetBudgetPlan, useUpdateBudgetPlan,
   getGetBudgetPlanQueryKey, useGetSwapProfile, useUpdateSwapProfile,
-  getGetSwapProfileQueryKey,
+  getGetSwapProfileQueryKey, useGetPurchaseHistory, getGetPurchaseHistoryQueryKey,
+  useGetProductAlternatives, getGetProductAlternativesQueryKey, useVoteOnProductAlternative,
 } from '@workspace/api-client-react';
-import type { BudgetPlanInput, ReceiptLineItem, SwapProfileInput, Transaction } from '@workspace/api-client-react';
+import type { BudgetPlanInput, PurchaseHistoryItem, ReceiptLineItem, SwapProfileInput, Transaction } from '@workspace/api-client-react';
 import {
   ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Banknote, Check,
   ChevronRight, FileImage, FilePlus2, FileText, HandCoins, Info, Leaf,
@@ -456,7 +457,7 @@ function ReceiptsPage() {
     setPreview('');
     return undefined;
   }, [selectedFile]);
-  const refresh = () => { qc.invalidateQueries({ queryKey: getGetReceiptsQueryKey() }); qc.invalidateQueries({ queryKey: getGetProductComparisonsQueryKey() }); qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }); };
+  const refresh = () => { qc.invalidateQueries({ queryKey: getGetReceiptsQueryKey() }); qc.invalidateQueries({ queryKey: getGetPurchaseHistoryQueryKey() }); qc.invalidateQueries({ queryKey: getGetProductComparisonsQueryKey() }); qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }); };
   const chooseFile = (file?: File) => {
     setError('');
     if (!file) { setSelectedFile(null); return; }
@@ -535,6 +536,7 @@ function SwapsPage() {
   const comparisons = useGetProductComparisons();
   const dashboard = useGetFinanceDashboard();
   const profile = useGetSwapProfile();
+  const purchaseHistory = useGetPurchaseHistory();
   const grouped = useMemo(() => {
     const groups = new Map<string, NonNullable<typeof comparisons.data>>();
     (comparisons.data || []).forEach((item) => groups.set(item.category, [...(groups.get(item.category) || []), item]));
@@ -548,9 +550,32 @@ function SwapsPage() {
     <section className="panel" style={{ background: '#e7eef0', borderColor: '#d5e1e3', padding: '19px 22px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 15 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}><div className="saving-icon" style={{ background: '#d3e3e8' }}><Leaf /></div><div><div className="eyebrow" style={{ marginBottom: 3 }}>Potential yearly difference</div><div style={{ font: '600 24px var(--app-font-serif)' }} data-testid="value-swap-total">{money(dashboard.data?.annualSavings)}</div></div></div><div className="better-buy-actions"><Link href="/receipts?scan=receipt" className="btn btn-soft"><ReceiptText />Scan receipt</Link><Link href="/receipts?scan=barcode" className="btn btn-soft"><ShoppingBag />Scan barcode</Link></div>
     </section>
+    <section className="panel purchase-history-panel">
+      <div className="panel-head"><div><h2 className="panel-title">Your purchase history</h2><p className="panel-caption">Products entered from saved receipt items.</p></div><span className="badge badge-muted">{purchaseHistory.data?.length || 0} products</span></div>
+      {purchaseHistory.isLoading ? <div style={{ padding: '0 20px 18px' }}><div className="skeleton" /><div className="skeleton" /></div> : purchaseHistory.isError ? <div style={{ padding: 18 }}><ErrorPanel error={purchaseHistory.error} retry={() => purchaseHistory.refetch()} /></div> : purchaseHistory.data?.length ? <div className="purchase-history-list">{purchaseHistory.data.map((item) => <PurchaseHistoryCard key={item.id} item={item} />)}</div> : <EmptyState icon={ShoppingBag} title="Your product history is taking shape" body="Save receipt products to build a private purchase history and see verified alternatives here." action={<Link href="/receipts" className="btn btn-soft">Add receipt items <ChevronRight /></Link>} />}
+    </section>
     {comparisons.isLoading ? <LoadingPanel rows={5} /> : comparisons.isError ? <ErrorPanel error={comparisons.error} retry={() => comparisons.refetch()} /> : grouped.length ? <div className="panel">{grouped.map(([category, entries]) => <div key={category}><div className="category-heading">{category}</div>{entries.map((item, i) => <div className="comparison-row" key={`${item.productName}-${i}`} data-testid={`comparison-${i}-${category.toLowerCase().replaceAll(' ', '-')}`}><div className="product"><div className="product-name">{item.productName}</div><div className="product-brand">{item.brand || 'Current choice'} · {item.unitsPerYear} / year</div><div className="product-price">{money(item.unitPrice)} <small>each</small></div></div><div className="swap-arrow"><ArrowRightLeft /></div><div className="product"><div className="product-name">{item.alternativeName}</div><div className="product-brand">{item.alternativeBrand || 'Alternative'}</div><div className="product-price">{money(item.alternativePrice)} <small>each</small></div></div><div className="save-amount"><strong>{money(item.annualSavings)}</strong><span>per year</span></div></div>)}</div>)}</div> : <div className="panel"><EmptyState icon={Leaf} title={needsVerifiedProductDetails ? 'Waiting on verified product details' : profile.data?.swapCategories.length ? 'No comparisons just yet' : 'Choose what you’re open to'} body={needsVerifiedProductDetails ? 'You added product requirements we cannot verify from receipt names alone, so Aliena is holding suggestions instead of guessing.' : profile.data?.swapCategories.length ? 'Add product line items to your receipts. Comparable products and their estimated yearly savings will show up here.' : 'Pick the areas where you’re willing to consider a swap. Your non-negotiables stay out of the suggestions.'} action={<Link href={needsVerifiedProductDetails ? '/onboarding' : profile.data?.swapCategories.length ? '/receipts' : '/onboarding'} className="btn btn-primary"><Plus />{needsVerifiedProductDetails ? 'Review my preferences' : profile.data?.swapCategories.length ? 'Add a receipt' : 'Set my preferences'}</Link>} /></div>}
     <p style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', marginTop: 13, lineHeight: 1.5 }}>Savings are estimates based on product prices and annual usage you entered. Availability and prices may change.</p>
   </div>;
+}
+
+function PurchaseHistoryCard({ item }: { item: PurchaseHistoryItem }) {
+  const productId = item.productId || '';
+  const alternatives = useGetProductAlternatives(productId, { query: { queryKey: getGetProductAlternativesQueryKey(productId), enabled: Boolean(productId) } });
+  const vote = useVoteOnProductAlternative();
+  const qc = useQueryClient();
+  return <article className="purchase-history-row">
+    <div className="purchase-history-product"><strong>{item.productName}</strong><span>{item.brand || 'Brand not recorded'} · {item.category} · {money(item.unitPrice)}</span><small>{niceDate(item.purchasedAt)} · {item.source}</small></div>
+    {alternatives.data?.map((option) => <div className="purchase-alternative" key={option.id}>
+      <div><strong>{option.name}</strong><span>{option.brand} · {option.similarityScore}% similarity · {option.savingsScore}% savings score</span></div>
+      <div className="purchase-vote-actions">
+        {option.affiliateUrl && <a href={option.affiliateUrl} target="_blank" rel="noreferrer sponsored" className="text-link">View offer <ChevronRight size={12} /></a>}
+        <button className="btn btn-soft" onClick={() => vote.mutate({ alternativeId: option.id, data: { vote: 1 } }, { onSuccess: () => qc.invalidateQueries({ queryKey: getGetProductAlternativesQueryKey(item.productId || '') }) })} disabled={vote.isPending}>Helpful · {option.positiveVotes}</button>
+        <button className="btn btn-soft" onClick={() => vote.mutate({ alternativeId: option.id, data: { vote: -1 } }, { onSuccess: () => qc.invalidateQueries({ queryKey: getGetProductAlternativesQueryKey(item.productId || '') }) })} disabled={vote.isPending}>Not a match · {option.negativeVotes}</button>
+      </div>
+    </div>)}
+    {alternatives.isError && <span className="row-meta">Alternatives are temporarily unavailable.</span>}
+  </article>;
 }
 
 const profileCategoryOptions = [

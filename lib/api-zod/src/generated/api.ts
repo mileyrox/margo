@@ -590,6 +590,72 @@ export const UpdateSwapProfileResponse = zod.object({
 
 
 /**
+ * @summary List the current user's products found on receipts
+ */
+export const GetPurchaseHistoryResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid().nullish(),
+  "productName": zod.string(),
+  "brand": zod.string(),
+  "category": zod.string(),
+  "unitPrice": zod.number(),
+  "quantity": zod.number(),
+  "purchasedAt": zod.coerce.date(),
+  "source": zod.string()
+})
+export const GetPurchaseHistoryResponse = zod.array(GetPurchaseHistoryResponseItem)
+
+
+/**
+ * @summary Get verified alternatives and affiliate offers for a product
+ */
+export const GetProductAlternativesParams = zod.object({
+  "productId": zod.coerce.string().uuid()
+})
+
+export const getProductAlternativesResponseSimilarityScoreMin = 0;
+export const getProductAlternativesResponseSimilarityScoreMax = 100;
+
+export const getProductAlternativesResponseSavingsScoreMin = 0;
+export const getProductAlternativesResponseSavingsScoreMax = 100;
+
+
+
+export const GetProductAlternativesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "name": zod.string(),
+  "brand": zod.string(),
+  "category": zod.string(),
+  "similarityScore": zod.number().min(getProductAlternativesResponseSimilarityScoreMin).max(getProductAlternativesResponseSimilarityScoreMax),
+  "savingsScore": zod.number().min(getProductAlternativesResponseSavingsScoreMin).max(getProductAlternativesResponseSavingsScoreMax),
+  "isVerified": zod.boolean(),
+  "positiveVotes": zod.number().int(),
+  "negativeVotes": zod.number().int(),
+  "affiliateUrl": zod.string().url().nullable()
+})
+export const GetProductAlternativesResponse = zod.array(GetProductAlternativesResponseItem)
+
+
+/**
+ * @summary Save or update a community vote
+ */
+export const VoteOnProductAlternativeParams = zod.object({
+  "alternativeId": zod.coerce.string().uuid()
+})
+
+export const VoteOnProductAlternativeBody = zod.object({
+  "vote": zod.union([zod.literal(-1),zod.literal(1)])
+})
+
+export const VoteOnProductAlternativeResponse = zod.object({
+  "vote": zod.union([zod.literal(-1),zod.literal(1)])
+}).and(zod.object({
+  "alternativeId": zod.string().uuid()
+}))
+
+
+/**
  * @summary Request a private receipt upload URL
  */
 

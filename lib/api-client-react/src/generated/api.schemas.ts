@@ -353,6 +353,58 @@ export interface UploadUrlResponse {
   metadata: UploadUrlRequest;
 }
 
+export interface PurchaseHistoryItem {
+  id: string;
+  /** @nullable */
+  productId?: string | null;
+  productName: string;
+  brand: string;
+  category: string;
+  unitPrice: number;
+  quantity: number;
+  purchasedAt: string;
+  source: string;
+}
+
+export interface ProductAlternative {
+  id: string;
+  productId: string;
+  name: string;
+  brand: string;
+  category: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  similarityScore: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  savingsScore: number;
+  isVerified: boolean;
+  positiveVotes: number;
+  negativeVotes: number;
+  /** @nullable */
+  affiliateUrl: string | null;
+}
+
+export type ProductVoteInputVote = typeof ProductVoteInputVote[keyof typeof ProductVoteInputVote];
+
+
+export const ProductVoteInputVote = {
+  NUMBER_MINUS_1: -1,
+  NUMBER_1: 1,
+} as const;
+
+export interface ProductVoteInput {
+  vote: ProductVoteInputVote;
+}
+
+export type ProductVote = ProductVoteInput & {
+  alternativeId: string;
+};
+
 export type AuthorizationSessionHeaderParameter = string;
 
 export type BeginBrowserLoginParams = {

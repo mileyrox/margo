@@ -35,7 +35,11 @@ import type {
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
+  ProductAlternative,
   ProductComparison,
+  ProductVote,
+  ProductVoteInput,
+  PurchaseHistoryItem,
   Receipt,
   ReceiptInput,
   SwapProfile,
@@ -1774,6 +1778,249 @@ export const useUpdateSwapProfile = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getUpdateSwapProfileMutationOptions(options));
+    }
+
+export const getGetPurchaseHistoryUrl = () => {
+
+
+
+
+  return `/api/purchase-history`
+}
+
+/**
+ * @summary List the current user's products found on receipts
+ */
+export const getPurchaseHistory = async ( options?: Parameters<typeof customFetch>[1]): Promise<PurchaseHistoryItem[]> => {
+
+  return customFetch<PurchaseHistoryItem[]>(getGetPurchaseHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPurchaseHistoryQueryKey = () => {
+    return [
+    `/api/purchase-history`
+    ] as const;
+    }
+
+
+export const getGetPurchaseHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getPurchaseHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPurchaseHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPurchaseHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPurchaseHistory>>> = ({ signal }) => getPurchaseHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPurchaseHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPurchaseHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getPurchaseHistory>>>
+export type GetPurchaseHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the current user's products found on receipts
+ */
+
+export function useGetPurchaseHistory<TData = Awaited<ReturnType<typeof getPurchaseHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPurchaseHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPurchaseHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetProductAlternativesUrl = (productId: string,) => {
+
+
+
+
+  return `/api/products/${productId}/alternatives`
+}
+
+/**
+ * @summary Get verified alternatives and affiliate offers for a product
+ */
+export const getProductAlternatives = async (productId: string, options?: Parameters<typeof customFetch>[1]): Promise<ProductAlternative[]> => {
+
+  return customFetch<ProductAlternative[]>(getGetProductAlternativesUrl(productId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProductAlternativesQueryKey = (productId: string,) => {
+    return [
+    `/api/products/${productId}/alternatives`
+    ] as const;
+    }
+
+
+export const getGetProductAlternativesQueryOptions = <TData = Awaited<ReturnType<typeof getProductAlternatives>>, TError = ErrorType<unknown>>(productId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductAlternatives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProductAlternativesQueryKey(productId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProductAlternatives>>> = ({ signal }) => getProductAlternatives(productId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: productId !== null && productId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProductAlternatives>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProductAlternativesQueryResult = NonNullable<Awaited<ReturnType<typeof getProductAlternatives>>>
+export type GetProductAlternativesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get verified alternatives and affiliate offers for a product
+ */
+
+export function useGetProductAlternatives<TData = Awaited<ReturnType<typeof getProductAlternatives>>, TError = ErrorType<unknown>>(
+ productId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProductAlternatives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProductAlternativesQueryOptions(productId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getVoteOnProductAlternativeUrl = (alternativeId: string,) => {
+
+
+
+
+  return `/api/product-alternatives/${alternativeId}/vote`
+}
+
+/**
+ * @summary Save or update a community vote
+ */
+export const voteOnProductAlternative = async (alternativeId: string,
+    productVoteInput: ProductVoteInput, options?: Parameters<typeof customFetch>[1]): Promise<ProductVote> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ProductVote>(getVoteOnProductAlternativeUrl(alternativeId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(productVoteInput)
+  }
+);}
+
+
+
+
+
+export const getVoteOnProductAlternativeMutationKey = () => ['voteOnProductAlternative'] as const;
+
+export const getVoteOnProductAlternativeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof voteOnProductAlternative>>, TError,VoteOnProductAlternativeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof voteOnProductAlternative>>, TError,VoteOnProductAlternativeMutationVariables, TContext> => {
+
+const mutationKey = getVoteOnProductAlternativeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof voteOnProductAlternative>>, VoteOnProductAlternativeMutationVariables> = (props) => {
+          const {alternativeId,data} = props ?? {};
+
+          return  voteOnProductAlternative(alternativeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VoteOnProductAlternativeMutationResult = NonNullable<Awaited<ReturnType<typeof voteOnProductAlternative>>>
+    export type VoteOnProductAlternativeMutationBody = BodyType<ProductVoteInput>
+    export type VoteOnProductAlternativeMutationError = ErrorType<unknown>
+    export type VoteOnProductAlternativeMutationVariables = {alternativeId: string;data: BodyType<ProductVoteInput>}
+
+    /**
+ * @summary Save or update a community vote
+ */
+export const useVoteOnProductAlternative = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof voteOnProductAlternative>>, TError,VoteOnProductAlternativeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof voteOnProductAlternative>>,
+        TError,
+        VoteOnProductAlternativeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getVoteOnProductAlternativeMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {

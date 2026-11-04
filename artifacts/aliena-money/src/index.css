@@ -102,6 +102,17 @@ h1 { font:600 clamp(29px,3vw,39px)/1.1 var(--app-font-serif);letter-spacing:-1px
 .panel-caption { font-size:10px;color:hsl(var(--muted-foreground));margin:5px 0 0; }
 .text-link { color:#3a7057;text-decoration:none;font-size:11px;font-weight:700; }.text-link:hover{text-decoration:underline;}
 .transaction-list { padding:0 22px 10px; }
+.purchase-history-list { padding:0 18px 12px; }
+.purchase-history-row { display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding:15px 2px; border-top:1px solid hsl(var(--border)); }
+.purchase-history-product { display:grid; gap:4px; min-width:210px; flex:1; }
+.purchase-history-product strong,.purchase-alternative strong { color:var(--navy); font-size:14px; }
+.purchase-history-product span,.purchase-alternative span,.purchase-history-product small { color:var(--muted); font-size:12px; }
+.purchase-alternative { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; width:100%; padding:11px 13px; background:#f7f5ef; border-radius:12px; }
+.purchase-alternative > div:first-child { display:grid; gap:4px; }
+.purchase-vote-actions { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+.purchase-vote-actions .btn { min-height:32px; padding:6px 9px; font-size:11px; }
+.purchase-vote-actions .text-link { font-size:12px; }
+@media (max-width:680px) { .purchase-history-list { padding:0 12px 10px; } .purchase-history-row { gap:10px; } .purchase-history-product { min-width:100%; } .purchase-vote-actions { width:100%; } .purchase-vote-actions .btn { flex:1; } }
 .transaction-row { display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:11px;align-items:center;padding:14px 0;border-top:1px solid hsl(var(--border)); }
 .row-icon { width:34px;height:34px;border-radius:10px;background:#edf2eb;color:#446953;display:grid;place-items:center; }.row-icon.income{background:#f8edce;color:#896a16;}.row-icon svg{width:15px;height:15px;}
 .row-title { font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }.row-meta { font-size:10px;color:hsl(var(--muted-foreground));margin-top:4px; }
