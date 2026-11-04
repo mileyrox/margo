@@ -19,7 +19,7 @@ import type { BudgetPlanInput, PurchaseHistoryItem, ReceiptLineItem, SwapProfile
 import {
   ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BadgeDollarSign, Banknote, Check,
   ChevronRight, FileImage, FilePlus2, FileText, HandCoins, Info, Leaf,
-  LoaderCircle, LogOut, Plus, ReceiptText, Settings as SettingsIcon,
+  LoaderCircle, LogOut, Plus, ReceiptText, Settings as SettingsIcon, MessageCircle, ExternalLink,
   ShieldCheck, ShoppingBag, Trash2, Upload, Wallet, X, Landmark, Sparkles,
 } from 'lucide-react';
 import { Route, Switch, Link, useLocation, Router as WouterRouter } from 'wouter';
@@ -33,6 +33,7 @@ const routeItems = [
   { href: '/', label: 'My plan', icon: Sparkles },
   { href: '/transactions', label: 'Transactions', icon: ArrowRightLeft },
   { href: '/swaps', label: 'Better buys', icon: Leaf },
+  { href: '/earn-save', label: 'Earn & save', icon: HandCoins },
   { href: '/accounts', label: 'Sample accounts', icon: Landmark },
 ];
 const money = (amount: number | undefined | null) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
@@ -74,7 +75,7 @@ function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const initials = `${user?.firstName?.[0] || user?.email?.[0] || 'A'}${user?.lastName?.[0] || ''}`.toUpperCase();
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your account';
-  const primaryNav = routeItems.filter(({ href }) => ['/', '/transactions', '/swaps'].includes(href));
+  const primaryNav = routeItems.filter(({ href }) => ['/', '/transactions', '/swaps', '/earn-save'].includes(href));
   const moreNav = routeItems.filter(({ href }) => !primaryNav.some((item) => item.href === href));
   const navLink = ({ href, label, icon: Icon }: typeof routeItems[number], compact = false) => (
     <Link key={href} href={href} aria-current={path === href ? 'page' : undefined} className={`nav-link ${path === href ? 'active' : ''}`} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>
@@ -753,7 +754,113 @@ const blankProfile: SwapProfileInput = {
   favoriteBrands: [], values: [], dietaryNeeds: '', productPreferences: '',
 };
 
+const nonNegotiableSuggestions = ['Morning latte', 'Cruelty-free makeup', 'Organic produce', 'Name-brand cereal', 'My running shoes', 'Direct flights', 'Streaming'];
+
 function OnboardingPage() {
+  const qc = useQueryClient();
+  const [, setLocation] = useLocation();
+  const profileQuery = useGetSwapProfile();
+  const planQuery = useGetBudgetPlan();
+  const saveProfile = useUpdateSwapProfile();
+  const savePlan = useUpdateBudgetPlan();
+  const [profile, setProfile] = useState<SwapProfileInput>(blankProfile);
+  const [annualIncome, setAnnualIncome] = useState('');
+  const [monthlyRent, setMonthlyRent] = useState('');
+  const [step, setStep] = useState(0);
+  const [customNonNegotiable, setCustomNonNegotiable] = useState('');
+  const [error, setError] = useState('');
+  const [initialized, setInitialized] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const steps = [
+    { prompt: 'What are you saving for?', hint: 'A little context helps us keep the plan pointed at what matters to you.' },
+    { prompt: 'What feels right to save each month?', hint: 'Choose a starting goal. You can always change it later.' },
+    { prompt: 'What is your annual take-home income?', hint: 'The amount you actually receive after taxes, before monthly expenses.' },
+    { prompt: 'What do you pay for rent each month?', hint: 'If rent does not apply, enter zero.' },
+    { prompt: 'What is absolutely staying?', hint: 'Pick your non-negotiables, then add anything we missed.' },
+    { prompt: 'Where are you open to a different pick?', hint: 'Only choose categories where a thoughtful alternative could work.' },
+  ];
+  useEffect(() => {
+    if (initialized || profileQuery.isLoading || planQuery.isLoading || profileQuery.isError || planQuery.isError) return;
+    if (profileQuery.data) setProfile(profileQuery.data);
+    if (planQuery.data) {
+      setAnnualIncome(String(planQuery.data.annualIncome ?? ''));
+      setMonthlyRent(String(planQuery.data.monthlyRent ?? ''));
+    }
+    setInitialized(true);
+  }, [initialized, profileQuery.data, profileQuery.isLoading, profileQuery.isError, planQuery.data, planQuery.isLoading, planQuery.isError]);
+  const toggleProfileList = (key: 'nonNegotiables' | 'swapCategories', value: string) => {
+    setProfile((current) => {
+      const values = current[key] as string[];
+      return { ...current, [key]: values.includes(value) ? values.filter((item) => item !== value) : [...values, value] };
+    });
+  };
+  const addCustomNonNegotiable = () => {
+    const value = customNonNegotiable.trim();
+    if (!value || profile.nonNegotiables.includes(value) || profile.nonNegotiables.length >= 40) return;
+    setProfile((current) => ({ ...current, nonNegotiables: [...current.nonNegotiables, value] }));
+    setCustomNonNegotiable('');
+  };
+  const completeSetup = async () => {
+    setSaving(true); setError('');
+    const profilePayload: SwapProfileInput = { ...profile, savingFor: profile.savingFor.trim(), monthlySavingsGoal: Number(profile.monthlySavingsGoal) || 0 };
+    const planPayload: BudgetPlanInput = {
+      annualIncome: Number(annualIncome) || 0,
+      annualSavingsGoal: (Number(profile.monthlySavingsGoal) || 0) * 12,
+      monthlyRent: Number(monthlyRent) || 0,
+      priorityCategories: [],
+      categoryBudgets: [],
+    };
+    try {
+      await saveProfile.mutateAsync({ data: profilePayload });
+      await savePlan.mutateAsync({ data: planPayload });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: getGetSwapProfileQueryKey() }),
+        qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }),
+      ]);
+      setLocation('/');
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const next = () => {
+    setError('');
+    if (step === 0 && !profile.savingFor.trim()) { setError('Tell me what you’re saving for, even if it is just a first idea.'); return; }
+    if (step === 1 && (!Number.isFinite(profile.monthlySavingsGoal) || profile.monthlySavingsGoal < 0)) { setError('Add a monthly goal of zero or more.'); return; }
+    if (step === 2 && (annualIncome === '' || !Number.isFinite(Number(annualIncome)) || Number(annualIncome) < 0)) { setError('Add your annual take-home amount, or enter zero.'); return; }
+    if (step === 3 && (monthlyRent === '' || !Number.isFinite(Number(monthlyRent)) || Number(monthlyRent) < 0)) { setError('Add your monthly rent, or enter zero.'); return; }
+    if (step < steps.length - 1) setStep((current) => current + 1);
+    else void completeSetup();
+  };
+  if (profileQuery.isLoading || planQuery.isLoading || !initialized) {
+    return <div className="content onboarding-content"><PageHeading eyebrow="A quick hello" title="Let’s make room for what matters." subtitle="Just a few thoughtful questions, one at a time." /><div className="conversation-skeleton panel"><div className="skeleton" /><div className="skeleton" /><div className="skeleton" /></div></div>;
+  }
+  if (profileQuery.isError || planQuery.isError) return <div className="content onboarding-content"><PageHeading eyebrow="A quick hello" title="Let’s get you settled." subtitle="We couldn’t load your saved details just now." />{profileQuery.isError && <ErrorPanel error={profileQuery.error} retry={() => profileQuery.refetch()} />}{planQuery.isError && <ErrorPanel error={planQuery.error} retry={() => planQuery.refetch()} />}</div>;
+  const current = steps[step];
+  return <div className="content onboarding-content">
+    <div className="onboarding-intro"><div className="eyebrow">A first conversation with Margo</div><h1>Keep what you love.<br /><span>Make room to save.</span></h1><p>We’ll shape a starting point around your real life, not a set of rules.</p></div>
+    <section className="conversation-card panel" aria-label={`Setup question ${step + 1} of ${steps.length}`} data-testid="panel-onboarding-conversation">
+      <div className="conversation-topline"><span className="conversation-avatar"><MessageCircle size={17} /></span><span>Margo <small>your money friend</small></span><div className="conversation-progress" aria-label={`Question ${step + 1} of ${steps.length}`}><span style={{ transform: `scaleX(${(step + 1) / steps.length})` }} /></div><span className="conversation-count">{step + 1} / {steps.length}</span></div>
+      <div className="chat-thread" key={step}>
+        <div className="chat-bubble margo-bubble"><p>{current.prompt}</p><small>{current.hint}</small></div>
+        <div className={`chat-answer ${step === 4 || step === 5 ? 'answer-wide' : ''}`}>
+          {step === 0 && <input autoFocus className="conversation-input" value={profile.savingFor} maxLength={160} onChange={(event) => setProfile({ ...profile, savingFor: event.target.value })} placeholder="A rainy-day fund, a trip, more breathing room…" aria-label="What are you saving for" data-testid="input-onboarding-saving-for" />}
+          {step === 1 && <div className="conversation-money"><span>$</span><input autoFocus className="conversation-input" type="number" min="0" max="1000000" step="25" value={profile.monthlySavingsGoal} onChange={(event) => setProfile({ ...profile, monthlySavingsGoal: Number(event.target.value) || 0 })} aria-label="Monthly savings goal" data-testid="input-onboarding-monthly-goal" /><small>per month</small></div>}
+          {step === 2 && <div className="conversation-money"><span>$</span><input autoFocus className="conversation-input" type="number" min="0" step="100" value={annualIncome} onChange={(event) => setAnnualIncome(event.target.value)} placeholder="68,000" aria-label="Annual take-home income" data-testid="input-onboarding-income" /><small>per year</small></div>}
+          {step === 3 && <div className="conversation-money"><span>$</span><input autoFocus className="conversation-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} placeholder="1,450" aria-label="Monthly rent" data-testid="input-onboarding-rent" /><small>per month</small></div>}
+          {step === 4 && <div className="onboarding-chip-area"><div className="onboarding-chip-list">{nonNegotiableSuggestions.map((item) => <button type="button" key={item} className={`conversation-chip ${profile.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profile.nonNegotiables.includes(item)} onClick={() => toggleProfileList('nonNegotiables', item)} data-testid={`chip-nonnegotiable-${item.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}>{item}{profile.nonNegotiables.includes(item) && <Check size={13} />}</button>)}</div><div className="conversation-custom"><input className="conversation-input" value={customNonNegotiable} onChange={(event) => setCustomNonNegotiable(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomNonNegotiable(); } }} placeholder="Add your own, in your words" aria-label="Add a non-negotiable" data-testid="input-onboarding-custom-nonnegotiable" /><button type="button" className="btn btn-soft" onClick={addCustomNonNegotiable} data-testid="button-add-nonnegotiable"><Plus />Add</button></div>{profile.nonNegotiables.filter((item) => !nonNegotiableSuggestions.includes(item)).map((item) => <button type="button" className="conversation-custom-chip" key={item} onClick={() => toggleProfileList('nonNegotiables', item)} aria-label={`Remove ${item}`} data-testid={`button-remove-nonnegotiable-${item.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}>{item}<X size={13} /></button>)}</div>}
+          {step === 5 && <div className="onboarding-chip-list category-chips">{profileCategoryOptions.map(([value, label]) => <button type="button" key={value} className={`conversation-chip category-chip ${profile.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profile.swapCategories.includes(value)} onClick={() => toggleProfileList('swapCategories', value)} data-testid={`chip-swap-category-${value}`}><span className="category-chip-mark">{profile.swapCategories.includes(value) ? <Check size={14} /> : <Plus size={14} />}</span>{label}</button>)}</div>}
+        </div>
+      </div>
+      {error && <div className="conversation-error" role="alert" data-testid="status-onboarding-error">{error}</div>}
+      <div className="conversation-actions"><span className="conversation-save-note">Your answers stay yours. Edit them anytime in Profile.</span><div>{step > 0 && <button type="button" className="btn btn-soft" onClick={() => { setError(''); setStep((value) => value - 1); }} disabled={saving} data-testid="button-onboarding-back">Back</button>}<button type="button" className="btn btn-primary" onClick={next} disabled={saving} data-testid="button-onboarding-continue">{saving ? 'Saving your plan…' : step === steps.length - 1 ? 'Finish setup' : 'Continue'}{saving ? <LoaderCircle className="animate-spin" /> : <ChevronRight />}</button></div></div>
+    </section>
+    <p className="conversation-footnote">No perfect answers needed. This is a starting point, not a test.</p>
+  </div>;
+}
+
+function ProfilePreferencesPage() {
   const qc = useQueryClient();
   const query = useGetSwapProfile();
   const saveProfile = useUpdateSwapProfile();
@@ -912,16 +1019,98 @@ function ProfilePage() {
   return <div className="content">
     <PageHeading eyebrow="Your account" title="Profile & plan settings" subtitle="Your plan details and shopping preferences can be updated here whenever life changes." />
     <PlanPage allowEdit />
-    <OnboardingPage />
+    <ProfilePreferencesPage />
     <SettingsPage />
   </div>;
 }
 
 function AccountSetupPage() {
-  return <div className="content">
-    <PageHeading eyebrow="Account setup" title="Let’s build your starting plan." subtitle="Set your take-home income, rent, savings goal, and preferences. You can revise your plan later in settings." />
-    <PlanPage allowEdit />
-    <OnboardingPage />
+  return <OnboardingPage />;
+}
+
+const opportunities = [
+  {
+    name: 'Instawork',
+    category: 'Flexible shifts',
+    mark: 'I',
+    tone: 'instawork',
+    description: 'Browse hourly shifts across roles such as hospitality, events, and warehouse work. Available shifts and eligibility depend on your location and experience.',
+    range: 'Pay varies by role, shift, and location; review each shift listing.',
+    requirements: 'Apply and complete any screening or onboarding required for shifts in your area.',
+    pros: 'Choose from available shifts that fit your schedule.',
+    cons: 'Work and shift availability can change by location and date.',
+    take: 'Worth exploring if short, in-person shifts fit your schedule and commute.',
+    url: 'https://app.instawork.com/worker/signup',
+  },
+  {
+    name: 'Instacart Shopper',
+    category: 'Grocery shopping',
+    mark: 'C',
+    tone: 'instacart',
+    description: 'Shop and deliver grocery orders through the shopper platform. You can review the sign-up requirements and how the work operates in your area.',
+    range: 'Earnings vary by order, tips, and market; include your own costs when estimating take-home pay.',
+    requirements: 'Age, work eligibility, and vehicle requirements depend on shopper role and location.',
+    pros: 'Order-based work can offer flexibility around when you shop.',
+    cons: 'Demand, driving, and vehicle costs can affect what you keep.',
+    take: 'Compare expected order pay with travel time and expenses before signing up.',
+    url: 'https://shoppers.instacart.com/',
+  },
+  {
+    name: 'Sago',
+    category: 'Paid user interviews',
+    mark: 'S',
+    tone: 'sago',
+    description: 'Join Sago’s research panel to be considered for surveys, focus groups, and interviews about products and services.',
+    range: 'Each study sets its own incentive; the amount and format vary.',
+    requirements: 'Create a panel profile and qualify for individual studies. Screening does not guarantee selection.',
+    pros: 'Some research can be done remotely and may fit around other plans.',
+    cons: 'Invitations are not guaranteed, so this is not predictable income.',
+    take: 'Treat it as occasional extra income, not money to count on each month.',
+    url: 'https://sago.com/en/get-in-touch/join-our-panel',
+  },
+  {
+    name: 'Lemonade',
+    category: 'Pet insurance',
+    mark: 'L',
+    tone: 'lemonade',
+    description: 'Explore pet insurance coverage options and request a quote for your pet.',
+    range: 'Not an earning opportunity. Premiums are quote-specific and vary with coverage and pet details.',
+    requirements: 'Review eligibility and policy terms for your pet and location before applying.',
+    pros: 'A quote can help you compare pet-care costs and coverage options.',
+    cons: 'Exclusions, waiting periods, deductibles, and reimbursement rules matter.',
+    take: 'Compare the full policy with your current costs; a lower premium alone is not enough.',
+    url: 'https://www.lemonade.com/pet',
+  },
+];
+
+function EarnSavePage() {
+  return <div className="content earn-save-content">
+    <div className="earn-save-hero">
+      <div className="eyebrow">A little more breathing room</div>
+      <h1>Earn & save</h1>
+      <p>Practical places to explore when you want to bring in extra income or compare a recurring cost. Take a look, then decide if it fits your life.</p>
+      <div className="earn-save-caption"><ShieldCheck size={16} />Independent research first. Nothing here is a promise or endorsement.</div>
+    </div>
+    <div className="opportunities-list">
+      {opportunities.map((opportunity, index) => <article className={`opportunity-card panel ${opportunity.tone}`} key={opportunity.name} data-testid={`card-opportunity-${opportunity.tone}`}>
+        <div className="opportunity-index">0{index + 1}</div>
+        <div className="opportunity-mark" aria-hidden="true">{opportunity.mark}</div>
+        <div className="opportunity-copy">
+          <div className="opportunity-category">{opportunity.category}</div>
+          <h2>{opportunity.name}</h2>
+          <p>{opportunity.description}</p>
+          <div className="opportunity-details">
+            <div><strong>{opportunity.category === 'Pet insurance' ? 'Cost' : 'Pay range'}</strong><span>{opportunity.range}</span></div>
+            <div><strong>Requirements</strong><span>{opportunity.requirements}</span></div>
+            <div><strong>Pros</strong><span>{opportunity.pros}</span></div>
+            <div><strong>Cons</strong><span>{opportunity.cons}</span></div>
+          </div>
+          <div className="opportunity-caveat"><strong>My take:</strong> {opportunity.take}</div>
+        </div>
+        <a className="btn btn-soft opportunity-link" href={opportunity.url} target="_blank" rel="noopener noreferrer" data-testid={`link-official-${opportunity.tone}`}>Visit official site <ExternalLink size={14} /></a>
+      </article>)}
+    </div>
+    <div className="earn-save-footer"><div className="earn-save-footer-mark"><Info size={17} /></div><p>Use your own judgment before sharing personal information, accepting work, or choosing insurance. Margo does not verify availability, compensation, or policy fit.</p></div>
   </div>;
 }
 
@@ -951,6 +1140,7 @@ function AuthenticatedApp() {
     <Route path="/accounts" component={AccountsPage} />
     <Route path="/receipts" component={ReceiptsPage} />
     <Route path="/swaps" component={SwapsPage} />
+    <Route path="/earn-save" component={EarnSavePage} />
     <Route path="/profile" component={ProfilePage} />
     <Route path="/taxes" component={ProfilePage} />
     <Route path="/onboarding" component={AccountSetupPage} />
