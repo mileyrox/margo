@@ -59,7 +59,7 @@ export const financeSettingsTable = pgTable("finance_settings", {
     mode: "number",
   })
     .notNull()
-    .default(0),
+    .default(25),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

@@ -14,6 +14,8 @@ import {
   GetFinanceSettingsResponse,
   GetProductComparisonsResponse,
   GetReceiptsResponse,
+  ScanReceiptImageBody,
+  ScanReceiptImageResponse,
   GetSwapProfileResponse,
   GetTransactionsQueryParams,
   GetTransactionsResponse,
@@ -34,6 +36,10 @@ import {
   productsTable,
   receiptsTable,
   userProductPurchasesTable,
+  plaidItemsTable,
+  extensionTokensTable,
+  integrationConnectionsTable,
+  recurringSubscriptionsTable,
   emptySwapProfile,
   swapProfilesTable,
   transactionsTable,
@@ -294,7 +300,7 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
     getUserComparisons(req.user.id),
   ]);
   const [savedSettings] = settings;
-  const taxReserveRate = savedSettings?.taxReserveRate ?? 0;
+  const taxReserveRate = savedSettings?.taxReserveRate ?? 25;
   const taxableIncomeThisYear = yearIncome.reduce((total, row) => total + row.amount, 0);
   const dashboard: FinanceDashboard = {
     monthlySpending: monthlyExpenses.reduce((total, row) => total + row.amount, 0),
@@ -377,7 +383,7 @@ router.get("/settings", async (req, res): Promise<void> => {
     .from(financeSettingsTable)
     .where(eq(financeSettingsTable.userId, req.user.id));
   res.json(GetFinanceSettingsResponse.parse({
-    taxReserveRate: settings?.taxReserveRate ?? 0,
+    taxReserveRate: settings?.taxReserveRate ?? 25,
   }));
 });
 
@@ -468,6 +474,116 @@ router.get("/receipts", async (req, res): Promise<void> => {
     .where(eq(receiptsTable.userId, req.user.id))
     .orderBy(desc(receiptsTable.purchasedAt), desc(receiptsTable.createdAt));
   res.json(GetReceiptsResponse.parse(rows.map(serializeReceipt)));
+});
+
+router.delete("/account/data", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const savedReceipts = await db.select({ objectPath: receiptsTable.objectPath })
+    .from(receiptsTable).where(eq(receiptsTable.userId, req.user.id));
+  try {
+    for (const receipt of savedReceipts) {
+      if (!receipt.objectPath) continue;
+      const file = await objectStorageService.getObjectEntityFile(receipt.objectPath);
+      await file.delete({ ignoreNotFound: true });
+    }
+  } catch (error) {
+    req.log.error({ err: error }, "Could not remove all receipt images during data deletion");
+    res.status(500).json({ error: "Some receipt photos could not be deleted. Try again." });
+    return;
+  }
+  await db.transaction(async (tx) => {
+    await tx.delete(userProductPurchasesTable).where(eq(userProductPurchasesTable.userId, req.user.id));
+    await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.user.id));
+    await tx.delete(integrationConnectionsTable).where(eq(integrationConnectionsTable.userId, req.user.id));
+    await tx.delete(extensionTokensTable).where(eq(extensionTokensTable.userId, req.user.id));
+    await tx.delete(plaidItemsTable).where(eq(plaidItemsTable.userId, req.user.id));
+    await tx.delete(transactionsTable).where(eq(transactionsTable.userId, req.user.id));
+    await tx.delete(receiptsTable).where(eq(receiptsTable.userId, req.user.id));
+    await tx.delete(budgetPlansTable).where(eq(budgetPlansTable.userId, req.user.id));
+    await tx.delete(financeSettingsTable).where(eq(financeSettingsTable.userId, req.user.id));
+    await tx.delete(swapProfilesTable).where(eq(swapProfilesTable.userId, req.user.id));
+  });
+  res.sendStatus(204);
+});
+
+router.post("/receipts/scan", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const parsed = ScanReceiptImageBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Choose a receipt photo to scan." });
+    return;
+  }
+  const ownerKey = Buffer.from(req.user.id).toString("base64url");
+  if (!parsed.data.objectPath.startsWith(`/objects/uploads/${ownerKey}/`)) {
+    res.status(403).json({ error: "This receipt photo is not available to your account." });
+    return;
+  }
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (!apiKey || !baseUrl) {
+    res.status(503).json({ error: "Receipt scanning is temporarily unavailable." });
+    return;
+  }
+  try {
+    const file = await objectStorageService.getObjectEntityFile(parsed.data.objectPath);
+    const [metadata] = await file.getMetadata();
+    const contentType = metadata.contentType || "";
+    const size = Number(metadata.size || 0);
+    if (!["image/jpeg", "image/png"].includes(contentType) || size > 10 * 1024 * 1024) {
+      res.status(400).json({ error: "Choose a JPG or PNG receipt photo under 10 MB." });
+      return;
+    }
+    const [bytes] = await file.download();
+    const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const aiResponse = await fetch(endpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({
+        model: "gpt-5.6-terra",
+        max_completion_tokens: 2500,
+        response_format: { type: "json_object" },
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "Read this receipt image. Return JSON only with merchant, purchasedAt (YYYY-MM-DD; use today only if clearly undated? instead use empty string when unknown), total (number, 0 if unreadable), and items: productName, brand (string or null), category, unitPrice (number), unitsPerYear (12). Do not guess unreadable products or prices; omit unclear items. Categorize into one of Rent, Groceries, Dining out, Shopping, Beauty, Transportation, Subscriptions, Utilities, Other. Return the date as empty string if uncertain." },
+            { type: "image_url", image_url: { url: `data:${contentType};base64,${bytes.toString("base64")}`, detail: "high" } },
+          ],
+        }],
+      }),
+    });
+    if (!aiResponse.ok) {
+      req.log.warn({ status: aiResponse.status }, "Receipt image extraction failed");
+      res.status(502).json({ error: "We couldn’t read this photo. Try a clearer picture." });
+      return;
+    }
+    const payload = await aiResponse.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content) throw new Error("The receipt reader returned no content");
+    const result = JSON.parse(content) as Record<string, unknown>;
+    const items = Array.isArray(result.items) ? result.items.filter((item): item is Record<string, unknown> => (
+      typeof item === "object" && item !== null && typeof (item as Record<string, unknown>).productName === "string"
+      && Number.isFinite(Number((item as Record<string, unknown>).unitPrice))
+    )) : [];
+    const date = typeof result.purchasedAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(result.purchasedAt)
+      ? result.purchasedAt : "";
+    const normalized = {
+      merchant: typeof result.merchant === "string" ? result.merchant.slice(0, 120) : "",
+      purchasedAt: date,
+      total: Math.max(0, Number(result.total) || 0),
+      items: items.map((item) => ({
+        productName: String(item.productName).slice(0, 120),
+        brand: typeof item.brand === "string" ? item.brand.slice(0, 80) : null,
+        category: String(item.category || "Other").slice(0, 60),
+        unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+        unitsPerYear: Math.min(1000, Math.max(1, Number(item.unitsPerYear) || 12)),
+      })).filter((item) => item.productName && item.unitPrice > 0),
+    };
+    res.json(ScanReceiptImageResponse.parse(normalized));
+  } catch (error) {
+    req.log.error({ err: error }, "Could not scan receipt image");
+    res.status(502).json({ error: "We couldn’t read this photo. Try a clearer picture." });
+  }
 });
 
 router.post("/receipts", async (req, res): Promise<void> => {

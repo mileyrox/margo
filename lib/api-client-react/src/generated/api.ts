@@ -47,6 +47,8 @@ import type {
   PurchaseHistoryItem,
   Receipt,
   ReceiptInput,
+  ReceiptScanInput,
+  ReceiptScanResult,
   SwapProfile,
   SwapProfileInput,
   Transaction,
@@ -1302,6 +1304,168 @@ export const useCreateReceipt = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getCreateReceiptMutationOptions(options));
+    }
+
+export const getScanReceiptImageUrl = () => {
+
+
+
+
+  return `/api/receipts/scan`
+}
+
+/**
+ * @summary Read store and line items from a receipt photo
+ */
+export const scanReceiptImage = async (receiptScanInput: ReceiptScanInput, options?: Parameters<typeof customFetch>[1]): Promise<ReceiptScanResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ReceiptScanResult>(getScanReceiptImageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(receiptScanInput)
+  }
+);}
+
+
+
+
+
+export const getScanReceiptImageMutationKey = () => ['scanReceiptImage'] as const;
+
+export const getScanReceiptImageMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanReceiptImage>>, TError,ScanReceiptImageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanReceiptImage>>, TError,ScanReceiptImageMutationVariables, TContext> => {
+
+const mutationKey = getScanReceiptImageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanReceiptImage>>, ScanReceiptImageMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanReceiptImage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanReceiptImageMutationResult = NonNullable<Awaited<ReturnType<typeof scanReceiptImage>>>
+    export type ScanReceiptImageMutationBody = BodyType<ReceiptScanInput>
+    export type ScanReceiptImageMutationError = ErrorType<ErrorEnvelope>
+    export type ScanReceiptImageMutationVariables = {data: BodyType<ReceiptScanInput>}
+
+    /**
+ * @summary Read store and line items from a receipt photo
+ */
+export const useScanReceiptImage = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanReceiptImage>>, TError,ScanReceiptImageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanReceiptImage>>,
+        TError,
+        ScanReceiptImageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getScanReceiptImageMutationOptions(options));
+    }
+
+export const getDeleteMyDataUrl = () => {
+
+
+
+
+  return `/api/account/data`
+}
+
+/**
+ * @summary Delete saved personal data from Margo
+ */
+export const deleteMyData = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteMyDataUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMyDataMutationKey = () => ['deleteMyData'] as const;
+
+export const getDeleteMyDataMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext> => {
+
+const mutationKey = getDeleteMyDataMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMyData>>, void> = () => {
+
+
+          return  deleteMyData(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMyDataMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMyData>>>
+
+    export type DeleteMyDataMutationError = ErrorType<ErrorEnvelope>
+
+
+    /**
+ * @summary Delete saved personal data from Margo
+ */
+export const useDeleteMyData = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMyData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMyData>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteMyDataMutationOptions(options));
     }
 
 export const getDeleteReceiptUrl = (id: string,) => {

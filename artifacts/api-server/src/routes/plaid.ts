@@ -13,7 +13,7 @@ function requireUser(req: Request, res: Response): req is Request & { user: Expr
 function plaidClient(): PlaidApi {
   const clientId = process.env.PLAID_CLIENT_ID;
   const secret = process.env.PLAID_SECRET;
-  if (!clientId || !secret) throw new Error("Plaid Sandbox credentials are not configured");
+  if (!clientId || !secret) throw new Error("Plaid credentials are not configured");
   return new PlaidApi(new Configuration({
     basePath: PlaidEnvironments.sandbox,
     baseOptions: { headers: { "PLAID-CLIENT-ID": clientId, "PLAID-SECRET": secret } },
@@ -67,7 +67,7 @@ router.post("/plaid/link-token", async (req, res): Promise<void> => {
     res.json({ linkToken: response.data.link_token });
   } catch (error) {
     req.log.error("Could not create Plaid Link token");
-    res.status(502).json({ error: "Could not start a Sandbox bank connection" });
+    res.status(502).json({ error: "Could not start a bank connection" });
   }
 });
 
@@ -86,7 +86,7 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
     res.status(201).json({ connected: true, itemId: item?.id });
   } catch (error) {
     req.log.error("Could not exchange Plaid public token");
-    res.status(502).json({ error: "Could not finish the Sandbox bank connection" });
+    res.status(502).json({ error: "Could not finish the bank connection" });
   }
 });
 
@@ -119,14 +119,14 @@ router.post("/plaid/sync", async (req, res): Promise<void> => {
           category: transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed),
           date: tx.date,
           isTaxable: false,
-          source: "Plaid Sandbox",
+          source: "Plaid",
           plaidTransactionId: tx.transaction_id,
         }).onConflictDoUpdate({
           target: [transactionsTable.userId, transactionsTable.plaidTransactionId],
           set: {
             type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
             amount: Math.abs(tx.amount), category: transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed),
-            date: tx.date, source: "Plaid Sandbox",
+            date: tx.date, source: "Plaid",
           },
         });
         imported += 1;
@@ -148,7 +148,7 @@ router.post("/plaid/sync", async (req, res): Promise<void> => {
     await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date() }).where(eq(plaidItemsTable.id, item.id));
     res.json({ imported });
   } catch (error) {
-    req.log.error("Could not sync Plaid Sandbox transactions");
+    req.log.error("Could not sync bank transactions");
     res.status(502).json({ error: "Could not sync transactions. Try again shortly." });
   }
 });
@@ -160,7 +160,7 @@ router.delete("/plaid/items/:id", async (req, res): Promise<void> => {
   try {
     await plaidClient().itemRemove({ access_token: decryptToken(item.accessTokenEncrypted) });
   } catch {
-    req.log.warn("Plaid Sandbox could not revoke an item during local disconnect");
+    req.log.warn("Plaid could not revoke an item during local disconnect");
   }
   await db.delete(plaidItemsTable).where(and(eq(plaidItemsTable.id, req.params.id as string), eq(plaidItemsTable.userId, req.user.id)));
   res.sendStatus(204);

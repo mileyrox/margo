@@ -43,6 +43,10 @@ router.post(
 
       return;
     }
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
     const parsed = RequestUploadUrlBody.safeParse(req.body);
     if (!parsed.success) {
@@ -60,7 +64,8 @@ router.post(
         return;
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      const ownerKey = Buffer.from(req.user.id).toString('base64url');
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(ownerKey);
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
 

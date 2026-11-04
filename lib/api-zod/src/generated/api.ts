@@ -342,6 +342,55 @@ export const CreateReceiptResponse = zod.object({
 
 
 /**
+ * @summary Read store and line items from a receipt photo
+ */
+export const scanReceiptImageBodyObjectPathMax = 500;
+
+
+
+export const ScanReceiptImageBody = zod.object({
+  "objectPath": zod.string().min(1).max(scanReceiptImageBodyObjectPathMax)
+})
+
+export const scanReceiptImageResponseMerchantMax = 120;
+
+export const scanReceiptImageResponsePurchasedAtMax = 10;
+
+export const scanReceiptImageResponseTotalMin = 0;
+
+export const scanReceiptImageResponseItemsItemProductNameMax = 120;
+
+export const scanReceiptImageResponseItemsItemBrandMax = 80;
+
+export const scanReceiptImageResponseItemsItemCategoryMax = 60;
+
+export const scanReceiptImageResponseItemsItemUnitPriceMin = 0;
+
+export const scanReceiptImageResponseItemsItemUnitsPerYearMax = 1000;
+
+
+
+export const ScanReceiptImageResponse = zod.object({
+  "merchant": zod.string().max(scanReceiptImageResponseMerchantMax),
+  "purchasedAt": zod.string().max(scanReceiptImageResponsePurchasedAtMax),
+  "total": zod.number().min(scanReceiptImageResponseTotalMin),
+  "items": zod.array(zod.object({
+  "productName": zod.string().max(scanReceiptImageResponseItemsItemProductNameMax),
+  "brand": zod.string().max(scanReceiptImageResponseItemsItemBrandMax).nullable(),
+  "category": zod.string().max(scanReceiptImageResponseItemsItemCategoryMax),
+  "unitPrice": zod.number().min(scanReceiptImageResponseItemsItemUnitPriceMin),
+  "unitsPerYear": zod.number().min(1).max(scanReceiptImageResponseItemsItemUnitsPerYearMax)
+}))
+})
+
+
+/**
+ * @summary Delete saved personal data from Margo
+ */
+export const DeleteMyDataResponse = zod.void()
+
+
+/**
  * @summary Delete a receipt
  */
 export const DeleteReceiptParams = zod.object({

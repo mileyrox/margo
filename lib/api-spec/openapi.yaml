@@ -347,6 +347,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /receipts/scan:
+    post:
+      tags: [Finance]
+      operationId: scanReceiptImage
+      summary: Read store and line items from a receipt photo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptScanInput"
+      responses:
+        "200":
+          description: Extracted receipt details for the user to confirm.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptScanResult"
+        "400":
+          description: Invalid image or unsupported file.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /account/data:
+    delete:
+      tags: [Finance]
+      operationId: deleteMyData
+      summary: Delete saved personal data from Margo
+      responses:
+        "204":
+          description: Saved personal data deleted.
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /receipts/{id}:
     delete:
       tags: [Finance]
@@ -792,6 +836,29 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/ReceiptLineItem" }
+    ReceiptScanInput:
+      type: object
+      required: [objectPath]
+      properties:
+        objectPath: { type: string, minLength: 1, maxLength: 500 }
+    ReceiptScanResult:
+      type: object
+      required: [merchant, purchasedAt, total, items]
+      properties:
+        merchant: { type: string, maxLength: 120 }
+        purchasedAt: { type: string, maxLength: 10 }
+        total: { type: number, minimum: 0 }
+        items:
+          type: array
+          items:
+            type: object
+            required: [productName, brand, category, unitPrice, unitsPerYear]
+            properties:
+              productName: { type: string, maxLength: 120 }
+              brand: { type: [string, "null"], maxLength: 80 }
+              category: { type: string, maxLength: 60 }
+              unitPrice: { type: number, minimum: 0 }
+              unitsPerYear: { type: number, minimum: 1, maximum: 1000 }
     FinanceDashboard:
       type: object
       required: [monthlySpending, taxableIncomeThisYear, taxSetAside, annualSavings, recentTransactions]

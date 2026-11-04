@@ -171,6 +171,43 @@ export interface ReceiptInput {
   items: ReceiptLineItem[];
 }
 
+export interface ReceiptScanInput {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  objectPath: string;
+}
+
+export type ReceiptScanResultItemsItem = {
+  /** @maxLength 120 */
+  productName: string;
+  /**
+     * @maxLength 80
+     * @nullable
+     */
+  brand: string | null;
+  /** @maxLength 60 */
+  category: string;
+  /** @minimum 0 */
+  unitPrice: number;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  unitsPerYear: number;
+};
+
+export interface ReceiptScanResult {
+  /** @maxLength 120 */
+  merchant: string;
+  /** @maxLength 10 */
+  purchasedAt: string;
+  /** @minimum 0 */
+  total: number;
+  items: ReceiptScanResultItemsItem[];
+}
+
 export interface FinanceDashboard {
   monthlySpending: number;
   taxableIncomeThisYear: number;
