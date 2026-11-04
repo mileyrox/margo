@@ -540,6 +540,73 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ProductVote" }
+  /extension/tokens:
+    get:
+      tags: [Finance]
+      operationId: getExtensionTokens
+      summary: List browser-extension tokens without exposing token values
+      responses:
+        "200":
+          description: Active extension token metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExtensionToken" }
+    post:
+      tags: [Finance]
+      operationId: createExtensionToken
+      summary: Create a browser-extension token shown only once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateExtensionTokenInput" }
+      responses:
+        "201":
+          description: Token created. Save the secret now; it cannot be retrieved later.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedExtensionToken" }
+  /extension/tokens/{tokenId}:
+    delete:
+      tags: [Finance]
+      operationId: revokeExtensionToken
+      summary: Revoke one of the current user's extension tokens
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Token revoked.
+  /extension/lookup:
+    post:
+      tags: [Finance]
+      operationId: extensionProductLookup
+      summary: Find product alternatives using a browser-extension token
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string, description: Bearer token created by the signed-in user }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtensionProductLookupInput" }
+      responses:
+        "200":
+          description: Product match and available alternatives.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExtensionProductLookupResult" }
+        "401":
+          description: Invalid or expired extension token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -883,4 +950,49 @@ components:
           required: [alternativeId]
           properties:
             alternativeId: { type: string, format: uuid }
+    ExtensionToken:
+      type: object
+      required: [id, label, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: ["string", "null"], format: date-time }
+    CreateExtensionTokenInput:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 80 }
+    CreatedExtensionToken:
+      allOf:
+        - $ref: "#/components/schemas/ExtensionToken"
+        - type: object
+          required: [token]
+          properties:
+            token: { type: string }
+    ExtensionProductLookupInput:
+      type: object
+      properties:
+        productName: { type: string, minLength: 1, maxLength: 180 }
+        barcode: { type: string, minLength: 4, maxLength: 80 }
+    ExtensionProductLookupResult:
+      type: object
+      required: [matchedProduct, alternatives]
+      properties:
+        matchedProduct:
+          oneOf:
+            - { $ref: "#/components/schemas/ProductSummary" }
+            - { type: "null" }
+        alternatives:
+          type: array
+          items: { $ref: "#/components/schemas/ProductAlternative" }
+    ProductSummary:
+      type: object
+      required: [id, name, brand, category]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        brand: { type: string }
+        category: { type: string }
 

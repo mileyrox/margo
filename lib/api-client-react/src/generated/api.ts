@@ -24,7 +24,12 @@ import type {
   BeginBrowserLoginParams,
   BudgetPlan,
   BudgetPlanInput,
+  CreateExtensionTokenInput,
+  CreatedExtensionToken,
   ErrorEnvelope,
+  ExtensionProductLookupInput,
+  ExtensionProductLookupResult,
+  ExtensionToken,
   FinanceDashboard,
   FinanceSettings,
   FinanceSettingsInput,
@@ -2021,6 +2026,333 @@ export const useVoteOnProductAlternative = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getVoteOnProductAlternativeMutationOptions(options));
+    }
+
+export const getGetExtensionTokensUrl = () => {
+
+
+
+
+  return `/api/extension/tokens`
+}
+
+/**
+ * @summary List browser-extension tokens without exposing token values
+ */
+export const getExtensionTokens = async ( options?: Parameters<typeof customFetch>[1]): Promise<ExtensionToken[]> => {
+
+  return customFetch<ExtensionToken[]>(getGetExtensionTokensUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetExtensionTokensQueryKey = () => {
+    return [
+    `/api/extension/tokens`
+    ] as const;
+    }
+
+
+export const getGetExtensionTokensQueryOptions = <TData = Awaited<ReturnType<typeof getExtensionTokens>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExtensionTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetExtensionTokensQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getExtensionTokens>>> = ({ signal }) => getExtensionTokens({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getExtensionTokens>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetExtensionTokensQueryResult = NonNullable<Awaited<ReturnType<typeof getExtensionTokens>>>
+export type GetExtensionTokensQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List browser-extension tokens without exposing token values
+ */
+
+export function useGetExtensionTokens<TData = Awaited<ReturnType<typeof getExtensionTokens>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getExtensionTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetExtensionTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateExtensionTokenUrl = () => {
+
+
+
+
+  return `/api/extension/tokens`
+}
+
+/**
+ * @summary Create a browser-extension token shown only once
+ */
+export const createExtensionToken = async (createExtensionTokenInput: CreateExtensionTokenInput, options?: Parameters<typeof customFetch>[1]): Promise<CreatedExtensionToken> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<CreatedExtensionToken>(getCreateExtensionTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createExtensionTokenInput)
+  }
+);}
+
+
+
+
+
+export const getCreateExtensionTokenMutationKey = () => ['createExtensionToken'] as const;
+
+export const getCreateExtensionTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExtensionToken>>, TError,CreateExtensionTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createExtensionToken>>, TError,CreateExtensionTokenMutationVariables, TContext> => {
+
+const mutationKey = getCreateExtensionTokenMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createExtensionToken>>, CreateExtensionTokenMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createExtensionToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateExtensionTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createExtensionToken>>>
+    export type CreateExtensionTokenMutationBody = BodyType<CreateExtensionTokenInput>
+    export type CreateExtensionTokenMutationError = ErrorType<unknown>
+    export type CreateExtensionTokenMutationVariables = {data: BodyType<CreateExtensionTokenInput>}
+
+    /**
+ * @summary Create a browser-extension token shown only once
+ */
+export const useCreateExtensionToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createExtensionToken>>, TError,CreateExtensionTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createExtensionToken>>,
+        TError,
+        CreateExtensionTokenMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateExtensionTokenMutationOptions(options));
+    }
+
+export const getRevokeExtensionTokenUrl = (tokenId: string,) => {
+
+
+
+
+  return `/api/extension/tokens/${tokenId}`
+}
+
+/**
+ * @summary Revoke one of the current user's extension tokens
+ */
+export const revokeExtensionToken = async (tokenId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRevokeExtensionTokenUrl(tokenId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeExtensionTokenMutationKey = () => ['revokeExtensionToken'] as const;
+
+export const getRevokeExtensionTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeExtensionToken>>, TError,RevokeExtensionTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeExtensionToken>>, TError,RevokeExtensionTokenMutationVariables, TContext> => {
+
+const mutationKey = getRevokeExtensionTokenMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeExtensionToken>>, RevokeExtensionTokenMutationVariables> = (props) => {
+          const {tokenId} = props ?? {};
+
+          return  revokeExtensionToken(tokenId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeExtensionTokenMutationResult = NonNullable<Awaited<ReturnType<typeof revokeExtensionToken>>>
+
+    export type RevokeExtensionTokenMutationError = ErrorType<unknown>
+    export type RevokeExtensionTokenMutationVariables = {tokenId: string}
+
+    /**
+ * @summary Revoke one of the current user's extension tokens
+ */
+export const useRevokeExtensionToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeExtensionToken>>, TError,RevokeExtensionTokenMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeExtensionToken>>,
+        TError,
+        RevokeExtensionTokenMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeExtensionTokenMutationOptions(options));
+    }
+
+export const getExtensionProductLookupUrl = () => {
+
+
+
+
+  return `/api/extension/lookup`
+}
+
+/**
+ * @summary Find product alternatives using a browser-extension token
+ */
+export const extensionProductLookup = async (extensionProductLookupInput: ExtensionProductLookupInput, options?: Parameters<typeof customFetch>[1]): Promise<ExtensionProductLookupResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ExtensionProductLookupResult>(getExtensionProductLookupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(extensionProductLookupInput)
+  }
+);}
+
+
+
+
+
+export const getExtensionProductLookupMutationKey = () => ['extensionProductLookup'] as const;
+
+export const getExtensionProductLookupMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extensionProductLookup>>, TError,ExtensionProductLookupMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extensionProductLookup>>, TError,ExtensionProductLookupMutationVariables, TContext> => {
+
+const mutationKey = getExtensionProductLookupMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extensionProductLookup>>, ExtensionProductLookupMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  extensionProductLookup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtensionProductLookupMutationResult = NonNullable<Awaited<ReturnType<typeof extensionProductLookup>>>
+    export type ExtensionProductLookupMutationBody = BodyType<ExtensionProductLookupInput>
+    export type ExtensionProductLookupMutationError = ErrorType<ErrorEnvelope>
+    export type ExtensionProductLookupMutationVariables = {data: BodyType<ExtensionProductLookupInput>}
+
+    /**
+ * @summary Find product alternatives using a browser-extension token
+ */
+export const useExtensionProductLookup = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extensionProductLookup>>, TError,ExtensionProductLookupMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extensionProductLookup>>,
+        TError,
+        ExtensionProductLookupMutationVariables,
+        TContext
+      > => {
+      return useMutation(getExtensionProductLookupMutationOptions(options));
     }
 
 export const getRequestUploadUrlUrl = () => {

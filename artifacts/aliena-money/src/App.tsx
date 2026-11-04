@@ -13,6 +13,7 @@ import {
   getGetBudgetPlanQueryKey, useGetSwapProfile, useUpdateSwapProfile,
   getGetSwapProfileQueryKey, useGetPurchaseHistory, getGetPurchaseHistoryQueryKey,
   useGetProductAlternatives, getGetProductAlternativesQueryKey, useVoteOnProductAlternative,
+  useGetExtensionTokens, useCreateExtensionToken, useRevokeExtensionToken, getGetExtensionTokensQueryKey,
 } from '@workspace/api-client-react';
 import type { BudgetPlanInput, PurchaseHistoryItem, ReceiptLineItem, SwapProfileInput, Transaction } from '@workspace/api-client-react';
 import {
@@ -690,8 +691,55 @@ function SettingsPage() {
      <section className="panel settings-section"><div className="eyebrow">Connections</div><h2 className="panel-title">Bank accounts</h2><p className="panel-caption">A sample bank view is available for preview.</p>
        <div className="settings-row"><div><div className="settings-label">Real bank linking</div><div className="settings-description">No real bank is linked. The sample accounts are fictional and are not part of your ledger or totals.</div><Link href="/accounts" className="text-link" style={{ display: 'inline-block', marginTop: 8 }}>Open sample accounts <ChevronRight size={12} style={{ verticalAlign: 'middle' }} /></Link></div><span className="connection-pill"><span style={{ width: 6, height: 6, background: '#9a8060', borderRadius: '50%', display: 'inline-block', marginRight: 6 }} />Demo only</span></div>
     </section>
+    <ExtensionTokensPanel />
     <section className="panel settings-section"><div className="eyebrow">About your data</div><h2 className="panel-title">Only what you choose to add</h2><p className="panel-caption">Transactions, receipt totals, and product details in Aliena come from your manual entries.</p><div className="notice" style={{ marginTop: 16 }}><ShieldCheck /><span>Receipt images are uploaded only when you choose a JPG, PNG, or PDF file. You can save receipt details without attaching a file.</span></div></section>
   </div>;
+}
+
+function ExtensionTokensPanel() {
+  const qc = useQueryClient();
+  const tokens = useGetExtensionTokens();
+  const createToken = useCreateExtensionToken();
+  const revokeToken = useRevokeExtensionToken();
+  const [label, setLabel] = useState('My browser');
+  const [newToken, setNewToken] = useState('');
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const refresh = () => qc.invalidateQueries({ queryKey: getGetExtensionTokensQueryKey() });
+  const create = () => {
+    setError(''); setNotice('');
+    createToken.mutate({ data: { label: label.trim() || 'My browser' } }, {
+      onSuccess: (result) => { setNewToken(result.token); refresh(); },
+      onError: (reason) => setError(messageOf(reason)),
+    });
+  };
+  return <section className="panel settings-section">
+    <div className="eyebrow">Shopping tools</div>
+    <h2 className="panel-title">Browser extension</h2>
+    <p className="panel-caption">Create a private token for product lookups. The token is shown once, expires after 90 days, and can be revoked here.</p>
+    <div className="extension-token-create">
+      <input className="input" value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} aria-label="Extension token label" />
+      <button className="btn btn-primary" onClick={create} disabled={createToken.isPending || (tokens.data?.length ?? 0) >= 5}>{createToken.isPending ? 'Creating…' : 'Create token'}</button>
+    </div>
+    {error && <p className="profile-error" role="alert">{error}</p>}
+    {newToken && <div className="extension-token-secret" role="status">
+      <strong>Copy this token now. It won’t be shown again.</strong>
+      <code>{newToken}</code>
+      <button className="btn btn-soft" onClick={() => { if (!navigator.clipboard) { setError('Clipboard access is unavailable. Select and copy the token manually.'); return; } void navigator.clipboard.writeText(newToken).then(() => setNotice('Copied to clipboard.')).catch(() => setError('Could not copy. Select and copy the token manually.')); }}>Copy token</button>
+      {notice && <span className="profile-saved">{notice}</span>}
+    </div>}
+    {tokens.isLoading ? <div className="skeleton" /> : tokens.isError ? <ErrorPanel error={tokens.error} retry={() => tokens.refetch()} /> : tokens.data?.length ? (
+      <div className="extension-token-list">{tokens.data.map((token) => (
+        <div className="settings-row" key={token.id}>
+          <div>
+            <div className="settings-label">{token.label}</div>
+            <div className="settings-description">Expires {niceDate(token.expiresAt)}{token.lastUsedAt ? ` · Last used ${niceDate(token.lastUsedAt)}` : ' · Not used yet'}</div>
+          </div>
+          <button className="btn btn-soft" onClick={() => revokeToken.mutate({ tokenId: token.id }, { onSuccess: refresh, onError: (reason) => setError(messageOf(reason)) })} disabled={revokeToken.isPending}>Revoke</button>
+        </div>
+      ))}</div>
+    ) : <p className="panel-caption" style={{ marginTop: 14 }}>No extension tokens created. You can keep using Aliena without installing an extension.</p>}
+  </section>;
 }
 
 function ProfilePage() {

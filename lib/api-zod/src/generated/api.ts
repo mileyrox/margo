@@ -656,6 +656,101 @@ export const VoteOnProductAlternativeResponse = zod.object({
 
 
 /**
+ * @summary List browser-extension tokens without exposing token values
+ */
+export const GetExtensionTokensResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "lastUsedAt": zod.coerce.date().nullish()
+})
+export const GetExtensionTokensResponse = zod.array(GetExtensionTokensResponseItem)
+
+
+/**
+ * @summary Create a browser-extension token shown only once
+ */
+export const createExtensionTokenBodyLabelMax = 80;
+
+
+
+export const CreateExtensionTokenBody = zod.object({
+  "label": zod.string().min(1).max(createExtensionTokenBodyLabelMax)
+})
+
+export const CreateExtensionTokenResponse = zod.object({
+  "id": zod.string().uuid(),
+  "label": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "expiresAt": zod.coerce.date(),
+  "lastUsedAt": zod.coerce.date().nullish()
+}).and(zod.object({
+  "token": zod.string()
+}))
+
+
+/**
+ * @summary Revoke one of the current user's extension tokens
+ */
+export const RevokeExtensionTokenParams = zod.object({
+  "tokenId": zod.coerce.string().uuid()
+})
+
+export const RevokeExtensionTokenResponse = zod.void()
+
+
+/**
+ * @summary Find product alternatives using a browser-extension token
+ */
+export const ExtensionProductLookupHeader = zod.object({
+  "Authorization": zod.string()
+})
+
+export const extensionProductLookupBodyProductNameMax = 180;
+
+export const extensionProductLookupBodyBarcodeMin = 4;
+export const extensionProductLookupBodyBarcodeMax = 80;
+
+
+
+export const ExtensionProductLookupBody = zod.object({
+  "productName": zod.string().min(1).max(extensionProductLookupBodyProductNameMax).optional(),
+  "barcode": zod.string().min(extensionProductLookupBodyBarcodeMin).max(extensionProductLookupBodyBarcodeMax).optional()
+})
+
+export const extensionProductLookupResponseAlternativesItemSimilarityScoreMin = 0;
+export const extensionProductLookupResponseAlternativesItemSimilarityScoreMax = 100;
+
+export const extensionProductLookupResponseAlternativesItemSavingsScoreMin = 0;
+export const extensionProductLookupResponseAlternativesItemSavingsScoreMax = 100;
+
+
+
+export const ExtensionProductLookupResponse = zod.object({
+  "matchedProduct": zod.union([zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "brand": zod.string(),
+  "category": zod.string()
+}),zod.null()]),
+  "alternatives": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "name": zod.string(),
+  "brand": zod.string(),
+  "category": zod.string(),
+  "similarityScore": zod.number().min(extensionProductLookupResponseAlternativesItemSimilarityScoreMin).max(extensionProductLookupResponseAlternativesItemSimilarityScoreMax),
+  "savingsScore": zod.number().min(extensionProductLookupResponseAlternativesItemSavingsScoreMin).max(extensionProductLookupResponseAlternativesItemSavingsScoreMax),
+  "isVerified": zod.boolean(),
+  "positiveVotes": zod.number().int(),
+  "negativeVotes": zod.number().int(),
+  "affiliateUrl": zod.string().url().nullable()
+}))
+})
+
+
+/**
  * @summary Request a private receipt upload URL
  */
 

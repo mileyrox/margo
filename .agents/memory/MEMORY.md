@@ -1,3 +1,4 @@
 - [Aliena visual direction](aliena-visual-direction.md) — Use the uploaded money-app screens: warm cream, navy, burgundy, powder blue, and olive; avoid folder motifs.
 - [Aliena navigation](aliena-navigation.md) — My Plan is the dashboard; editing plan assumptions belongs behind the top-right profile, not a profile tab.
 - [Aliena database direction](aliena-database-direction.md) — Keep using the existing PostgreSQL/Drizzle database; do not connect Supabase for now.
+- [Aliena product mission](aliena-product-mission.md) — Help users keep their lifestyle while spending less by finding cheaper alternatives to products they already buy.

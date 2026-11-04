@@ -405,6 +405,52 @@ export type ProductVote = ProductVoteInput & {
   alternativeId: string;
 };
 
+export interface ExtensionToken {
+  id: string;
+  label: string;
+  createdAt: string;
+  expiresAt: string;
+  /** @nullable */
+  lastUsedAt?: string | null;
+}
+
+export interface CreateExtensionTokenInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  label: string;
+}
+
+export type CreatedExtensionToken = ExtensionToken & {
+  token: string;
+};
+
+export interface ExtensionProductLookupInput {
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  productName?: string;
+  /**
+     * @minLength 4
+     * @maxLength 80
+     */
+  barcode?: string;
+}
+
+export interface ProductSummary {
+  id: string;
+  name: string;
+  brand: string;
+  category: string;
+}
+
+export interface ExtensionProductLookupResult {
+  matchedProduct: ProductSummary | null;
+  alternatives: ProductAlternative[];
+}
+
 export type AuthorizationSessionHeaderParameter = string;
 
 export type BeginBrowserLoginParams = {
