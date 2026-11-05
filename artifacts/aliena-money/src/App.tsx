@@ -60,24 +60,11 @@ function Header() {
   const tabs = [{ href: '/', label: 'Home', icon: Home }, { href: '/transactions', label: 'Spending', icon: BarChart3 }, { href: '/swaps', label: 'Swaps', icon: ArrowRightLeft }, { href: '/earn-save', label: 'Gigs', icon: HandCoins }];
   return <>
     <header className="top-nav">
-      <Link href="/" className="brand-link"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo, your money friend" /></Link>
-      <nav className="desktop-tabs" aria-label="Main navigation">
-        {tabs.slice(0, 2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`} aria-current={path === href ? 'page' : undefined}><Icon />{label}</Link>)}
-        <div className="desktop-plus">
-          <button className="desktop-plus-button" aria-label="Create or scan" aria-expanded={plusOpen} onClick={() => setPlusOpen((open) => !open)}><Plus /></button>
-          {plusOpen && <div className="plus-menu desktop-plus-menu" role="menu">
-            <Link href="/receipts?scan=receipt" onClick={() => setPlusOpen(false)}><ScanLine />Scan receipt</Link>
-            <Link href="/receipts?scan=barcode" onClick={() => setPlusOpen(false)}><ShoppingBag />Scan barcode</Link>
-            <Link href="/transactions?add=1" onClick={() => setPlusOpen(false)}><Plus />Add transaction</Link>
-            <Link href="/transactions?add=1&kind=income" onClick={() => setPlusOpen(false)}><HandCoins />Log gig income</Link>
-          </div>}
-        </div>
-        {tabs.slice(2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`} aria-current={path === href ? 'page' : undefined}><Icon />{label}</Link>)}
-      </nav>
+      <Link href="/" className="brand-link" aria-label="Margo home"><img src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><span>Margo</span></Link>
       <div className="nav-actions"><Link className="avatar" href="/profile" aria-label="Open settings" data-testid="link-profile-avatar">{first}{last}</Link></div>
     </header>
-    <nav className="mobile-tabs" aria-label="Main navigation">
-      {tabs.slice(0, 2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`}><Icon />{label}</Link>)}
+    <nav className="bottom-nav" aria-label="Main navigation">
+      {tabs.slice(0, 2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`bottom-nav-link ${path === href ? 'active' : ''}`} aria-current={path === href ? 'page' : undefined}><Icon /><span>{label}</span></Link>)}
       <div className="plus-wrap">
         <button className="center-plus" aria-label="Create or scan" aria-expanded={plusOpen} onClick={() => setPlusOpen((open) => !open)} data-testid="button-open-create-menu">{plusOpen ? <X /> : <Plus />}</button>
         {plusOpen && <div className="plus-menu" role="menu">
@@ -89,7 +76,7 @@ function Header() {
           <button className="create-menu-cancel" onClick={() => setPlusOpen(false)}>Never mind</button>
         </div>}
       </div>
-      {tabs.slice(2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`tab-link ${path === href ? 'active' : ''}`}><Icon />{label}</Link>)}
+      {tabs.slice(2).map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`bottom-nav-link ${path === href ? 'active' : ''}`} aria-current={path === href ? 'page' : undefined}><Icon /><span>{label}</span></Link>)}
     </nav>
   </>;
 }

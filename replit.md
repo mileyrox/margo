@@ -1,4 +1,4 @@
-# Aliena Money
+# Margo
 
 A personal money app for tracking everyday spending, taxable non-W-2 income, tax set-aside estimates, and receipt-based product savings.
 
@@ -22,7 +22,7 @@ A personal money app for tracking everyday spending, taxable non-W-2 income, tax
 
 ## Where things live
 
-- `artifacts/aliena-money/` — Aliena Money web app and visual theme
+- `artifacts/aliena-money/` — Margo web app and visual theme
 - `artifacts/api-server/src/routes/finance.ts` — authenticated finance and receipt API
 - `lib/api-spec/openapi.yaml` — API contract and generated client source
 - `lib/db/src/schema/finance.ts` — transactions, finance settings, and receipt schema
@@ -43,8 +43,8 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 
 ## User preferences
 
-- Keep the experience simple as one folder with horizontal tabs across the top; use pushpins or paperclips on content cards.
-- Match the attached palette exactly: Imperial Blue `#011E48`, Olive Green `#6C712E`, powder blue `#B8D3E9`, cream `#FFFDD0`, Burgundy `#48020C`, and Smoky Black `#100D08`.
+- Use the current Margo design system: cream `#FBF6E4`, white cards with `#E8DFC4` borders, navy `#0B1F4B`, secondary text `#4A5578`, burgundy `#5A0F1A`, olive `#6D712E` for savings tags, and light blue `#C9DBEC` only for navy progress fills or income icons.
+- Use Fraunces 600 for headings and DM Sans for other text. Main screens share a wax-seal Margo header and bottom navigation with Home, Spending, a raised center plus, Swaps, and Gigs.
 
 ## Gotchas
 

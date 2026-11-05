@@ -3,3 +3,4 @@
 - [Margo database direction](aliena-database-direction.md) — Keep using the existing PostgreSQL/Drizzle database; do not connect Supabase for now.
 - [Margo product mission](aliena-product-mission.md) — Help users keep their lifestyle while spending less by finding cheaper alternatives to products they already buy.
 - [Margo swap catalog](aliena-swap-catalog.md) — Keep catalog IDs stable, hide unapproved or unpriced rows, preserve flags, and show real per-ounce savings.
+- [Margo sign-in branding](margo-auth-branding.md) — App-owned login branding and provider-hosted OAuth consent labels use different configuration paths.
