@@ -49,7 +49,7 @@ function transactionCategory(primary?: string | null, detailed?: string | null):
   if (detail.includes("GROCER") || category === "GROCERIES") return "Groceries";
   if (detail.includes("RESTAURANT") || detail.includes("COFFEE") || category === "FOOD_AND_DRINK") return "Dining out";
   if (category === "TRANSPORTATION") return "Transportation";
-  if (category === "PERSONAL_CARE") return "Beauty";
+  if (category === "PERSONAL_CARE") return "Personal care";
   if (detail.includes("SUBSCRIPTION") || category === "ENTERTAINMENT") return "Subscriptions";
   return "Shopping";
 }

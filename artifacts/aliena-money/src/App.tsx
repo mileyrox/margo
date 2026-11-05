@@ -26,7 +26,7 @@ import { usePlaidLink } from 'react-plaid-link';
 import NotFound from '@/pages/not-found';
 
 const client = new QueryClient();
-const categories = ['Rent', 'Groceries', 'Dining out', 'Shopping', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities'] as const;
+const categories = ['Rent', 'Groceries', 'Dining out', 'Shopping', 'Personal care', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities'] as const;
 const swapCategories = [['beauty', 'Beauty'], ['groceries', 'Groceries'], ['clothes', 'Clothing'], ['household', 'Household'], ['travel', 'Travel'], ['subscriptions', 'Subscriptions']] as const;
 const nonNegotiables = ['My morning coffee', 'Cruelty-free products', 'Organic produce', 'Name-brand favorites', 'My weekend treats', 'Local shops'];
 const blankProfile: SwapProfileInput = { savingFor: '', monthlySavingsGoal: 0, nonNegotiables: [], swapCategories: [], favoriteBrands: [], values: [], dietaryNeeds: '', productPreferences: '' };
@@ -471,7 +471,7 @@ function AdminSwapsPage() {
 const gigs = [
   { title: 'Instawork', kind: 'Flexible shifts', summary: 'Pick up local shifts in hospitality, events, and more.', url: 'https://app.instawork.com/worker/signup', mark: 'I' },
   { title: 'Qwick', kind: 'Hospitality shifts', summary: 'Find hospitality work that fits your schedule and location.', url: 'https://www.qwick.com/', mark: 'Q' },
-  { title: 'Instacart Shopper', kind: 'Shop and deliver', summary: 'Shop grocery orders. Earnings and availability vary by market.', url: 'https://shoppers.instacart.com/', mark: 'C' },
+    { title: 'Instacart Shopper', kind: 'Shop and deliver', summary: 'Shop grocery orders. Earnings and availability vary by market.', url: 'https://shoppers.instacart.com/', mark: 'C' },
 ];
 function GigsPage() {
   return <div className="page"><PageTitle title="Gigs" subtitle="A few ways to bring in a little extra." />
@@ -663,8 +663,9 @@ function OnboardingPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const initialized = useRef(false);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const prompts: Array<{ key: string; text: string; kind: 'amount' | 'text' | 'single' | 'multi' | 'budget' | 'connect' | 'done'; choices?: string[]; periodKey?: string; skip?: string }> = [
-    { key: 'takeHome', text: 'What is your take-home pay?', kind: 'amount' as const, periodKey: 'takeHomePeriod' },
+    { key: 'takeHome', text: 'First up, how much do you take home after taxes?', kind: 'amount' as const, periodKey: 'takeHomePeriod' },
     { key: 'sideGig', text: 'Do you earn money from side gigs?', kind: 'single' as const, choices: ['Yes', 'No'] },
     { key: 'savingsGoal', text: 'How much would you like to save?', kind: 'amount' as const, periodKey: 'savingsGoalPeriod' },
     { key: 'savingFor', text: 'What is your biggest goal?', kind: 'text' as const },
@@ -679,7 +680,6 @@ function OnboardingPage() {
     { key: 'hasDebt', text: 'Are you paying down any debt?', kind: 'single' as const, choices: ['Yes', 'No'] },
     ...(answers.hasDebt === 'Yes' ? [
       { key: 'debtTypes', text: 'What kinds of debt are you paying down?', kind: 'multi' as const, choices: ['Credit cards', 'Student loans', 'Auto loan', 'Medical bills', 'Other'] },
-      { key: 'debtBalance', text: 'About how much debt do you have left in total?', kind: 'amount' as const },
       { key: 'debtPayment', text: 'How much do you pay toward debt each month?', kind: 'amount' as const },
     ] : []),
     { key: 'budget', text: 'Here is a starting budget based on what you shared.', kind: 'budget' as const },
@@ -697,7 +697,7 @@ function OnboardingPage() {
   const budgetPool = Math.max(0, monthlyIncome - monthlySavings - bills);
   const budgetRows = [
     ['Groceries', .40], ['Transportation', .20], ['Dining out', .15],
-    ['Shopping', .12], ['Beauty', .08], ['Subscriptions', .05],
+    ['Shopping', .12], ['Personal care', .08], ['Subscriptions', .05],
   ] as const;
   const selectedText = (value: string) => {
     try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed.join(', ') : value; } catch { return value; }
@@ -709,10 +709,14 @@ function OnboardingPage() {
   }, [profileQuery.data, profileQuery.isLoading, profileQuery.isError, planQuery.data, planQuery.isLoading, planQuery.isError]);
   useEffect(() => {
     setDraft(answers[current.key] || '');
-    setPeriod(answers[`${current.key}Period`] === 'year' ? 'year' : 'month');
+    setPeriod(answers[`${current.key}Period`] === 'year' || (!answers[`${current.key}Period`] && current.key === 'savingsGoal') ? 'year' : 'month');
     try { const parsed = JSON.parse(answers[current.key] || '[]'); setSelected(Array.isArray(parsed) ? parsed : []); } catch { setSelected([]); }
     setError('');
   }, [current.key]);
+  useEffect(() => {
+    const scroller = conversationRef.current;
+    if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+  }, [step, current.key, error]);
   const saveAnswer = (key: string, value: string) => {
     setAnswers((previous) => ({ ...previous, [key]: value }));
     setStep((previous) => previous + 1);
@@ -759,21 +763,21 @@ function OnboardingPage() {
   const setChoice = (value: string) => saveAnswer(current.key, value);
   const toggleSelected = (value: string) => setSelected((existing) => existing.includes(value) ? existing.filter((item) => item !== value) : [...existing, value]);
   return <main className="onboarding onboarding-chat-shell">
-    <div className="onboarding-brand"><img src={`${import.meta.env.BASE_URL}margo-logo.png`} alt="Margo" /><button className="start-over" onClick={() => { setAnswers({}); setStep(0); }}>Start over</button></div>
+    <div className="onboarding-brand"><div className="onboarding-brand-lockup"><img src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><span><strong>Margo</strong><small>Setting up your budget</small></span></div><button className="start-over" onClick={() => { setAnswers({}); setStep(0); }}>Start over</button></div>
     <div className="onboarding-progress"><span style={{ transform: `scaleX(${Math.min(1, step / (prompts.length - 1))})` }} /></div>
-    <div className="conversation-scroll">
-      <div className="chat-message from-margo"><span className="chat-seal">M</span><p>Hi, I’m Margo. Let’s make a money plan that keeps the things you love.</p></div>
+    <div className="conversation-scroll" ref={conversationRef} aria-live="polite">
+      <div className="chat-message from-margo"><img className="chat-seal-image" src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><p>Hi, I’m Margo. I’ll ask a few quick questions and build you a budget. Takes about two minutes.</p></div>
       {prompts.slice(0, step).map((prompt) => <div className="chat-exchange" key={prompt.key}>
-        <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{prompt.text}</p></div>
-        {prompt.kind === 'budget' ? <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div> : <><div className="chat-message from-user"><p>{prompt.kind === 'multi' ? selectedText(answers[prompt.key] || '[]') : prompt.kind === 'amount' ? `${money(answers[prompt.key])} / ${answers[`${prompt.key}Period`] || 'month'}` : answers[prompt.key]}</p></div><div className="chat-message from-margo"><span className="chat-seal">M</span><p>{prompt.kind === 'amount' ? `Got it, about ${money(monthlyValue(prompt.key))} a month.` : 'Got it. I’ll keep that in mind.'}</p></div></>}
+        <div className="chat-message from-margo"><img className="chat-seal-image" src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><p>{prompt.text}</p></div>
+        {prompt.kind === 'budget' ? <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills + debt {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div> : <><div className="chat-message from-user"><p>{prompt.kind === 'multi' ? selectedText(answers[prompt.key] || '[]') : prompt.kind === 'amount' ? prompt.key === 'carPayment' && Number(answers[prompt.key]) === 0 ? 'No car payment' : `${money(answers[prompt.key])} / ${answers[`${prompt.key}Period`] || (prompt.key === 'savingsGoal' ? 'year' : 'month')}` : answers[prompt.key]}</p></div><div className="chat-message from-margo"><img className="chat-seal-image" src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><p>{prompt.kind === 'amount' ? prompt.key === 'carPayment' && Number(answers[prompt.key]) === 0 ? 'Got it, no car payment.' : `Got it, about ${money(monthlyValue(prompt.key))} a month.` : 'Got it. I’ll keep that in mind.'}</p></div></>}
       </div>)}
-      {step < prompts.length && current.kind !== 'done' && <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{current.text}</p></div>}
-      {current.kind === 'budget' && <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div>}
-      {current.kind === 'done' && <div className="chat-message from-margo"><span className="chat-seal">M</span><p>{current.text}</p></div>}
+      {step < prompts.length && current.kind !== 'done' && <div className="chat-message from-margo"><img className="chat-seal-image" src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><p>{current.text}</p></div>}
+      {current.kind === 'budget' && <div className="chat-budget-card"><strong>Your starting monthly budget</strong><span>Take-home {money(monthlyIncome)} · bills + debt {money(bills)} · savings {money(monthlySavings)}</span>{budgetRows.map(([category, ratio]) => <div key={category}><span>{category}</span><b>{money(Math.round(budgetPool * ratio))}</b></div>)}</div>}
+      {current.kind === 'done' && <div className="chat-message from-margo"><img className="chat-seal-image" src={`${import.meta.env.BASE_URL}margo-seal.svg`} alt="" /><p>You’re all set. Your budget and preferences are saved. You can change them anytime in Settings.</p></div>}
     </div>
     <div className="answer-dock">
       {error && <div className="inline-error" role="alert">{error}</div>}
-      {current.kind === 'amount' && <>{current.periodKey && <div className="period-toggle"><button className={period === 'month' ? 'selected' : ''} onClick={() => setPeriod('month')}>Per month</button><button className={period === 'year' ? 'selected' : ''} onClick={() => setPeriod('year')}>Per year</button></div>}<div className="chat-answer-row"><label className="chat-amount"><span>$</span><input autoFocus type="number" min="0" step="25" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="0" onKeyDown={(event) => { if (event.key === 'Enter') submitDraft(); }} /></label><button className="button primary chat-send" onClick={submitDraft} aria-label="Send answer"><ArrowUpRight /></button></div>{current.skip && <button className="skip-link" onClick={() => saveAnswer(current.key, '0')}>{current.skip}</button>}</>}
+      {current.kind === 'amount' && <>{current.periodKey && <div className="period-toggle">{(current.key === 'savingsGoal' ? ['year', 'month'] as const : ['month', 'year'] as const).map((value) => <button key={value} className={period === value ? 'selected' : ''} onClick={() => setPeriod(value)}>{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}<div className="chat-answer-row"><label className="chat-amount"><span>$</span><input autoFocus type="number" min="0" step="25" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="0" onKeyDown={(event) => { if (event.key === 'Enter') submitDraft(); }} /></label><button className="button primary chat-send" onClick={submitDraft} aria-label="Send answer"><ArrowUpRight /></button></div>{current.skip && <button className="skip-link" onClick={() => saveAnswer(current.key, '0')}>{current.skip}</button>}</>}
       {current.kind === 'text' && <div className="chat-answer-row"><input className="field-input" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="A trip, a cushion, more breathing room" onKeyDown={(event) => { if (event.key === 'Enter') submitDraft(); }} /><button className="button primary chat-send" onClick={submitDraft} aria-label="Send answer"><ArrowUpRight /></button></div>}
       {current.kind === 'single' && <div className="chat-choice-row">{(current.choices || []).map((choice) => <button key={choice} className="choice-chip" onClick={() => setChoice(choice)}>{choice}</button>)}</div>}
       {current.kind === 'multi' && <><div className="chat-choice-row">{(current.choices || []).map((choice) => <button key={choice} className={`choice-chip ${selected.includes(choice) ? 'selected' : ''}`} aria-pressed={selected.includes(choice)} onClick={() => toggleSelected(choice)}>{selected.includes(choice) && <Check />}{choice}</button>)}</div><button className="button primary chat-done" onClick={() => saveAnswer(current.key, JSON.stringify(selected))}>Done</button></>}

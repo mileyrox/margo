@@ -15,6 +15,7 @@ export const BudgetPlanInputPriorityCategoriesItem = {
   Dining_out: 'Dining out',
   Shopping: 'Shopping',
   Beauty: 'Beauty',
+  Personal_care: 'Personal care',
   Transportation: 'Transportation',
   Subscriptions: 'Subscriptions',
   Utilities: 'Utilities',
