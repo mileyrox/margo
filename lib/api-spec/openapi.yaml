@@ -225,6 +225,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
   /transactions/{id}:
+    put:
+      tags: [Finance]
+      operationId: reviewIncome
+      summary: Set or undo an income tax decision
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IncomeReviewInput"
+      responses:
+        "200":
+          description: Updated income transaction.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Invalid decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Transaction not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
     delete:
       tags: [Finance]
       operationId: deleteTransaction
@@ -771,7 +811,7 @@ components:
         - status
     Transaction:
       type: object
-      required: [id, type, label, amount, category, date, isTaxable, source, createdAt]
+      required: [id, type, label, amount, category, date, isTaxable, incomeReviewStatus, incomePayerKey, source, createdAt]
       properties:
         id: { type: string, format: uuid }
         type: { type: string, enum: [income, expense] }
@@ -780,8 +820,15 @@ components:
         category: { type: string }
         date: { type: string, format: date }
         isTaxable: { type: boolean }
+        incomeReviewStatus: { type: string, enum: [none, pending, set-aside, not-taxable, later] }
+        incomePayerKey: { type: [string, "null"] }
         source: { type: [string, "null"] }
         createdAt: { type: string, format: date-time }
+    IncomeReviewInput:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [set-aside, not-taxable, later, undo] }
     TransactionInput:
       type: object
       required: [type, label, amount, category, date, isTaxable]

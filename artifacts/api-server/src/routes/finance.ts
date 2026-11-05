@@ -19,6 +19,9 @@ import {
   GetSwapProfileResponse,
   GetTransactionsQueryParams,
   GetTransactionsResponse,
+  ReviewIncomeBody,
+  ReviewIncomeParams,
+  ReviewIncomeResponse,
   ProductComparison,
   Receipt as ApiReceipt,
   Transaction as ApiTransaction,
@@ -33,6 +36,7 @@ import {
   db,
   budgetPlansTable,
   financeSettingsTable,
+  incomePayerPreferencesTable,
   productsTable,
   receiptsTable,
   userProductPurchasesTable,
@@ -352,6 +356,61 @@ router.post("/transactions", async (req, res): Promise<void> => {
     return;
   }
   res.status(201).json(CreateTransactionResponse.parse(serializeTransaction(transaction)));
+});
+
+router.put("/transactions/:id", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const params = ReviewIncomeParams.safeParse(req.params);
+  const parsed = ReviewIncomeBody.safeParse(req.body);
+  if (!params.success || !parsed.success) {
+    res.status(400).json({ error: "Invalid income decision" });
+    return;
+  }
+  const [transaction] = await db.select().from(transactionsTable).where(and(
+    eq(transactionsTable.id, params.data.id),
+    eq(transactionsTable.userId, req.user.id),
+  ));
+  if (!transaction || transaction.type !== "income" || !transaction.incomePayerKey) {
+    res.status(404).json({ error: "Income transaction not found" });
+    return;
+  }
+
+  const { decision } = parsed.data;
+  let incomeReviewStatus: typeof transaction.incomeReviewStatus;
+  let isTaxable = false;
+  if (decision === "undo") {
+    incomeReviewStatus = "pending";
+    await db.delete(incomePayerPreferencesTable).where(and(
+      eq(incomePayerPreferencesTable.userId, req.user.id),
+      eq(incomePayerPreferencesTable.payerKey, transaction.incomePayerKey),
+    ));
+  } else if (decision === "later") {
+    incomeReviewStatus = "later";
+  } else {
+    incomeReviewStatus = decision;
+    isTaxable = decision === "set-aside";
+    await db.insert(incomePayerPreferencesTable).values({
+      userId: req.user.id,
+      payerKey: transaction.incomePayerKey,
+      decision,
+    }).onConflictDoUpdate({
+      target: [incomePayerPreferencesTable.userId, incomePayerPreferencesTable.payerKey],
+      set: { decision, updatedAt: new Date() },
+    });
+  }
+
+  const [updated] = await db.update(transactionsTable)
+    .set({ incomeReviewStatus, isTaxable })
+    .where(and(
+      eq(transactionsTable.id, params.data.id),
+      eq(transactionsTable.userId, req.user.id),
+    ))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ error: "Income transaction not found" });
+    return;
+  }
+  res.json(ReviewIncomeResponse.parse(serializeTransaction(updated)));
 });
 
 router.delete("/transactions/:id", async (req, res): Promise<void> => {

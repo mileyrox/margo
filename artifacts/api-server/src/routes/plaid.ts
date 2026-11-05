@@ -2,9 +2,36 @@ import { Configuration, CountryCode, PlaidApi, PlaidEnvironments, Products } fro
 import { and, eq } from "drizzle-orm";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, plaidItemsTable, transactionsTable } from "@workspace/db";
+import { db, incomePayerPreferencesTable, plaidItemsTable, transactionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
+const knownGigPayers = ["instawork", "qwick", "instacart", "uber", "doordash", "paypal", "venmo", "zelle", "cash app"];
+const normalizePayer = (label: string) => label.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+const isKnownGigPayer = (label: string) => knownGigPayers.some((payer) => normalizePayer(label).includes(payer));
+
+function isUsualPaycheck(label: string, amount: number, history: Array<{ label: string; amount: number }>): boolean {
+  if (/payroll|paycheck|salary/i.test(label) && !isKnownGigPayer(label)) return true;
+  const groups = new Map<string, number[]>();
+  for (const entry of history) {
+    if (isKnownGigPayer(entry.label)) continue;
+    const key = normalizePayer(entry.label);
+    groups.set(key, [...(groups.get(key) || []), Number(entry.amount)]);
+  }
+  const regular = [...groups.entries()].filter(([, values]) => values.length >= 2).sort((a, b) => b[1].length - a[1].length)[0];
+  if (!regular || normalizePayer(label) !== regular[0]) return false;
+  const amounts = regular[1].slice().sort((a, b) => a - b);
+  const median = amounts[Math.floor(amounts.length / 2)];
+  return Math.abs(amount - median) <= Math.max(25, median * 0.08);
+}
+
+function classifyIncome(label: string, amount: number, history: Array<{ label: string; amount: number }>, preferences: Map<string, "set-aside" | "not-taxable">) {
+  const payerKey = normalizePayer(label);
+  const preference = preferences.get(payerKey);
+  if (preference) return { incomePayerKey: payerKey, incomeReviewStatus: preference, isTaxable: preference === "set-aside" };
+  const unusual = isKnownGigPayer(label) || !isUsualPaycheck(label, amount, history);
+  return { incomePayerKey: payerKey, incomeReviewStatus: unusual ? "pending" as const : "none" as const, isTaxable: false };
+}
+
 function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
   if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
@@ -104,38 +131,50 @@ router.post("/plaid/sync", async (req, res): Promise<void> => {
   if (!item) { res.status(404).json({ error: "Connected bank not found" }); return; }
   try {
     const client = plaidClient();
+    const [incomeRows, payerPreferences] = await Promise.all([
+      db.select({ label: transactionsTable.label, amount: transactionsTable.amount })
+        .from(transactionsTable)
+        .where(and(eq(transactionsTable.userId, req.user.id), eq(transactionsTable.type, "income"), eq(transactionsTable.source, "Plaid"))),
+      db.select().from(incomePayerPreferencesTable).where(eq(incomePayerPreferencesTable.userId, req.user.id)),
+    ]);
+    const incomeHistory = incomeRows.map((row) => ({ label: row.label, amount: Number(row.amount) }));
+    const preferences = new Map(payerPreferences.map((row) => [row.payerKey, row.decision]));
     let cursor = item.cursor || undefined;
     let hasMore = true;
     let imported = 0;
     while (hasMore) {
       const page = await client.transactionsSync({ access_token: decryptToken(item.accessTokenEncrypted), cursor, count: 500 });
+      const allKnownIncome = [...incomeHistory, ...page.data.added.filter((tx) => tx.amount < 0).map((tx) => ({ label: tx.merchant_name || tx.name || "Bank transaction", amount: Math.abs(tx.amount) }))];
       for (const tx of page.data.added) {
         const expense = tx.amount > 0;
+        const label = (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120);
+        const review = expense ? { incomePayerKey: null, incomeReviewStatus: "none" as const, isTaxable: false } : classifyIncome(label, Math.abs(tx.amount), allKnownIncome, preferences);
         await db.insert(transactionsTable).values({
           userId: req.user.id,
           type: expense ? "expense" : "income",
-          label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
+          label,
           amount: Math.abs(tx.amount),
-          category: transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed),
+          category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
           date: tx.date,
-          isTaxable: false,
+          ...review,
           source: "Plaid",
           plaidTransactionId: tx.transaction_id,
         }).onConflictDoUpdate({
           target: [transactionsTable.userId, transactionsTable.plaidTransactionId],
           set: {
-            type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
-            amount: Math.abs(tx.amount), category: transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed),
-            date: tx.date, source: "Plaid",
+            type: expense ? "expense" : "income", label,
+            amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+            date: tx.date, source: "Plaid", ...review,
           },
         });
         imported += 1;
+        if (!expense) incomeHistory.push({ label, amount: Math.abs(tx.amount) });
       }
       for (const tx of page.data.modified) {
         const expense = tx.amount > 0;
         await db.update(transactionsTable).set({
           type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
-          amount: Math.abs(tx.amount), category: transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed),
+          amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
           date: tx.date,
         }).where(and(eq(transactionsTable.userId, req.user.id), eq(transactionsTable.plaidTransactionId, tx.transaction_id)));
       }

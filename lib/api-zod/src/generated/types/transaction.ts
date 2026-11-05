@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TransactionIncomeReviewStatus } from './transactionIncomeReviewStatus';
 import type { TransactionType } from './transactionType';
 
 export interface Transaction {
@@ -16,6 +17,9 @@ export interface Transaction {
   category: string;
   date: Date;
   isTaxable: boolean;
+  incomeReviewStatus: TransactionIncomeReviewStatus;
+  /** @nullable */
+  incomePayerKey: string | null;
   /** @nullable */
   source: string | null;
   createdAt: Date;

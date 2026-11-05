@@ -126,6 +126,8 @@ export const GetFinanceDashboardResponse = zod.object({
   "category": zod.string(),
   "date": zod.coerce.date(),
   "isTaxable": zod.boolean(),
+  "incomeReviewStatus": zod.enum(['none', 'pending', 'set-aside', 'not-taxable', 'later']),
+  "incomePayerKey": zod.string().nullable(),
   "source": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 }))
@@ -151,6 +153,8 @@ export const GetTransactionsResponseItem = zod.object({
   "category": zod.string(),
   "date": zod.coerce.date(),
   "isTaxable": zod.boolean(),
+  "incomeReviewStatus": zod.enum(['none', 'pending', 'set-aside', 'not-taxable', 'later']),
+  "incomePayerKey": zod.string().nullable(),
   "source": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 })
@@ -192,6 +196,38 @@ export const CreateTransactionResponse = zod.object({
   "category": zod.string(),
   "date": zod.coerce.date(),
   "isTaxable": zod.boolean(),
+  "incomeReviewStatus": zod.enum(['none', 'pending', 'set-aside', 'not-taxable', 'later']),
+  "incomePayerKey": zod.string().nullable(),
+  "source": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Set or undo an income tax decision
+ */
+export const ReviewIncomeParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ReviewIncomeBody = zod.object({
+  "decision": zod.enum(['set-aside', 'not-taxable', 'later', 'undo'])
+})
+
+export const reviewIncomeResponseAmountMin = 0;
+
+
+
+export const ReviewIncomeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "type": zod.enum(['income', 'expense']),
+  "label": zod.string(),
+  "amount": zod.number().min(reviewIncomeResponseAmountMin),
+  "category": zod.string(),
+  "date": zod.coerce.date(),
+  "isTaxable": zod.boolean(),
+  "incomeReviewStatus": zod.enum(['none', 'pending', 'set-aside', 'not-taxable', 'later']),
+  "incomePayerKey": zod.string().nullable(),
   "source": zod.string().nullable(),
   "createdAt": zod.coerce.date()
 })

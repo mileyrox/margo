@@ -9,7 +9,7 @@ import {
   getGetProductComparisonsQueryKey, getGetPurchaseHistoryQueryKey, getGetReceiptsQueryKey,
   getGetSwapProfileQueryKey, getGetTransactionsQueryKey, getGetProductAlternativesQueryKey,
   useCreateReceipt, useCreateTransaction, useDeleteReceipt, useDeleteTransaction,
-  useDeleteMyData,
+  useDeleteMyData, useReviewIncome,
   useGetBudgetPlan, useGetFinanceDashboard, useGetFinanceSettings, useGetProductAlternatives,
   useGetProductComparisons, useGetPurchaseHistory, useGetReceipts, useGetSwapProfile,
   useGetTransactions, useRequestUploadUrl, useScanReceiptImage, useUpdateBudgetPlan, useUpdateFinanceSettings,
@@ -72,7 +72,6 @@ function Header() {
           <Link href="/receipts?scan=receipt" onClick={() => setPlusOpen(false)}><span className="create-menu-icon burgundy"><ReceiptText /></span><span><strong>Scan a receipt</strong><small>I’ll read it and look for cheaper swaps</small></span></Link>
           <Link href="/receipts?scan=barcode" onClick={() => setPlusOpen(false)}><span className="create-menu-icon blue"><ScanLine /></span><span><strong>Scan a barcode</strong><small>Check one product before you buy</small></span></Link>
           <Link href="/transactions?add=1" onClick={() => setPlusOpen(false)}><span className="create-menu-icon cream"><ShoppingBag /></span><span><strong>Add a purchase</strong><small>Cash, Venmo, or anything I missed</small></span></Link>
-          <Link href="/transactions?add=1&kind=income" onClick={() => setPlusOpen(false)}><span className="create-menu-icon cream"><HandCoins /></span><span><strong>Log gig income</strong><small>Keep your income in one place</small></span></Link>
           <button className="create-menu-cancel" onClick={() => setPlusOpen(false)}>Never mind</button>
         </div>}
       </div>
@@ -104,44 +103,102 @@ function HomePage() {
   const transactions = useGetTransactions();
   const comparisons = useGetProductComparisons();
   const profile = useGetSwapProfile();
+  const financeSettings = useGetFinanceSettings();
+  const [period, setPeriod] = useState<'month' | 'week'>('month');
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const firstName = user?.firstName?.trim();
-  const currentHour = new Date().getHours();
-  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening';
-  const spent = Number(dashboard.data?.monthlySpending || 0);
-  const cap = Number(plan.data?.monthlySpendingTarget || 0);
+  const greeting = 'Good morning';
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  const dayKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const inPeriod = (date: string) => {
+    const day = date.slice(0, 10);
+    return period === 'month' ? day >= dayKey(monthStart) && day <= dayKey(now) : day >= dayKey(weekStart) && day <= dayKey(now);
+  };
+  const periodTransactions = (transactions.data || []).filter((item) => inPeriod(item.date));
+  const expenses = periodTransactions.filter((item) => item.type === 'expense');
+  const spent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const monthlyBudget = (plan.data?.categories || []).reduce((sum, item) => sum + Number(item.monthlyTarget || 0), 0);
+  const cap = period === 'month' ? monthlyBudget : monthlyBudget * 7 / Math.max(1, monthDays);
   const left = Math.max(0, cap - spent);
-  const overBudgetCategory = plan.data?.categories?.find((item) => Number(item.monthlyTarget || 0) > 0 && Number(item.spentThisMonth || 0) > Number(item.monthlyTarget || 0));
-  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
-  const daysRemaining = Math.max(1, new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate() + 1);
-  const dailyAvailable = cap ? left / daysRemaining : 0;
+  const daysRemaining = period === 'month' ? Math.max(1, monthDays - now.getDate() + 1) : 7;
+  const dailyAvailable = left / daysRemaining;
+  const periodTaxableIncome = periodTransactions.filter((item) => item.type === 'income' && item.isTaxable && item.incomeReviewStatus !== 'not-taxable')
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const taxSetAside = periodTaxableIncome * Number(financeSettings.data?.taxReserveRate ?? 25) / 100;
+  const savedWithSwaps = Number(dashboard.data?.annualSavings || 0) / (period === 'month' ? 12 : 52);
+  const overBudgetCategory = (plan.data?.categories || []).map((item) => {
+    const target = Number(item.monthlyTarget || 0) * (period === 'month' ? 1 : 7 / Math.max(1, monthDays));
+    const actual = expenses.filter((tx) => tx.category.toLowerCase() === item.category.toLowerCase()).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    return { ...item, monthlyTarget: target, spentThisMonth: actual };
+  }).find((item) => Number(item.monthlyTarget || 0) > 0 && Number(item.spentThisMonth || 0) > Number(item.monthlyTarget || 0));
+  const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now);
   const debtBalance = Number(profile.data?.onboardingAnswers?.debtBalance || 0);
   const debtPayment = Number(profile.data?.onboardingAnswers?.debtPayment || 0);
-  const debtFreeDate = debtBalance > 0 && debtPayment > 0 ? new Date(new Date().getFullYear(), new Date().getMonth() + Math.ceil(debtBalance / debtPayment), 1) : null;
-  if (dashboard.isLoading || plan.isLoading || transactions.isLoading) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><Skeleton lines={6} /></div>;
-  if (dashboard.isError) return <div className="page"><PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." /><ErrorState error={dashboard.error} retry={() => dashboard.refetch()} /></div>;
+  const debtFreeFor = (extra: number) => {
+    const payment = debtPayment + extra;
+    return debtBalance > 0 && payment > 0 ? new Date(now.getFullYear(), now.getMonth() + Math.ceil(debtBalance / payment), 1) : null;
+  };
+  const pendingIncome = (transactions.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending');
+  const categoriesToShow = useMemo(() => {
+    const planned = plan.data?.categories?.length ? plan.data.categories : ['Groceries', 'Transportation', 'Dining out', 'Shopping', 'Personal care', 'Subscriptions'].map((category) => ({ category, monthlyTarget: 0, spentThisMonth: 0 }));
+    const seen = new Set(planned.map((item) => item.category.toLowerCase()));
+    const fromTransactions = Array.from(new Set((transactions.data || []).filter((item) => item.type === 'expense').map((item) => item.category)))
+      .filter((category) => !seen.has(category.toLowerCase()))
+      .map((category) => ({ category, monthlyTarget: 0, spentThisMonth: 0 }));
+    return [...planned, ...fromTransactions];
+  }, [plan.data?.categories, transactions.data]);
   const progress = cap > 0 ? Math.min(100, spent / cap * 100) : 0;
   return <div className="page">
-    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} />
+    <PageTitle title={`${greeting}${firstName ? `, ${firstName}` : ''}`} subtitle="A little more room for the things you love." action={<div className="period-toggle" role="group" aria-label="Budget period">{(['month', 'week'] as const).map((value) => <button type="button" key={value} className={period === value ? 'selected' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} data-testid={`button-period-${value}`}>{value === 'month' ? 'Month' : 'Week'}</button>)}</div>} />
+    {(dashboard.isError || plan.isError || transactions.isError) && <div data-testid="status-home-data-error"><ErrorState error={dashboard.error || plan.error || transactions.error} retry={() => { void Promise.all([dashboard.refetch(), plan.refetch(), transactions.refetch()]); }} /></div>}
+    {(dashboard.isLoading || plan.isLoading || transactions.isLoading) && <div className="home-loading" aria-label="Loading money details"><Skeleton lines={2} /></div>}
     <section className="home-summary">
-      <div className="summary-top"><div><span className="summary-kicker">{cap ? `Left to spend in ${monthName}` : 'Set a monthly budget to get started'}</span><div className="summary-amount">{money(cap ? left : spent)}</div></div><div className="summary-budget"><span>Monthly budget</span><strong>{cap ? money(cap) : 'Not set yet'}</strong></div></div>
+      <div className="summary-top"><div><span className="summary-kicker">Left to spend {period === 'month' ? `in ${monthName}` : 'this week'}</span><div className="summary-amount" data-testid="text-left-to-spend">{money(left)}</div></div><div className="summary-budget"><span>{period === 'month' ? 'Monthly budget' : 'Weekly budget'}</span><strong data-testid="text-period-budget">{money(cap)}</strong></div></div>
       <div className="summary-track"><span style={{ width: `${progress}%` }} /></div>
-      <div className="summary-bottom"><span>{cap ? `${money(spent)} of ${money(cap)} spent` : 'Your spending plan is ready when you are'}</span><span>{cap ? `About ${money(dailyAvailable)} a day` : 'Edit in Settings'}</span></div>
+      <div className="summary-bottom"><span>{money(spent)} spent of {money(cap)}</span><span>{money(dailyAvailable)} available per day</span></div>
     </section>
     <div className="home-metrics">
-      <div><span>Saved with swaps</span><strong>{money(dashboard.data?.annualSavings)}</strong><small>Based on your saved purchases</small></div>
-      <div><span>Tax set-aside</span><strong>{money(dashboard.data?.taxSetAside)}</strong><small>Personal estimate</small></div>
-      <div><span>Savings goal</span><strong>{plan.data?.annualIncome ? `${Math.round(Number(plan.data.annualSavingsGoal || 0) / Number(plan.data.annualIncome) * 100)}%` : 'Not set'}</strong><small>{plan.data?.annualSavingsGoal ? 'Of take-home pay' : 'Choose what matters to you'}</small></div>
+      <div data-testid="metric-saved-with-swaps"><span>Saved with swaps</span><strong>{money(savedWithSwaps)}</strong><small>{period === 'month' ? 'This month' : 'Trailing 7 days'}</small></div>
+      <div data-testid="metric-tax-set-aside"><span>Tax set-aside</span><strong>{money(taxSetAside)}</strong><small>From taxable income this {period}</small></div>
+      <div data-testid="metric-savings-goal"><span>Savings goal</span><strong>{plan.data?.annualIncome ? `${Math.round(Number(plan.data.annualSavingsGoal || 0) / Number(plan.data.annualIncome) * 100)}%` : '0%'}</strong><small>Of annual income</small></div>
     </div>
+    <IncomeReviewCards items={pendingIncome} taxRate={Number(financeSettings.data?.taxReserveRate || 0)} />
     {overBudgetCategory && <Link href="/swaps" className="budget-alert"><span><CircleHelp /></span><strong>{overBudgetCategory.category} is {money(Number(overBudgetCategory.spentThisMonth) - Number(overBudgetCategory.monthlyTarget))} over its plan · See swaps</strong><ChevronRight /></Link>}
-    {comparisons.data?.length ? <Link href="/swaps" className="home-swap-callout"><span className="seal-mark">M</span><span><strong>Your money has a little more room.</strong><small>{comparisons.data.length} saved {comparisons.data.length === 1 ? 'swap' : 'swaps'} to explore</small></span><ChevronRight /></Link> : null}
+    {comparisons.data?.length ? <Link href="/swaps" className="home-swap-callout"><span className="seal-mark">M</span><span><strong>Swap of the week</strong><small>{comparisons.data[0].productName} → {comparisons.data[0].alternativeName} · save {money(Number(comparisons.data[0].annualSavings) / (period === 'month' ? 12 : 52))} {period === 'month' ? 'this month' : 'this week'}</small></span><ChevronRight /></Link> : <section className="home-swap-callout"><span className="seal-mark">M</span><span><strong>Swap of the week</strong><small>Keep an eye out for a small switch that feels right for you.</small></span></section>}
     <div className="home-columns">
-      <section className="surface budget-surface"><div className="section-heading"><div><h2>Your monthly categories</h2><p>A flexible guide, never a rule.</p></div><Link href="/settings" className="quiet-link">Edit</Link></div>
-        {plan.data?.categories?.length ? <BudgetList categories={plan.data.categories} compact /> : <EmptyState title="Your budget, your way" body="Add a few monthly categories when you’re ready." action={<Link className="button secondary" href="/settings">Set budgets</Link>} />}
+      <section className="surface budget-surface"><div className="section-heading"><div><h2>Your {period === 'month' ? 'monthly' : 'weekly'} categories</h2><p>A flexible guide, never a rule.</p></div><Link href="/settings" className="quiet-link">Edit</Link></div>
+        {categoriesToShow.length ? <div className="home-category-list">{categoriesToShow.map((category) => {
+          const allCategoryTransactions = expenses.filter((item) => item.category.toLowerCase() === category.category.toLowerCase()).sort((a, b) => b.date.localeCompare(a.date));
+          const categoryTransactions = allCategoryTransactions.slice(0, 3);
+          const target = Number(category.monthlyTarget || 0) * (period === 'month' ? 1 : 7 / Math.max(1, monthDays));
+          const amount = allCategoryTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const match = comparisons.data?.find((item) => item.category.toLowerCase() === category.category.toLowerCase());
+          const keepKeywords: Record<string, string[]> = { groceries: ['organic', 'produce'], 'dining out': ['coffee', 'weekend treat'], 'personal care': ['cruelty-free', 'makeup'], shopping: ['name-brand'], transportation: ['running shoes'], subscriptions: ['streaming'] };
+          const isKeepList = (profile.data?.nonNegotiables || []).some((item) => (keepKeywords[category.category.toLowerCase()] || []).some((keyword) => item.toLowerCase().includes(keyword)));
+          const open = expandedCategory === category.category;
+          return <div className="home-category" key={category.category} data-testid={`category-${category.category.toLowerCase().replaceAll(' ', '-')}`}>
+            <button type="button" className="home-category-trigger" aria-expanded={open} onClick={() => setExpandedCategory(open ? null : category.category)}><span><strong>{category.category}</strong><small>{money(amount)} spent</small></span><span className={`category-remaining ${target > 0 && amount > target ? 'over' : ''}`}>{target > 0 ? `${money(Math.abs(target - amount))} ${amount > target ? 'over' : 'left'}` : 'No budget'}<ChevronRight /></span></button>
+            {open && <div className="category-detail"><div className="category-purchases">{categoryTransactions.length ? categoryTransactions.map((item) => <div key={item.id}><span>{item.label}</span><strong>{money(item.amount)}</strong></div>) : <p>No recent purchases in this category.</p>}</div><p className="category-tip">{match ? `A possible swap: ${match.productName} for ${match.alternativeName}, saving about ${money(match.annualSavings)} a year.` : isKeepList ? 'On your keep list. Margo will not suggest swapping these.' : 'No helpful swap suggestion here yet. Keep what works.'}</p></div>}
+          </div>;
+        })}</div> : <EmptyState title="Your budget, your way" body="Your budget is here when you’re ready to add category targets." action={<Link className="button secondary" href="/settings">Set budgets</Link>} />}
       </section>
     </div>
-    {debtFreeDate && <section className="surface debt-payoff"><div><h2>Debt payoff</h2><p>{money(debtBalance)} left · At your current payments, before interest</p></div><strong>Debt-free by {new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(debtFreeDate)}</strong></section>}
+    {(debtBalance > 0 || profile.data?.onboardingAnswers?.hasDebt === 'Yes') && <DebtPayoffCard balance={debtBalance} monthlyPayment={debtPayment} getDate={debtFreeFor} />}
     {dashboard.data?.recentTransactions?.length ? <section className="surface recent-surface"><div className="section-heading"><div><h2>Latest spending</h2><p>Your recent activity.</p></div><Link href="/transactions" className="quiet-link">See all</Link></div><TransactionRows items={dashboard.data.recentTransactions.slice(0, 4)} /></section> : null}
   </div>;
+}
+
+function DebtPayoffCard({ balance, monthlyPayment, getDate }: { balance: number; monthlyPayment: number; getDate: (extra: number) => Date | null }) {
+  const [extra, setExtra] = useState(0);
+  const date = getDate(extra);
+  return <section className="surface debt-payoff" data-testid="card-debt-payoff">
+    <div className="debt-copy"><span className="debt-kicker">A plan that can flex</span><h2>Debt payoff</h2><p>{money(balance)} remaining · estimates don’t include interest</p></div>
+    <div className="debt-options" role="group" aria-label="Monthly payoff pace">{[0, 50, 100].map((amount) => <button type="button" key={amount} className={extra === amount ? 'selected' : ''} aria-pressed={extra === amount} onClick={() => setExtra(amount)} data-testid={`button-debt-extra-${amount}`}>{amount === 0 ? 'Current pace' : `+$${amount}/mo`}</button>)}</div>
+    <strong className="debt-date" data-testid="text-debt-free-date">{date ? `Debt-free by ${new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date)}` : !balance ? 'Add debt balance in Settings to see a date.' : monthlyPayment + extra > 0 ? 'Your payoff date is taking shape.' : 'Add a monthly payment in Settings to see a date.'}</strong>
+  </section>;
 }
 
 function BudgetList({ categories: items, compact = false }: { categories: Array<{ category: string; monthlyTarget: number; spentThisMonth: number }>; compact?: boolean }) {
@@ -154,13 +211,55 @@ function BudgetList({ categories: items, compact = false }: { categories: Array<
   })}</div>;
 }
 
-function TransactionRows({ items, onDelete, showDate = true }: { items: Transaction[]; onDelete?: (id: string) => void; showDate?: boolean }) {
-  return <div className="transaction-rows">{items.map((item) => <div className="activity-row" key={item.id}><span className={`activity-icon ${item.type}`}>{item.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</span><div className="activity-copy"><strong>{item.label}</strong><small>{item.category}{showDate ? ` · ${dateLabel(item.date)}` : item.source ? ` · ${item.source}` : ''}</small></div><strong className={`activity-amount ${item.type}`}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong>{onDelete && <button className="text-icon" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.label}`}><Trash2 /></button>}</div>)}</div>;
+function TransactionRows({ items, onDelete, showDate = true, contextNotes = {} }: { items: Transaction[]; onDelete?: (id: string) => void; showDate?: boolean; contextNotes?: Record<string, string> }) {
+  return <div className="transaction-rows">{items.map((item) => <div className="activity-row" key={item.id} data-testid={`transaction-${item.id}`}><span className={`activity-icon ${item.type}`}>{item.type === 'income' ? <ArrowDownLeft /> : <ArrowUpRight />}</span><div className="activity-copy"><strong>{item.label}</strong><small>{item.type === 'income' && item.incomeReviewStatus === 'pending' ? 'Income · not your usual paycheck' : item.category}{showDate ? ` · ${dateLabel(item.date)}` : item.source ? ` · ${item.source}` : ''}</small>{contextNotes[item.id] && <small className="activity-context">{contextNotes[item.id]}</small>}</div><strong className={`activity-amount ${item.type}`}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong>{onDelete && <button className="text-icon" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.label}`} data-testid={`button-delete-transaction-${item.id}`}><Trash2 /></button>}</div>)}</div>;
+}
+
+function IncomeReviewCards({ items, taxRate }: { items: Transaction[]; taxRate: number }) {
+  const qc = useQueryClient();
+  const review = useReviewIncome();
+  const [notice, setNotice] = useState<{ item: Transaction; text: string; undoUntil: number; canUndo: boolean } | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!notice?.undoUntil) return;
+    const timer = window.setTimeout(() => setNotice(null), Math.max(0, notice.undoUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  const invalidate = () => Promise.all([
+    qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }),
+    qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }),
+    qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }),
+  ]);
+  const decide = async (item: Transaction, decision: 'set-aside' | 'not-taxable' | 'later' | 'undo') => {
+    setError('');
+    if (decision === 'undo') setNotice(null);
+    else setNotice({ item, text: decision === 'set-aside' ? 'Setting aside your tax reserve…' : 'Saving your choice…', undoUntil: Date.now() + 8000, canUndo: false });
+    try {
+      await review.mutateAsync({ id: item.id, data: { decision } });
+      if (decision === 'set-aside') setNotice({ item, text: `${money(Number(item.amount) * taxRate / 100)} set aside for taxes.`, undoUntil: Date.now() + 8000, canUndo: true });
+      else if (decision === 'undo') setNotice({ item, text: 'Set-aside undone.', undoUntil: Date.now() + 2500, canUndo: false });
+      else setNotice({ item, text: decision === 'not-taxable' ? 'Marked as not taxable.' : 'We’ll leave this for later.', undoUntil: Date.now() + 2500, canUndo: false });
+      await invalidate();
+    } catch (reason) { setNotice(null); setError(messageOf(reason)); }
+  };
+  return <div className="income-review-stack" data-testid="income-review-cards">
+    {items.map((item) => <article className="income-review-card" key={item.id} data-testid={`income-review-${item.id}`}>
+      <span className="review-eyebrow">Worth a quick check</span>
+      <h2>New income: {money(item.amount)} from {item.label}. This isn't your usual paycheck.</h2>
+      <p>Want to set aside money for taxes?</p>
+      <div className="review-actions"><button className="button primary" type="button" disabled={review.isPending} onClick={() => void decide(item, 'set-aside')} data-testid={`button-review-set-aside-${item.id}`}>Set aside {money(Number(item.amount) * taxRate / 100)} ({taxRate}%)</button><button className="button secondary" type="button" disabled={review.isPending} onClick={() => void decide(item, 'not-taxable')} data-testid={`button-review-not-taxable-${item.id}`}>Not taxable</button><button className="review-later" type="button" disabled={review.isPending} onClick={() => void decide(item, 'later')} data-testid={`button-review-later-${item.id}`}>Later</button></div>
+    </article>)}
+    {notice && <div className="review-feedback" role="status" data-testid="status-income-review">{notice.text}{notice.canUndo && notice.undoUntil > Date.now() && <button type="button" onClick={() => void decide(notice.item, 'undo')} data-testid="button-undo-income-review">Undo</button>}</div>}
+    {error && <div className="inline-error" role="alert">{error}</div>}
+  </div>;
 }
 
 function SpendingPage() {
   const qc = useQueryClient();
   const query = useGetTransactions();
+  const receipts = useGetReceipts();
+  const comparisons = useGetProductComparisons();
+  const financeSettings = useGetFinanceSettings();
   const create = useCreateTransaction();
   const remove = useDeleteTransaction();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
@@ -172,6 +271,7 @@ function SpendingPage() {
   const [kind, setKind] = useState<'expense' | 'income'>(() => new URLSearchParams(window.location.search).get('kind') === 'income' ? 'income' : 'expense');
   const [error, setError] = useState('');
   const monthRows = useMemo(() => (query.data || []).filter((item) => item.date.slice(0, 7) === selectedMonth).sort((a, b) => b.date.localeCompare(a.date)), [query.data, selectedMonth]);
+  const pendingIncome = (query.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending');
   const list = useMemo(() => monthRows.filter((item) => filter === 'all' || item.type === filter), [monthRows, filter]);
   const groups = useMemo(() => {
     const grouped = new Map<string, Transaction[]>();
@@ -187,6 +287,20 @@ function SpendingPage() {
     }));
   }, [list]);
   const monthLabel = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date(`${selectedMonth}-01T12:00:00`));
+  const contextNotes = Object.fromEntries(monthRows.flatMap((item) => {
+    if (item.type === 'income' && item.incomeReviewStatus === 'set-aside' && item.isTaxable) {
+      return [[item.id, `Set aside ${money(Number(item.amount) * Number(financeSettings.data?.taxReserveRate ?? 25) / 100)} for taxes`]];
+    }
+    const receipt = receipts.data?.find((candidate) =>
+      candidate.purchasedAt.slice(0, 10) === item.date.slice(0, 10)
+      && candidate.merchant.trim().toLowerCase() === item.label.trim().toLowerCase());
+    if (receipt || (item.source && /receipt|scan/i.test(item.source))) {
+      const receiptNames = new Set((receipt?.items || []).map((line) => line.productName.trim().toLowerCase()));
+      const count = receipt ? (comparisons.data || []).filter((comparison) => receiptNames.has(comparison.productName.trim().toLowerCase())).length : comparisons.data?.filter((comparison) => comparison.category.toLowerCase() === item.category.toLowerCase()).length || 0;
+      return [[item.id, `Receipt scanned · ${count} ${count === 1 ? 'swap' : 'swaps'} found`]];
+    }
+    return [];
+  }));
   const moveMonth = (offset: number) => {
     const [year, month] = selectedMonth.split('-').map(Number);
     const next = new Date(year, month - 1 + offset, 1, 12);
@@ -209,7 +323,7 @@ function SpendingPage() {
     remove.mutate({ id }, { onSuccess: () => { void refresh(); }, onError: (reason) => setError(messageOf(reason)) });
   };
   return <div className="page">
-    <PageTitle title="Spending" action={<div className="month-selector"><button type="button" aria-label="Previous month" onClick={() => moveMonth(-1)} data-testid="button-previous-month"><ChevronLeft /></button><strong>{monthLabel}</strong><button type="button" aria-label="Next month" onClick={() => moveMonth(1)} data-testid="button-next-month"><ChevronRight /></button></div>} />
+    <PageTitle title="Spending" subtitle="Every dollar, in its own time." action={<div className="month-selector"><button type="button" aria-label="Previous month" onClick={() => moveMonth(-1)} data-testid="button-previous-month"><ChevronLeft /></button><strong data-testid="text-selected-month">{monthLabel}</strong><button type="button" aria-label="Next month" onClick={() => moveMonth(1)} data-testid="button-next-month"><ChevronRight /></button></div>} />
     {error && <div className="error-state">{error}<button onClick={() => setError('')} aria-label="Dismiss"><X /></button></div>}
     {formOpen && <form className="surface entry-form" onSubmit={submit}><div className="form-heading"><h2>Add an entry</h2><p>Just the details you want to remember.</p></div>
       <div className="form-grid">
@@ -223,16 +337,17 @@ function SpendingPage() {
       {kind === 'income' && <label className="check-line"><input type="checkbox" name="taxable" defaultChecked />Include in my tax estimate</label>}
       <div className="form-footer"><button className="button secondary" type="button" onClick={() => setFormOpen(false)}>Cancel</button><button className="button primary" disabled={create.isPending}>{create.isPending ? 'Saving…' : 'Save entry'}</button></div>
     </form>}
+    <IncomeReviewCards items={pendingIncome} taxRate={Number(financeSettings.data?.taxReserveRate ?? 25)} />
     <section className="spending-totals">
       {(['expense', 'income'] as const).map((type) => {
         const total = monthRows.filter((item) => item.type === type).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-        return <div className={type === 'expense' ? 'expense-total' : 'income-total'} key={type}><span>{type === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(total)}</strong></div>;
+        return <div className={type === 'expense' ? 'expense-total' : 'income-total'} key={type} data-testid={`total-${type}`}><span>{type === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(total)}</strong></div>;
       })}
     </section>
     <div className="spending-filter-row" role="group" aria-label="Filter spending">
-      {(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}
+      {(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`filter-button ${filter === value ? 'selected' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} data-testid={`button-filter-${value}`}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}
     </div>
-    {query.isLoading ? <section className="surface spending-empty"><Skeleton /></section> : query.isError ? <section className="surface spending-empty"><ErrorState error={query.error} retry={() => query.refetch()} /></section> : groups.length ? <div className="spending-day-list">{groups.map((group) => <section className="surface day-group" key={group.date}><h3>{group.label}</h3><TransactionRows items={group.items} onDelete={deleteOne} showDate={false} /></section>)}</div> : <section className="surface spending-empty"><EmptyState title="Nothing here yet" body={`No entries for ${monthLabel}. Add one whenever you want to keep track.`} action={<button className="button primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} /></section>}
+    {query.isLoading ? <section className="surface spending-empty"><Skeleton /></section> : query.isError ? <section className="surface spending-empty"><ErrorState error={query.error} retry={() => query.refetch()} /></section> : groups.length ? <div className="spending-day-list">{groups.map((group) => <section className="surface day-group" key={group.date} data-testid={`day-group-${group.date}`}><h3>{group.label}</h3><TransactionRows items={group.items} onDelete={deleteOne} showDate={false} contextNotes={contextNotes} /></section>)}</div> : <section className="surface spending-empty"><EmptyState title="Nothing here yet" body={`No entries for ${monthLabel}. Add one whenever you want to keep track.`} action={<button className="button primary" onClick={() => setFormOpen(true)}><Plus />Add transaction</button>} /></section>}
   </div>;
 }
 
@@ -632,7 +747,7 @@ function SettingsPage() {
     <section className="account-card"><span className="account-avatar">{user?.firstName?.[0] || user?.email?.[0] || 'M'}</span><span><strong>{[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your Margo account'}</strong><small>{user?.email || 'Private to you'}</small></span></section>
     {error && <div className="inline-error" role="alert">{error}</div>}{message && <div className="inline-success" role="status">{message}</div>}
     <section className="surface settings-section"><div className="section-heading"><div><h2>About you</h2><p>Keep the plan close to your real life.</p></div></div>
-      {profileQuery.isLoading ? <Skeleton lines={2} /> : profileQuery.isError ? <ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /> : <div className="settings-fields"><label>Saving for<input className="field-input" value={savingFor} onChange={(event) => setSavingFor(event.target.value)} placeholder="A trip, more breathing room…" /></label><label>Monthly savings goal<input className="field-input" type="number" min="0" step="25" value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Monthly take-home pay<input className="field-input" type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} /></label><label>Monthly rent<input className="field-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label><div className="settings-choice-group"><strong>Non-negotiables</strong><div className="settings-chips">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profileDraft.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profileDraft.nonNegotiables.includes(item)} onClick={() => toggleSettingChoice('nonNegotiables', item)}>{item}</button>)}</div></div><div className="settings-choice-group"><strong>Open to swaps</strong><div className="settings-chips">{swapCategories.map(([value, label]) => <button key={value} className={`choice-chip ${profileDraft.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profileDraft.swapCategories.includes(value)} onClick={() => toggleSettingChoice('swapCategories', value)}>{label}</button>)}</div></div>{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories').length > 0 && <details className="onboarding-answer-details"><summary>Other setup answers</summary><div className="onboarding-answer-grid">{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories').map(([key, value]) => { let shown = value; if (listAnswerKeys.has(key)) { try { const parsed = JSON.parse(value); if (Array.isArray(parsed)) shown = parsed.join(', '); } catch { /* Keep editable text as entered. */ } } return <label key={key}>{answerLabels[key]}<input className="field-input" value={shown} onChange={(event) => { const next = event.target.value; setProfileDraft((current) => ({ ...current, onboardingAnswers: { ...(current.onboardingAnswers || {}), [key]: listAnswerKeys.has(key) ? JSON.stringify(next.split(',').map((item) => item.trim()).filter(Boolean)) : next } })); }} /></label>; })}</div></details>}<button className="button secondary" onClick={() => void savePreferences()} disabled={saveProfile.isPending || updatePlan.isPending}>{saveProfile.isPending || updatePlan.isPending ? 'Saving…' : 'Save preferences'}</button></div>}
+      {profileQuery.isLoading ? <Skeleton lines={2} /> : profileQuery.isError ? <ErrorState error={profileQuery.error} retry={() => profileQuery.refetch()} /> : <div className="settings-fields"><label>Saving for<input className="field-input" value={savingFor} onChange={(event) => setSavingFor(event.target.value)} placeholder="A trip, more breathing room…" /></label><label>Monthly savings goal<input className="field-input" type="number" min="0" step="25" value={goal} onChange={(event) => setGoal(event.target.value)} /></label><label>Monthly take-home pay<input className="field-input" type="number" min="0" step="50" value={monthlyIncome} onChange={(event) => setMonthlyIncome(event.target.value)} /></label><label>Monthly rent<input className="field-input" type="number" min="0" step="25" value={monthlyRent} onChange={(event) => setMonthlyRent(event.target.value)} /></label><label>Debt balance <span className="optional">(optional)</span><input className="field-input" type="number" min="0" step="50" value={profileDraft.onboardingAnswers?.debtBalance || ''} onChange={(event) => setProfileDraft((current) => ({ ...current, onboardingAnswers: { ...(current.onboardingAnswers || {}), debtBalance: event.target.value } }))} placeholder="0" data-testid="input-debt-balance" /></label><label>Monthly debt payment <span className="optional">(optional)</span><input className="field-input" type="number" min="0" step="25" value={profileDraft.onboardingAnswers?.debtPayment || ''} onChange={(event) => setProfileDraft((current) => ({ ...current, onboardingAnswers: { ...(current.onboardingAnswers || {}), debtPayment: event.target.value } }))} placeholder="0" data-testid="input-debt-payment" /></label><div className="settings-choice-group"><strong>Non-negotiables</strong><div className="settings-chips">{nonNegotiables.map((item) => <button key={item} className={`choice-chip ${profileDraft.nonNegotiables.includes(item) ? 'selected' : ''}`} aria-pressed={profileDraft.nonNegotiables.includes(item)} onClick={() => toggleSettingChoice('nonNegotiables', item)}>{item}</button>)}</div></div><div className="settings-choice-group"><strong>Open to swaps</strong><div className="settings-chips">{swapCategories.map(([value, label]) => <button key={value} className={`choice-chip ${profileDraft.swapCategories.includes(value) ? 'selected' : ''}`} aria-pressed={profileDraft.swapCategories.includes(value)} onClick={() => toggleSettingChoice('swapCategories', value)}>{label}</button>)}</div></div>{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories' && key !== 'debtBalance' && key !== 'debtPayment').length > 0 && <details className="onboarding-answer-details"><summary>Other setup answers</summary><div className="onboarding-answer-grid">{Object.entries(profileDraft.onboardingAnswers || {}).filter(([key]) => answerLabels[key] && key !== 'savingFor' && key !== 'takeHome' && key !== 'savingsGoal' && key !== 'rent' && key !== 'nonNegotiables' && key !== 'swapCategories' && key !== 'debtBalance' && key !== 'debtPayment').map(([key, value]) => { let shown = value; if (listAnswerKeys.has(key)) { try { const parsed = JSON.parse(value); if (Array.isArray(parsed)) shown = parsed.join(', '); } catch { /* Keep editable text as entered. */ } } return <label key={key}>{answerLabels[key]}<input className="field-input" value={shown} onChange={(event) => { const next = event.target.value; setProfileDraft((current) => ({ ...current, onboardingAnswers: { ...(current.onboardingAnswers || {}), [key]: listAnswerKeys.has(key) ? JSON.stringify(next.split(',').map((item) => item.trim()).filter(Boolean)) : next } })); }} /></label>; })}</div></details>}<button className="button secondary" onClick={() => void savePreferences()} disabled={saveProfile.isPending || updatePlan.isPending}>{saveProfile.isPending || updatePlan.isPending ? 'Saving…' : 'Save preferences'}</button></div>}
     </section>
     <section className="surface settings-section"><div className="section-heading"><div><h2>Your money</h2><p>Monthly category budgets.</p></div></div>
       {plan.isLoading ? <Skeleton /> : plan.isError ? <ErrorState error={plan.error} retry={() => plan.refetch()} /> : <div className="settings-budgets">{draft.map((item) => <div className="budget-edit" key={item.category}><strong>{item.category}</strong><label className="money-field"><span>$</span><input aria-label={`${item.category} monthly budget`} type="number" min="0" step="25" value={item.monthlyTarget} onChange={(event) => setDraft((rows) => rows.map((row) => row.category === item.category ? { ...row, monthlyTarget: Number(event.target.value) || 0 } : row))} /></label><button className="text-icon" aria-label={`Remove ${item.category}`} onClick={() => setDraft((rows) => rows.filter((row) => row.category !== item.category))}><Trash2 /></button></div>)}

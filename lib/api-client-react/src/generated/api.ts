@@ -36,6 +36,7 @@ import type {
   GetTransactionsParams,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  IncomeReviewInput,
   LogoutBrowserSessionParams,
   LogoutSuccess,
   MobileTokenExchangeRequest,
@@ -900,6 +901,95 @@ export const useCreateTransaction = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getCreateTransactionMutationOptions(options));
+    }
+
+export const getReviewIncomeUrl = (id: string,) => {
+
+
+
+
+  return `/api/transactions/${id}`
+}
+
+/**
+ * @summary Set or undo an income tax decision
+ */
+export const reviewIncome = async (id: string,
+    incomeReviewInput: IncomeReviewInput, options?: Parameters<typeof customFetch>[1]): Promise<Transaction> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Transaction>(getReviewIncomeUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(incomeReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewIncomeMutationKey = () => ['reviewIncome'] as const;
+
+export const getReviewIncomeMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewIncome>>, TError,ReviewIncomeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewIncome>>, TError,ReviewIncomeMutationVariables, TContext> => {
+
+const mutationKey = getReviewIncomeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewIncome>>, ReviewIncomeMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewIncome(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewIncomeMutationResult = NonNullable<Awaited<ReturnType<typeof reviewIncome>>>
+    export type ReviewIncomeMutationBody = BodyType<IncomeReviewInput>
+    export type ReviewIncomeMutationError = ErrorType<ErrorEnvelope>
+    export type ReviewIncomeMutationVariables = {id: string;data: BodyType<IncomeReviewInput>}
+
+    /**
+ * @summary Set or undo an income tax decision
+ */
+export const useReviewIncome = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewIncome>>, TError,ReviewIncomeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewIncome>>,
+        TError,
+        ReviewIncomeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewIncomeMutationOptions(options));
     }
 
 export const getDeleteTransactionUrl = (id: string,) => {

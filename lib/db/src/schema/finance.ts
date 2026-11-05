@@ -36,6 +36,11 @@ export const transactionsTable = pgTable(
     category: varchar("category", { length: 60 }).notNull(),
     date: date("date", { mode: "string" }).notNull(),
     isTaxable: boolean("is_taxable").notNull().default(false),
+    incomeReviewStatus: varchar("income_review_status", { length: 20 })
+      .$type<"none" | "pending" | "set-aside" | "not-taxable" | "later">()
+      .notNull()
+      .default("none"),
+    incomePayerKey: varchar("income_payer_key", { length: 120 }),
     source: varchar("source", { length: 120 }),
     plaidTransactionId: varchar("plaid_transaction_id", { length: 120 }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -48,6 +53,20 @@ export const transactionsTable = pgTable(
     uniqueIndex("transactions_user_plaid_id_idx").on(table.userId, table.plaidTransactionId),
   ],
 );
+
+export const incomePayerPreferencesTable = pgTable("income_payer_preferences", {
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  payerKey: varchar("payer_key", { length: 120 }).notNull(),
+  decision: varchar("decision", { length: 20 })
+    .$type<"set-aside" | "not-taxable">()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+}, (table) => [uniqueIndex("income_payer_preferences_user_payer_idx").on(table.userId, table.payerKey)]);
 
 export const financeSettingsTable = pgTable("finance_settings", {
   userId: varchar("user_id")

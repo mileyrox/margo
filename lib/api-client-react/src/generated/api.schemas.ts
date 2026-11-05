@@ -59,6 +59,17 @@ export const TransactionType = {
   expense: 'expense',
 } as const;
 
+export type TransactionIncomeReviewStatus = typeof TransactionIncomeReviewStatus[keyof typeof TransactionIncomeReviewStatus];
+
+
+export const TransactionIncomeReviewStatus = {
+  none: 'none',
+  pending: 'pending',
+  'set-aside': 'set-aside',
+  'not-taxable': 'not-taxable',
+  later: 'later',
+} as const;
+
 export interface Transaction {
   id: string;
   type: TransactionType;
@@ -68,9 +79,26 @@ export interface Transaction {
   category: string;
   date: string;
   isTaxable: boolean;
+  incomeReviewStatus: TransactionIncomeReviewStatus;
+  /** @nullable */
+  incomePayerKey: string | null;
   /** @nullable */
   source: string | null;
   createdAt: string;
+}
+
+export type IncomeReviewInputDecision = typeof IncomeReviewInputDecision[keyof typeof IncomeReviewInputDecision];
+
+
+export const IncomeReviewInputDecision = {
+  'set-aside': 'set-aside',
+  'not-taxable': 'not-taxable',
+  later: 'later',
+  undo: 'undo',
+} as const;
+
+export interface IncomeReviewInput {
+  decision: IncomeReviewInputDecision;
 }
 
 export type TransactionInputType = typeof TransactionInputType[keyof typeof TransactionInputType];
