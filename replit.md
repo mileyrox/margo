@@ -44,7 +44,10 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 ## User preferences
 
 - Use the current Margo design system: cream `#FBF6E4`, white cards with `#E8DFC4` borders, navy `#0B1F4B`, secondary text `#4A5578`, burgundy `#5A0F1A`, olive `#6D712E` for savings tags, and light blue `#C9DBEC` only for navy progress fills or income icons.
-- Use Fraunces 600 for headings and DM Sans for other text. Main screens share a wax-seal Margo header and bottom navigation with Home, Spending, a raised center plus, Swaps, and Gigs.
+- Use Fraunces 600 for headings and DM Sans for other text. Main screens share a wax-seal Margo header and bottom navigation with Home, Spending, a raised center plus, Swaps, and Apps (the Money apps page, route `/earn-save`).
+- Web app layout: `src/App.tsx` is routing only. Screens live in `src/screens/` (home, spending, receipts, swaps, money-apps, settings, onboarding, avatar, welcome). Shared pieces live in `src/components/margo/` (`chrome.tsx` for header, nav, + sheet and states; `art.tsx` for the seal, product cut-outs and coin avatar). All styling is the `m-` classes in `src/index.css`; do not add another layer of overrides on top.
+- The coin avatar, saved swaps and switched swaps are stored in the swap profile's `onboardingAnswers` (`avatar`, `savedSwaps`, `switchedSwaps`) so they follow the user across devices.
+- Money apps are listed in `src/screens/money-apps.tsx`. Swap in referral links there and fill `helped` to show "How it helped me".
 
 ## Gotchas
 
