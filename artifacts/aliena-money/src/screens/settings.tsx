@@ -251,6 +251,13 @@ export function SettingsPage() {
       <Link href="/admin/swaps" className="m-card m-line"><span><strong>Swap catalog</strong><small className="m-muted block">{adminCatalog.data.length ? `${adminCatalog.data.filter(isLive).length} of ${adminCatalog.data.length} swaps showing to users` : 'Import your swaps CSV to get started'}</small></span><ChevronRight aria-hidden="true" /></Link>
     </section>}
 
+    <section className="m-group">
+      <h2>Legal</h2>
+      <div className="m-card m-rows">
+        {([['/privacy', 'Privacy Policy'], ['/terms', 'Terms of Use'], ['/disclosures', 'Affiliate Disclosure']] as const).map(([href, label]) => <Link key={href} href={href} className="m-legal-row"><span>{label}</span><ChevronRight aria-hidden="true" /></Link>)}
+      </div>
+    </section>
+
     <button className="m-btn outline" onClick={logout}>Sign out</button>
   </div>;
 }
