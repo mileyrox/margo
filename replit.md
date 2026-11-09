@@ -57,3 +57,12 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+
+## Bank connections (Plaid)
+- Users can connect as many banks and cards as they want. Each one is a separate Plaid Item. Access tokens are AES-256-GCM encrypted at rest and never sent to the browser. Margo never sees bank passwords.
+- Secrets: `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` (`sandbox` or `production`, defaults to sandbox), and `PLAID_TOKEN_KEY` (a long random string used only to encrypt bank tokens; older tokens saved with the session key still work).
+- The app calls `POST /api/plaid/sync-all` when Home opens. It refreshes banks that haven't synced in 4 hours.
+
+## Swap catalog
+- Admins are listed in `SWAP_CATALOG_ADMIN_EMAILS`. They see an Admin section in Settings that links to `/admin/swaps`, where they can import the CSV and fill in prices.
+- A swap shows to users only when its status starts with "Ready" and both prices are above zero.
