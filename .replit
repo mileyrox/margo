@@ -24,6 +24,9 @@ timeoutMs = 20000
 [userenv.shared]
 SWAP_CATALOG_ADMIN_EMAILS = "mileywagner12@gmail.com"
 
+[userenv.production]
+PLAID_ENV = "production"
+
 [nix]
 channel = "stable-25_05"
 
