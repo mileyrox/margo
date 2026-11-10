@@ -392,6 +392,7 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-chat { height: 100dvh; max-width: var(--m-col); margin: 0 auto; display: flex; flex-direction: column; background: var(--m-cream); }
 .m-chat-head { padding: calc(16px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--m-line); }
 .m-chat-brand { display: flex; align-items: center; gap: 10px; }
+.m-chat-back-spacer { display: block; width: 40px; flex: 0 0 40px; }
 .m-chat-brand strong { display: block; font-family: var(--m-serif); font-size: 18px; font-weight: 600; }
 .m-chat-brand small { display: block; font-size: 12px; }
 .m-chat-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 6px; }

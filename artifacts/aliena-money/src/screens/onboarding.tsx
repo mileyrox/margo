@@ -5,12 +5,12 @@ import {
   getGetBudgetPlanQueryKey, getGetSwapProfileQueryKey, useGetBudgetPlan, useGetSwapProfile, useUpdateBudgetPlan, useUpdateSwapProfile,
 } from '@workspace/api-client-react';
 import type { BudgetPlanInput, SwapProfileInput } from '@workspace/api-client-react';
-import { ArrowUp, Check } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
 import { Seal } from '@/components/margo/art';
 import { blankProfile } from '@/lib/profile';
 import { messageOf, money, parseList } from '@/lib/format';
-import { BankConnect, keepOptions } from './settings';
+import { BankConnect, swapCategoryOptions } from './settings';
 
 type Answers = Record<string, string>;
 type Step = {
@@ -28,6 +28,7 @@ type Step = {
 
 const otherBillEstimates: Record<string, number> = { 'Car insurance': 140, Utilities: 110, Internet: 60, Gym: 40, Childcare: 600, Insurance: 100 };
 const swapLabelToKey: Record<string, SwapProfileInput['swapCategories'][number]> = { Groceries: 'groceries', Household: 'household', 'Personal care': 'beauty', Clothing: 'clothes', Subscriptions: 'subscriptions', Travel: 'travel' };
+const swapOptions = [...swapCategoryOptions.map(([, label]) => label), 'Other'];
 const split = [['Groceries', 0.4], ['Transportation', 0.2], ['Dining out', 0.15], ['Shopping', 0.12], ['Personal care', 0.08], ['Subscriptions', 0.05]] as const;
 
 const monthly = (a: Answers, key: string) => {
@@ -41,8 +42,8 @@ const steps: Step[] = [
   { id: 'sideGig', type: 'choice', say: (a) => [`Got it, about ${money(monthly(a, 'takeHome'))} a month.`, 'Do you also earn from side gigs? Shifts, rideshare, freelancing, anything like that.'], options: ['Yes', 'No'] },
   { id: 'savingsGoal', type: 'amount', units: ['year', 'month'], placeholder: '6,000', say: (a) => [...(a.sideGig === 'Yes' ? ["Nice. I'll flag gig money and suggest setting aside 25% for taxes."] : []), 'How much do you want to save?'] },
   { id: 'savingFor', type: 'choice', say: (a) => { const income = monthly(a, 'takeHome'); const pct = income ? Math.round(monthly(a, 'savingsGoal') / income * 100) : 0; return [`That's ${money(monthly(a, 'savingsGoal'))} a month, about ${pct}% of your take-home.`, "What's your biggest money goal right now?"]; }, options: ['Build an emergency fund', 'Pay off debt', 'Save for something big', 'Buy a home', 'Invest for later', 'Just spend less'] },
-  { id: 'nonNegotiables', type: 'multi', say: () => ['Good one. Now the important part.', "What will you never give up? I won't suggest swaps for these."], options: [...keepOptions, 'Other'], otherInput: true, none: "Nothing, I'm flexible" },
-  { id: 'swapCategories', type: 'multi', say: () => ['Noted.', 'Where should I look for cheaper options?'], options: ['Groceries', 'Household', 'Personal care', 'Clothing', 'Dining out', 'Subscriptions', 'Travel', 'Pet supplies'] },
+  { id: 'nonNegotiables', type: 'multi', say: () => ['Good one. Now the important part.', "What will you never give up? I won't suggest swaps for these."], options: swapOptions, otherInput: true, none: "Nothing, I'm flexible" },
+  { id: 'swapCategories', type: 'multi', say: () => ['Noted.', 'Where should I look for cheaper options?'], options: swapOptions, otherInput: true },
   { id: 'rent', type: 'amount', units: ['month'], placeholder: '1,450', say: () => ["Now your regular bills. What's your rent or mortgage?"], skip: "I don't pay rent" },
   { id: 'carPayment', type: 'amount', units: ['month'], placeholder: '350', say: () => ['Car payment?'], skip: 'No car payment' },
   { id: 'phoneBill', type: 'amount', units: ['month'], placeholder: '85', say: () => ['Phone bill?'], skip: 'Someone else pays it' },
@@ -96,6 +97,7 @@ export function OnboardingPage() {
   const [busy, setBusy] = useState(false);
   const initialized = useRef(false);
   const chatRef = useRef<HTMLDivElement>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const visible = useMemo(() => steps.filter((step) => !step.show || step.show(answers)), [answers]);
   const current = visible.find((step) => step.id === pos) || visible[0];
@@ -109,9 +111,18 @@ export function OnboardingPage() {
     if (saved) setAnswers(Object.fromEntries(Object.entries(saved).filter(([key]) => ['avatar', 'savedSwaps', 'switchedSwaps'].includes(key))));
   }, [profileQuery.data, profileQuery.isLoading]);
   useEffect(() => {
-    setDraft(''); setSelected([]); setError('');
-    setUnit(current.units?.[0] || 'month');
-  }, [current.id]);
+    const saved = answers[current.id];
+    const savedItems = current.type === 'multi' ? parseList(saved) : [];
+    const unmatched = current.otherInput ? savedItems.filter((item) => !current.options?.includes(item)) : [];
+    setDraft(current.type === 'amount' && saved && saved !== 'skipped' ? saved : unmatched[0] || '');
+    setSelected(current.type === 'multi'
+      ? current.otherInput
+        ? [...savedItems.filter((item) => current.options?.includes(item)), ...(unmatched.length ? ['Other'] : [])]
+        : savedItems
+      : []);
+    setError('');
+    setUnit((answers[`${current.id}Period`] as 'month' | 'year') || current.units?.[0] || 'month');
+  }, [current.id, answers]);
   useEffect(() => {
     const el = chatRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
@@ -123,7 +134,19 @@ export function OnboardingPage() {
     setAnswers(next);
     setPos(list[Math.min(list.length - 1, i + 1)].id);
   };
+  const goBack = () => {
+    if (index > 0) setPos(visible[index - 1].id);
+  };
   const answer = (value: string, extra: Answers = {}) => advance({ ...answers, [current.id]: value, ...extra });
+  const changeUnit = (nextUnit: 'month' | 'year') => {
+    if (nextUnit === unit) return;
+    const amount = Number(draft.replace(/[$,\s]/g, ''));
+    if (draft.trim() && Number.isFinite(amount)) {
+      const converted = unit === 'month' ? amount * 12 : amount / 12;
+      setDraft(String(Math.round(converted * 100) / 100));
+    }
+    setUnit(nextUnit);
+  };
   const sendAmount = () => {
     const value = Number(draft.replace(/[$,\s]/g, ''));
     if (!draft.trim() || !Number.isFinite(value) || value < 0) { setError('Enter an amount, even a rough one.'); return; }
@@ -192,7 +215,11 @@ export function OnboardingPage() {
 
   return <main className="m-chat">
     <header className="m-chat-head">
-      <div className="m-line"><span className="m-chat-brand"><Seal size={36} /><span><strong>Margo</strong><small className="m-muted">Setting up your budget</small></span></span><button className="m-link-button" onClick={restart}>Start over</button></div>
+      <div className="m-line">
+        {index > 0 ? <button className="m-icon-button" aria-label="Go to previous onboarding step" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : <span className="m-chat-back-spacer" />}
+        <span className="m-chat-brand"><Seal size={36} /><span><strong>Margo</strong><small className="m-muted">Setting up your budget</small></span></span>
+        <button className="m-link-button" onClick={restart}>Start over</button>
+      </div>
       <div className="m-progress"><i style={{ width: `${progress}%` }} /></div>
     </header>
     <div className="m-chat-scroll" ref={chatRef} aria-live="polite">
@@ -219,9 +246,9 @@ export function OnboardingPage() {
         <button className="m-btn navy" onClick={sendMulti} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
       </>}
       {current.type === 'amount' && <>
-        {(current.units?.length || 0) > 1 && <div className="m-segment wide">{current.units!.map((value) => <button key={value} className={unit === value ? 'on' : ''} onClick={() => setUnit(value)}>{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}
+        {(current.units?.length || 0) > 1 && <div className="m-segment wide">{current.units!.map((value) => <button key={value} className={unit === value ? 'on' : ''} onPointerDown={(event) => event.preventDefault()} onClick={() => { changeUnit(value); amountInputRef.current?.focus({ preventScroll: true }); }}>{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}
         <div className="m-amount-row">
-          <label className="m-amount"><span>$</span><input autoFocus inputMode="decimal" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={current.placeholder} aria-label="Amount" onKeyDown={(event) => { if (event.key === 'Enter') sendAmount(); }} /></label>
+          <label className="m-amount"><span>$</span><input ref={amountInputRef} autoFocus inputMode="decimal" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={current.placeholder} aria-label="Amount" onKeyDown={(event) => { if (event.key === 'Enter') sendAmount(); }} /></label>
           <button className="m-send" aria-label="Send" onClick={sendAmount}><ArrowUp aria-hidden="true" /></button>
         </div>
         {current.skip && <button className="m-link-button" onClick={() => answer('skipped')}>{current.skip}</button>}
