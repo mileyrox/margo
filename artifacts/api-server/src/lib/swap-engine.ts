@@ -93,7 +93,7 @@ Category: ${product.category || "unknown"}
 Bought at: ${product.retailer || "unknown"}
 Price paid: ${product.price ? `$${product.price.toFixed(2)}` : "unknown"}
 
-Suggest up to 3 cheaper options that a normal shopper can buy in the US today.
+Suggest the ONE best cheaper option that a normal shopper can buy in the US today. Return at most one suggestion.
 Rules:
 - Only suggest real products you are confident exist and are widely sold. If you are not confident, return fewer or none.
 - Prefer, in order: the same store's own brand, then another store's own brand, then a cheaper name brand known as a dupe.
@@ -130,7 +130,7 @@ Return JSON only:
     category: clean(String(raw.category || product.category || ""), 80),
     sizeText: clean(String(raw.sizeText || ""), 60),
     typicalPrice: price(raw.typicalPrice),
-    suggestions: list.slice(0, 3).map((item) => ({
+    suggestions: list.slice(0, 1).map((item) => ({
       name: clean(String(item.name || ""), 160),
       brand: clean(String(item.brand || ""), 100),
       retailer: clean(String(item.retailer || product.retailer || ""), 80),

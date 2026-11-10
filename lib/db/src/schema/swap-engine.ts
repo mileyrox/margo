@@ -12,6 +12,8 @@ export type EngineSuggestion = {
   differences: string;
   confidence: "high" | "medium" | "low";
   url: string;
+  /** Product photo on a plain white background (from an affiliate catalog). */
+  imageUrl?: string | null;
   upVotes: number;
   downVotes: number;
 };
@@ -30,6 +32,7 @@ export const swapLookupsTable = pgTable("swap_lookups", {
   barcode: varchar("barcode", { length: 40 }),
   retailer: varchar("retailer", { length: 80 }).notNull().default(""),
   typicalPrice: varchar("typical_price", { length: 20 }),
+  imageUrl: text("image_url"),
   status: varchar("status", { length: 16 }).$type<"ready" | "none" | "error">().notNull().default("ready"),
   suggestions: jsonb("suggestions").$type<EngineSuggestion[]>().notNull().default(sql`'[]'::jsonb`),
   source: varchar("source", { length: 24 }).notNull().default("ai"),

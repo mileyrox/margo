@@ -19,11 +19,14 @@ function serialize(row: SwapLookup) {
     sizeText: row.sizeText,
     retailer: row.retailer,
     price: row.typicalPrice ? Number(row.typicalPrice) : null,
+    imageUrl: row.imageUrl ?? null,
     status: row.status,
-    // Hide suggestions the community clearly rejected.
+    // Show one swap: the best-rated one the community hasn't clearly rejected.
     suggestions: row.suggestions
-      .map((item, index) => ({ ...item, index }))
-      .filter((item) => !(item.downVotes >= 3 && item.downVotes > item.upVotes * 2)),
+      .map((item, index) => ({ ...item, imageUrl: item.imageUrl ?? null, index }))
+      .filter((item) => !(item.downVotes >= 3 && item.downVotes > item.upVotes * 2))
+      .sort((a, b) => (b.upVotes - b.downVotes) - (a.upVotes - a.downVotes) || a.index - b.index)
+      .slice(0, 1),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
