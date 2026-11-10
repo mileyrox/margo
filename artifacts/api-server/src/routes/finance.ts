@@ -1,3 +1,4 @@
+import { userSwapsTable } from "@workspace/db";
 import { findSwapsInBackground } from "../lib/swap-engine";
 import {
   CreateReceiptBody,
@@ -557,6 +558,7 @@ router.delete("/account/data", async (req, res): Promise<void> => {
     await tx.delete(budgetPlansTable).where(eq(budgetPlansTable.userId, req.dbUser.id));
     await tx.delete(financeSettingsTable).where(eq(financeSettingsTable.userId, req.dbUser.id));
     await tx.delete(swapProfilesTable).where(eq(swapProfilesTable.userId, req.dbUser.id));
+    await tx.delete(userSwapsTable).where(eq(userSwapsTable.userId, req.dbUser.id));
   });
   res.sendStatus(204);
 });

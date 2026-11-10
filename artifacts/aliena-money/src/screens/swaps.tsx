@@ -1,9 +1,9 @@
 import { customFetch } from '@workspace/api-client-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useGetProductComparisons } from '@workspace/api-client-react';
-import { ArrowRight, Bookmark, BookmarkCheck, Check, Upload } from 'lucide-react';
+import { ArrowRight, Bookmark, BookmarkCheck, Check, ScanBarcode, Upload } from 'lucide-react';
 import { BackLink, EmptyState, ErrorState, PageTitle, Skeleton } from '@/components/margo/chrome';
 import { ProductArt } from '@/components/margo/art';
 import { bandFor, fetchSwapCatalog, rowArt, rowLabel, rowSavings, type SwapCatalogRow } from '@/lib/swap-catalog';
@@ -26,42 +26,31 @@ function useSwapLists() {
 }
 
 export function SwapsPage() {
-  const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
-  const comparisons = useGetProductComparisons();
-  const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: (query) => (query.state.data?.length ? false : 20_000) });
-  const { saved, switched } = useSwapLists();
-  const [tab, setTab] = useState<'for-you' | 'saved' | 'switched'>('for-you');
-  const rows = useMemo(() => (catalog.data || []).filter((row) =>
-    tab === 'saved' ? saved.includes(row.id) : tab === 'switched' ? switched.includes(row.id) : !switched.includes(row.id),
-  ), [catalog.data, tab, saved, switched]);
-  const yearly = (comparisons.data || []).reduce((sum, item) => sum + Number(item.annualSavings || 0), 0);
-  const switchedSavings = (catalog.data || []).filter((row) => switched.includes(row.id)).reduce((sum, row) => sum + (rowSavings(row) || 0), 0);
-
+  const qc = useQueryClient();
+  const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: 30_000 });
+  const swaps = mine.data || [];
+  const perShop = swaps.reduce((sum, lookup) => {
+    const best = lookup.suggestions[0];
+    return sum + (lookup.price && best?.typicalPrice != null ? Math.max(0, lookup.price - best.typicalPrice) : 0);
+  }, 0);
+  const remove = async (id: string) => {
+    await fetch(`/api/swaps/mine/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
+    await qc.invalidateQueries({ queryKey: ['my-swaps'] });
+  };
   return <div className="m-page">
-    <PageTitle title="Swaps" />
-    <section className="m-burgundy-card">
-      <span>{yearly > 0 ? 'If you made every swap from your receipts' : 'Every swap you make adds up'}</span>
-      <strong>{yearly > 0 ? `${money(yearly)} a year` : `${switched.length} ${switched.length === 1 ? 'swap' : 'swaps'} made`}</strong>
-      <div><span>{switched.length ? `${cents(switchedSavings)} less each time you shop` : 'Tap "I switched" on a swap to track it'}</span><span>{switched.length} switched</span></div>
-    </section>
+    <PageTitle title="Your swaps" subtitle={swaps.length ? `${swaps.length} ${swaps.length === 1 ? 'swap' : 'swaps'}${perShop > 0 ? ` · about ${cents(perShop)} less per trip` : ''}` : undefined} />
     <SwapSearch />
-    {mine.data?.length ? <section className="m-section">
-      <div className="m-section-head"><h2>From your receipts</h2><span>{mine.data.length} {mine.data.length === 1 ? "product" : "products"}</span></div>
-      {mine.data.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} />)}
-    </section> : null}
-    <div className="m-section-head"><h2>Margo's picks</h2></div>
-    <div className="m-chips" role="group" aria-label="Show swaps">
-      {([['for-you', 'For you'], ['saved', `Saved${saved.length ? ` (${saved.length})` : ''}`], ['switched', `Switched${switched.length ? ` (${switched.length})` : ''}`]] as const).map(([value, label]) =>
-        <button key={value} className={`m-chip ${tab === value ? 'on' : ''}`} aria-pressed={tab === value} onClick={() => setTab(value)}>{label}</button>)}
-    </div>
-    {catalog.isLoading ? <div className="m-card"><Skeleton lines={5} /></div>
-      : catalog.isError ? <ErrorState error={catalog.error} retry={() => catalog.refetch()} />
-      : rows.length ? rows.map((row) => <SwapListCard key={row.id} row={row} />)
-      : <div className="m-card"><EmptyState
-        title={tab === 'saved' ? 'Nothing saved yet' : tab === 'switched' ? 'No switches yet' : 'No swaps ready yet'}
-        body={tab === 'for-you' ? "I'll show swaps here once both products have prices." : 'Open a swap and tap the bookmark or "I switched" to keep track.'} /></div>}
-    <Link href="/receipts?scan=receipt" className="m-btn outline"><Upload aria-hidden="true" />Scan a receipt for more swaps</Link>
-    <p className="m-fine">Swaps are suggested by Margo from product facts. Prices change, so check the label and price before you buy. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
+    {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
+      : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
+      : swaps.length ? swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)
+      : <div className="m-card m-empty-swaps">
+        <div className="m-pair-art"><ProductArt art="towels" band="#1E4E9E" width={56} label="A product you buy" /><ArrowRight className="m-swap-arrow" aria-hidden="true" /><ProductArt art="towels" band="#6D712E" width={56} label="A cheaper swap" /></div>
+        <h2>Your swaps show up here</h2>
+        <p className="m-muted">Scan a receipt or a barcode and I'll find a cheaper version of what you bought.</p>
+        <Link href="/receipts?scan=receipt" className="m-btn burgundy"><Upload aria-hidden="true" />Scan a receipt</Link>
+        <Link href="/receipts?scan=barcode" className="m-btn outline"><ScanBarcode aria-hidden="true" />Scan a barcode</Link>
+      </div>}
+    <p className="m-fine">Tap the swap to open the store. Swaps come from product facts; prices change, so check the label and price. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
   </div>;
 }
 
