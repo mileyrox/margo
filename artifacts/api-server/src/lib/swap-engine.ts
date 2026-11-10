@@ -1,4 +1,4 @@
-import { db, swapLookupsTable, type EngineSuggestion, type SwapLookup } from "@workspace/db";
+import { db, swapLookupsTable, userSwapsTable, type EngineSuggestion, type SwapLookup } from "@workspace/db";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 
 /**
@@ -101,6 +101,7 @@ Rules:
 - Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz).
 - "matchType": "Dupe" only when key ingredients or specs closely match a well-known product. Otherwise "Cheaper option".
 - "whySimilar": 2 or 3 short, specific, checkable facts (form, size, key ingredients, specs). No marketing words, no claims that it is made by the same company, no "identical".
+- "shortReason": 2 to 4 lowercase words for a shelf label, like "same 6 rolls" or "similar formula". Never "same formula" unless the maker says so.
 - "differences": one short sentence with the honest trade-off, or "".
 - "typicalPrice": the usual US shelf price in dollars only if you are fairly sure, otherwise null. Never guess precise prices.
 - Never suggest something that is not actually cheaper.
@@ -108,7 +109,7 @@ Rules:
 
 Return JSON only:
 {"category": string, "sizeText": string, "typicalPrice": number|null,
- "suggestions": [{"name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "differences": string, "confidence": "high"|"medium"|"low"}]}`;
+ "suggestions": [{"name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "shortReason": string, "differences": string, "confidence": "high"|"medium"|"low"}]}`;
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -138,6 +139,7 @@ Return JSON only:
       sizeText: clean(String(item.sizeText || ""), 60),
       typicalPrice: price(item.typicalPrice),
       whySimilar: (Array.isArray(item.whySimilar) ? item.whySimilar : []).map((line) => clean(String(line), 160)).filter(Boolean).slice(0, 3),
+      shortReason: clean(String(item.shortReason || ""), 40).toLowerCase(),
       differences: clean(String(item.differences || ""), 200),
       confidence: (["high", "medium", "low"].includes(String(item.confidence)) ? item.confidence : "low") as EngineSuggestion["confidence"],
     })).filter((item) => item.name && item.whySimilar.length
@@ -205,11 +207,19 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   return job;
 }
 
+/** Remembers that this person bought, scanned or searched this product. */
+export async function rememberForUser(userId: string, lookupId: string, source: "receipt" | "barcode" | "search") {
+  await db.insert(userSwapsTable).values({ userId, lookupId, source }).onConflictDoNothing();
+}
+
 /** Runs lookups one at a time in the background, e.g. after a receipt is saved. */
 export function findSwapsInBackground(items: ProductInput[], userId: string) {
   void (async () => {
     for (const item of items.slice(0, 20)) {
-      try { await findSwaps(item, userId); } catch { /* keep going */ }
+      try {
+        const lookup = await findSwaps(item, userId);
+        if (lookup) await rememberForUser(userId, lookup.id, "receipt");
+      } catch { /* keep going */ }
     }
   })();
 }
