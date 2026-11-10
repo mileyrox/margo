@@ -548,9 +548,9 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-shelf-save { font-size: 16px; font-weight: 700; color: var(--m-olive); }
 .m-shelf-why { font-size: 13px; color: var(--m-ink-2); text-align: center; }
 .m-wood { display: flex; flex-direction: column; margin-top: -4px; }
-.m-wood i { height: 12px; background: #D2A979; border-radius: 3px 3px 0 0; }
-.m-wood b { height: 9px; background: #A9784A; border-radius: 0 0 3px 3px; }
-.m-wood s { height: 12px; margin: 0 10px; background: rgba(11, 31, 75, .07); border-radius: 0 0 50% 50%; }
+.m-wood i { height: 18px; border-radius: 3px 3px 0 0; background: repeating-linear-gradient(90deg, rgba(120, 72, 30, .10) 0 2px, transparent 2px 23px, rgba(120, 72, 30, .07) 23px 24px, transparent 24px 61px), linear-gradient(180deg, #E2BE8E, #C99A66); }
+.m-wood b { height: 14px; border-radius: 0 0 4px 4px; background: repeating-linear-gradient(90deg, rgba(70, 40, 15, .12) 0 1px, transparent 1px 37px), linear-gradient(180deg, #B7834F, #9A6A3C); box-shadow: 0 8px 12px -6px rgba(60, 35, 15, .45); }
+.m-wood s { display: none; }
 .m-shelf-names { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 6px 6px 0; font-size: 13px; line-height: 1.35; }
 .m-shelf-names > span { color: var(--m-ink-2); }
 .m-shelf-names s { color: var(--m-ink-2); }
@@ -561,3 +561,12 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-shelf-more summary { min-height: 32px; display: flex; align-items: center; cursor: pointer; list-style: none; text-decoration: underline; }
 .m-shelf-more summary::-webkit-details-marker { display: none; }
 .m-shelf-more details[open] { display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; }
+
+.m-shelf-prices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px 6px 0; }
+.m-shelf-prices > div, .m-shelf-prices > a { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; text-decoration: none; min-width: 0; }
+.m-shelf-old { font-size: 22px; font-weight: 700; color: var(--m-ink-2); }
+.m-shelf-old.none { font-size: 14px; text-decoration: none; }
+.m-shelf-new { font-family: var(--m-serif); font-size: 28px; font-weight: 600; line-height: 1; color: var(--m-burgundy); }
+.m-shelf-new.small { font-family: var(--m-sans); font-size: 16px; font-weight: 700; }
+.m-shelf-prices small { font-size: 13px; line-height: 1.3; color: var(--m-ink-2); }
+.m-shelf-prices a small { color: var(--m-navy); }

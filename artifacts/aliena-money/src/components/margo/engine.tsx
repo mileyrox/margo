@@ -104,9 +104,15 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <div className="m-wood" aria-hidden="true"><i /><b /><s /></div>
-    <div className="m-shelf-names">
-      <span>{fromName}{data.price ? <> <s>{cents(data.price)}</s></> : null}</span>
-      <a href={item.url} target="_blank" rel="noreferrer sponsored">{toName}{!amazon && item.typicalPrice != null ? <> <b>~{cents(item.typicalPrice)}</b></> : amazon ? <> <b>check price</b></> : null}</a>
+    <div className="m-shelf-prices">
+      <div>
+        {data.price ? <s className="m-shelf-old">{cents(data.price)}</s> : <span className="m-shelf-old none">You buy</span>}
+        <small>{fromName}</small>
+      </div>
+      <a href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Open ${storeLabel}`}>
+        {!amazon && item.typicalPrice != null ? <strong className="m-shelf-new">{cents(item.typicalPrice)}</strong> : <strong className="m-shelf-new small">Check price</strong>}
+        <small>{toName}</small>
+      </a>
     </div>
     <div className="m-shelf-more">
       <details>
