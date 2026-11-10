@@ -13,6 +13,8 @@ import { ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { ErrorState, PageTitle, Skeleton } from '@/components/margo/chrome';
 import { CoinAvatar, parseLook } from '@/components/margo/art';
 import { blankProfile } from '@/lib/profile';
+import { fetchSwapCatalog } from '@/lib/swap-catalog';
+import { isLive } from './swaps';
 import { dateLabel, messageOf, money, parseList } from '@/lib/format';
 import { spendCategories } from './spending';
 
@@ -80,7 +82,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
       await banks.refetch(); setMessage('Bank disconnected. Your saved spending stays in Margo.');
     } catch (error) { setMessage(messageOf(error)); }
   };
-  const button = <button className={`m-btn ${compact ? 'navy' : 'outline'}`} onClick={() => void connect()} disabled={busy || Boolean(linkToken && !ready)}>{busy ? 'Connecting…' : 'Connect my bank'}</button>;
+  const button = <button className={`m-btn ${compact ? 'navy' : 'outline'}`} onClick={() => void connect()} disabled={busy || Boolean(linkToken && !ready)}>{busy ? 'Connecting…' : banks.data?.length ? 'Add another bank or card' : 'Connect my bank'}</button>;
   if (compact) return <div className="m-stack">{button}{message && <small className="m-muted" role="status">{message}</small>}</div>;
   return <div className="m-stack">
     {banks.isLoading ? <Skeleton lines={1} /> : banks.isError ? <ErrorState error={banks.error} retry={() => banks.refetch()} /> : banks.data?.map((bank) => <div className="m-line" key={bank.id}>
@@ -88,7 +90,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
       <span className="m-actions"><button className="m-link-button bold" disabled={syncing === bank.id} onClick={() => void sync(bank.id)}>{syncing === bank.id ? 'Updating…' : 'Refresh'}</button><button className="m-link-button" onClick={() => void disconnect(bank.id)}>Disconnect</button></span>
     </div>)}
     {button}
-    <span className="m-muted small">I can see purchases. I can never move your money.</span>
+    <span className="m-muted small">Add every checking account and credit card you use. You sign in with your bank through Plaid, so Margo never sees your password, and it can't move your money.</span>
     {message && <small className="m-muted" role="status">{message}</small>}
   </div>;
 }
@@ -124,6 +126,8 @@ export function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const loadedProfile = useRef(false);
+  // Only accounts listed in SWAP_CATALOG_ADMIN_EMAILS get a 200 here, so the admin row stays hidden for everyone else.
+  const adminCatalog = useQuery({ queryKey: ['admin-swap-catalog'], queryFn: () => fetchSwapCatalog(true), retry: false });
 
   useEffect(() => { if (settings.data && rate === null) setRate(settings.data.taxReserveRate); }, [settings.data, rate]);
   useEffect(() => {
@@ -239,6 +243,18 @@ export function SettingsPage() {
       <div className="m-card m-rows">
         <Row label="Download my data" value="JSON"><span className="m-muted small">Everything Margo has saved for you, in one file.</span><button className="m-btn outline small" onClick={exportData}>Download</button></Row>
         <Row label="Delete my data" danger><span className="m-muted small">Removes your money and shopping data from Margo. Your sign-in stays.</span><button className="m-btn burgundy small" onClick={() => void eraseData()} disabled={deleteMyData.isPending}>{deleteMyData.isPending ? 'Deleting…' : 'Delete everything'}</button></Row>
+      </div>
+    </section>
+
+    {adminCatalog.data && <section className="m-group">
+      <h2>Admin</h2>
+      <Link href="/admin/swaps" className="m-card m-line"><span><strong>Swap catalog</strong><small className="m-muted block">{adminCatalog.data.length ? `${adminCatalog.data.filter(isLive).length} of ${adminCatalog.data.length} swaps showing to users` : 'Import your swaps CSV to get started'}</small></span><ChevronRight aria-hidden="true" /></Link>
+    </section>}
+
+    <section className="m-group">
+      <h2>Legal</h2>
+      <div className="m-card m-rows">
+        {([['/privacy', 'Privacy Policy'], ['/terms', 'Terms of Use'], ['/disclosures', 'Affiliate Disclosure']] as const).map(([href, label]) => <Link key={href} href={href} className="m-legal-row"><span>{label}</span><ChevronRight aria-hidden="true" /></Link>)}
       </div>
     </section>
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { type ComponentType, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { useAuth } from '@workspace/replit-auth-web';
@@ -16,6 +16,9 @@ import { SettingsPage } from '@/screens/settings';
 import { OnboardingPage } from '@/screens/onboarding';
 import { AvatarPage } from '@/screens/avatar';
 import { WelcomePage } from '@/screens/welcome';
+import { DisclosuresPage, PrivacyPage, TermsPage } from '@/screens/legal';
+
+const publicPages: Record<string, ComponentType> = { '/privacy': PrivacyPage, '/terms': TermsPage, '/disclosures': DisclosuresPage };
 
 const client = new QueryClient();
 
@@ -29,10 +32,14 @@ function AppRoutes() {
   const plan = useGetBudgetPlan({ query: { enabled: auth.isAuthenticated, queryKey: getGetBudgetPlanQueryKey() } });
   useEffect(() => {
     if (!auth.isAuthenticated || plan.isLoading || plan.isError) return;
+    if (publicPages[path]) return;
     if (!plan.data?.setupComplete && path !== '/onboarding') setLocation('/onboarding');
     if (plan.data?.setupComplete && path === '/onboarding') setLocation('/');
   }, [auth.isAuthenticated, plan.isLoading, plan.isError, plan.data, path, setLocation]);
   useEffect(() => { window.scrollTo(0, 0); }, [path]);
+  // Legal pages are public so anyone (including Plaid and affiliate reviewers) can read them without signing in.
+  const PublicPage = publicPages[path];
+  if (PublicPage) return <PublicPage />;
   if (auth.isLoading) return <main className="m-loading"><Skeleton /></main>;
   if (!auth.isAuthenticated) return <WelcomePage />;
   return <Shell><ErrorBoundary resetKey={path}><Switch>

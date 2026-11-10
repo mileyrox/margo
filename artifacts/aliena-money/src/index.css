@@ -426,3 +426,44 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
   .m-fields { grid-template-columns: 1fr; }
   .m-shelf-board { margin: -6px -16px 0; }
 }
+
+/* ---------- Legal pages ---------- */
+.m-legal { max-width: 680px; margin: 0 auto; padding: calc(24px + env(safe-area-inset-top)) 24px 48px; display: flex; flex-direction: column; gap: 24px; }
+.m-legal article { display: flex; flex-direction: column; gap: 12px; font-size: 16px; line-height: 1.6; }
+.m-legal h1 { font-family: var(--m-serif); font-size: 34px; font-weight: 600; line-height: 1.1; }
+.m-legal h2 { font-family: var(--m-serif); font-size: 22px; font-weight: 600; margin-top: 16px; }
+.m-legal h3 { font-size: 16px; font-weight: 700; margin-top: 6px; }
+.m-legal ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.m-legal-links { display: flex; gap: 18px; justify-content: center; padding-top: 16px; border-top: 1px solid var(--m-line); font-size: 14px; }
+.m-legal-links a, .m-fine a { color: var(--m-navy); font-weight: 700; }
+.m-legal-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--m-cream-2); color: var(--m-navy); text-decoration: none; font-size: 15px; }
+.m-legal-row:last-child { border-bottom: none; }
+.m-legal-row svg { width: 16px; height: 16px; color: var(--m-ink-2); }
+
+/* ---------- Swap engine ---------- */
+.m-search { display: flex; align-items: center; gap: 8px; background: var(--m-white); border: 1.5px solid var(--m-navy); border-radius: 16px; padding: 4px 4px 4px 14px; }
+.m-search > svg { width: 18px; height: 18px; color: var(--m-ink-2); }
+.m-search input { flex: 1; min-width: 0; min-height: 44px; border: none; outline: none; background: transparent; font-size: 15px; }
+.m-engine { display: flex; flex-direction: column; gap: 12px; }
+.m-engine-head, .m-engine-top { display: flex; gap: 12px; align-items: center; }
+.m-engine-head > span, .m-engine-top > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-engine-head strong, .m-engine-top strong { font-size: 15px; line-height: 1.25; }
+.m-engine-head small, .m-engine-top small { font-size: 13px; }
+.m-engine-swap { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--m-cream-2); }
+.m-engine-label { font-size: 12px; }
+.m-engine-label b { color: var(--m-burgundy); }
+.m-why { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.m-engine-actions { display: flex; align-items: center; gap: 4px; }
+.m-engine-actions .m-btn { margin-right: auto; }
+.m-icon-button.on { background: var(--m-cream-3); color: var(--m-navy); }
+.m-why, .m-legal ul { list-style: disc; }
+
+/* One swap, side by side on a small shelf */
+.m-mini-shelf { display: flex; flex-direction: column; }
+.m-mini-products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: end; justify-items: center; min-height: 116px; }
+.m-cutout { width: 100%; max-width: 110px; height: 116px; object-fit: contain; mix-blend-mode: multiply; }
+.m-mini-board { height: 10px; margin: -4px -16px 0; background: #E3D6B8; border-bottom: 4px solid #CDBE9B; }
+.m-mini-tags { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.m-tag-price.small { font-size: 20px; }
+.m-tag-price.old.small { font-size: 18px; }
+.self-start { align-self: flex-start; }

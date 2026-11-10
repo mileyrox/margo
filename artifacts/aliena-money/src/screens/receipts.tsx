@@ -10,6 +10,7 @@ import { ChevronDown, FileImage, ReceiptText, ScanBarcode, Upload } from 'lucide
 import { EmptyState, ErrorState, PageTitle, Skeleton } from '@/components/margo/chrome';
 import { ProductArt } from '@/components/margo/art';
 import { artFor, bandFor } from '@/lib/swap-catalog';
+import { EngineResult, findSwap, type EngineLookup } from '@/components/margo/engine';
 import { cents, dateLabel, messageOf, money } from '@/lib/format';
 
 export function ReceiptPage() {
@@ -33,6 +34,18 @@ export function ReceiptPage() {
   const [cameraActive, setCameraActive] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
+  const [barcodeResult, setBarcodeResult] = useState<EngineLookup | null>(null);
+  const [barcodeBusy, setBarcodeBusy] = useState(false);
+  useEffect(() => {
+    if (!barcode) return;
+    let cancelled = false;
+    setBarcodeBusy(true); setBarcodeResult(null);
+    findSwap({ barcode })
+      .then((result) => { if (!cancelled) { setBarcodeResult(result); setCameraMessage(''); } })
+      .catch((reason) => { if (!cancelled) setCameraMessage(messageOf(reason)); })
+      .finally(() => { if (!cancelled) setBarcodeBusy(false); });
+    return () => { cancelled = true; };
+  }, [barcode]);
   const fileInput = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -69,7 +82,7 @@ export function ReceiptPage() {
             const [result] = await detector.detect(videoRef.current);
             if (result?.rawValue) {
               setBarcode(result.rawValue);
-              setCameraMessage("Got it. I can't match this barcode to a product yet, but it's saved for when I can.");
+              setCameraMessage('Got it. Looking for swaps…');
               setCameraActive(false);
               return;
             }
@@ -121,7 +134,7 @@ export function ReceiptPage() {
       await create.mutateAsync({ data: input });
       await refresh();
       setFile(null); setScanResult(null); setObjectPath(null); if (fileInput.current) fileInput.current.value = '';
-      setNotice('Receipt saved. Your swaps are below.');
+      setNotice("Receipt saved. I'm finding cheaper swaps for each item now. They'll show on the Swaps tab in about a minute.");
     } catch (reason) { setError(messageOf(reason)); }
   };
   const deleteOne = (id: string) => {
@@ -138,9 +151,10 @@ export function ReceiptPage() {
       <div className="m-row-icon"><span className="m-sheet-icon blue"><ScanBarcode aria-hidden="true" /></span><span><strong>Point your camera at the barcode</strong><small className="m-muted">Hold it steady inside the frame.</small></span></div>
       {cameraActive ? <><video className="m-video" ref={videoRef} muted playsInline aria-label="Barcode scanner camera" /><button className="m-btn outline" type="button" onClick={() => setCameraActive(false)}>Stop camera</button></>
         : <button className="m-btn navy" type="button" onClick={() => { setCameraMessage(''); setBarcode(''); setCameraActive(true); }}>Open camera</button>}
-      {barcode && <code className="m-code">{barcode}</code>}
+      {barcodeBusy && <small className="m-muted" role="status">Looking up this product…</small>}
       {cameraMessage && <small className="m-muted" role="status">{cameraMessage}</small>}
     </section>}
+    {barcodeMode && barcodeResult && <><EngineResult lookup={barcodeResult} /><p className="m-fine">Product details from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>.</p></>}
 
     <form className="m-card m-stack" onSubmit={saveReceipt}>
       <h2 className="m-h2">{scanResult ? 'Check what I found' : 'Start with a photo'}</h2>

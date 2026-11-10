@@ -42,20 +42,24 @@ function plaidClient(): PlaidApi {
   const secret = process.env.PLAID_SECRET;
   if (!clientId || !secret) throw new Error("Plaid credentials are not configured");
   return new PlaidApi(new Configuration({
-    basePath: PlaidEnvironments.sandbox,
+    basePath: process.env.PLAID_ENV === "production" ? PlaidEnvironments.production : PlaidEnvironments.sandbox,
     baseOptions: { headers: { "PLAID-CLIENT-ID": clientId, "PLAID-SECRET": secret } },
   }));
 }
 
-function encryptionKey(): Buffer {
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (!sessionSecret) throw new Error("Session encryption key is unavailable");
-  return createHash("sha256").update(sessionSecret).update("margo-plaid-access-token-v1").digest();
+// New tokens are encrypted with PLAID_TOKEN_KEY when it is set. Tokens saved earlier
+// with the session-derived key still decrypt, so adding the secret never breaks a connection.
+function encryptionKeys(): Buffer[] {
+  const keys: Buffer[] = [];
+  if (process.env.PLAID_TOKEN_KEY) keys.push(createHash("sha256").update(process.env.PLAID_TOKEN_KEY).update("margo-plaid-access-token-v2").digest());
+  if (process.env.SESSION_SECRET) keys.push(createHash("sha256").update(process.env.SESSION_SECRET).update("margo-plaid-access-token-v1").digest());
+  if (!keys.length) throw new Error("Plaid token encryption key is unavailable");
+  return keys;
 }
 
 function encryptToken(token: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKeys()[0], iv);
   const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
   return `v1:${iv.toString("base64")}:${cipher.getAuthTag().toString("base64")}:${encrypted.toString("base64")}`;
 }
@@ -63,9 +67,14 @@ function encryptToken(token: string): string {
 function decryptToken(value: string): string {
   const [version, iv, tag, data] = value.split(":");
   if (version !== "v1" || !iv || !tag || !data) throw new Error("Stored Plaid token format is invalid");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64"));
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(data, "base64")), decipher.final()]).toString("utf8");
+  for (const key of encryptionKeys()) {
+    try {
+      const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64"));
+      decipher.setAuthTag(Buffer.from(tag, "base64"));
+      return Buffer.concat([decipher.update(Buffer.from(data, "base64")), decipher.final()]).toString("utf8");
+    } catch { /* Try the next key. */ }
+  }
+  throw new Error("Stored Plaid token could not be decrypted");
 }
 
 function transactionCategory(primary?: string | null, detailed?: string | null): string {
@@ -124,72 +133,91 @@ router.get("/plaid/items", async (req, res): Promise<void> => {
   res.json(items);
 });
 
+type PlaidItemRow = typeof plaidItemsTable.$inferSelect;
+
+async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
+  const client = plaidClient();
+  const [incomeRows, payerPreferences] = await Promise.all([
+    db.select({ label: transactionsTable.label, amount: transactionsTable.amount })
+      .from(transactionsTable)
+      .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, "income"), eq(transactionsTable.source, "Plaid"))),
+    db.select().from(incomePayerPreferencesTable).where(eq(incomePayerPreferencesTable.userId, userId)),
+  ]);
+  const incomeHistory = incomeRows.map((row) => ({ label: row.label, amount: Number(row.amount) }));
+  const preferences = new Map(payerPreferences.map((row) => [row.payerKey, row.decision]));
+  let cursor = item.cursor || undefined;
+  let hasMore = true;
+  let imported = 0;
+  while (hasMore) {
+    const page = await client.transactionsSync({ access_token: decryptToken(item.accessTokenEncrypted), cursor, count: 500 });
+    const allKnownIncome = [...incomeHistory, ...page.data.added.filter((tx) => tx.amount < 0).map((tx) => ({ label: tx.merchant_name || tx.name || "Bank transaction", amount: Math.abs(tx.amount) }))];
+    for (const tx of page.data.added) {
+      const expense = tx.amount > 0;
+      const label = (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120);
+      const review = expense ? { incomePayerKey: null, incomeReviewStatus: "none" as const, isTaxable: false } : classifyIncome(label, Math.abs(tx.amount), allKnownIncome, preferences);
+      await db.insert(transactionsTable).values({
+        userId: userId,
+        type: expense ? "expense" : "income",
+        label,
+        amount: Math.abs(tx.amount),
+        category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+        date: tx.date,
+        ...review,
+        source: "Plaid",
+        plaidTransactionId: tx.transaction_id,
+      }).onConflictDoUpdate({
+        target: [transactionsTable.userId, transactionsTable.plaidTransactionId],
+        set: {
+          type: expense ? "expense" : "income", label,
+          amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+          date: tx.date, source: "Plaid", ...review,
+        },
+      });
+      imported += 1;
+      if (!expense) incomeHistory.push({ label, amount: Math.abs(tx.amount) });
+    }
+    for (const tx of page.data.modified) {
+      const expense = tx.amount > 0;
+      await db.update(transactionsTable).set({
+        type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
+        amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+        date: tx.date,
+      }).where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.plaidTransactionId, tx.transaction_id)));
+    }
+    for (const removed of page.data.removed) {
+      await db.delete(transactionsTable).where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.plaidTransactionId, removed.transaction_id)));
+    }
+    cursor = page.data.next_cursor;
+    hasMore = page.data.has_more;
+  }
+  await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date() }).where(eq(plaidItemsTable.id, item.id));
+  return imported;
+}
+
 router.post("/plaid/sync", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const itemId = typeof req.body?.itemId === "string" ? req.body.itemId : "";
   const [item] = await db.select().from(plaidItemsTable).where(and(eq(plaidItemsTable.id, itemId), eq(plaidItemsTable.userId, req.user.id)));
   if (!item) { res.status(404).json({ error: "Connected bank not found" }); return; }
   try {
-    const client = plaidClient();
-    const [incomeRows, payerPreferences] = await Promise.all([
-      db.select({ label: transactionsTable.label, amount: transactionsTable.amount })
-        .from(transactionsTable)
-        .where(and(eq(transactionsTable.userId, req.user.id), eq(transactionsTable.type, "income"), eq(transactionsTable.source, "Plaid"))),
-      db.select().from(incomePayerPreferencesTable).where(eq(incomePayerPreferencesTable.userId, req.user.id)),
-    ]);
-    const incomeHistory = incomeRows.map((row) => ({ label: row.label, amount: Number(row.amount) }));
-    const preferences = new Map(payerPreferences.map((row) => [row.payerKey, row.decision]));
-    let cursor = item.cursor || undefined;
-    let hasMore = true;
-    let imported = 0;
-    while (hasMore) {
-      const page = await client.transactionsSync({ access_token: decryptToken(item.accessTokenEncrypted), cursor, count: 500 });
-      const allKnownIncome = [...incomeHistory, ...page.data.added.filter((tx) => tx.amount < 0).map((tx) => ({ label: tx.merchant_name || tx.name || "Bank transaction", amount: Math.abs(tx.amount) }))];
-      for (const tx of page.data.added) {
-        const expense = tx.amount > 0;
-        const label = (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120);
-        const review = expense ? { incomePayerKey: null, incomeReviewStatus: "none" as const, isTaxable: false } : classifyIncome(label, Math.abs(tx.amount), allKnownIncome, preferences);
-        await db.insert(transactionsTable).values({
-          userId: req.user.id,
-          type: expense ? "expense" : "income",
-          label,
-          amount: Math.abs(tx.amount),
-          category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
-          date: tx.date,
-          ...review,
-          source: "Plaid",
-          plaidTransactionId: tx.transaction_id,
-        }).onConflictDoUpdate({
-          target: [transactionsTable.userId, transactionsTable.plaidTransactionId],
-          set: {
-            type: expense ? "expense" : "income", label,
-            amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
-            date: tx.date, source: "Plaid", ...review,
-          },
-        });
-        imported += 1;
-        if (!expense) incomeHistory.push({ label, amount: Math.abs(tx.amount) });
-      }
-      for (const tx of page.data.modified) {
-        const expense = tx.amount > 0;
-        await db.update(transactionsTable).set({
-          type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
-          amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
-          date: tx.date,
-        }).where(and(eq(transactionsTable.userId, req.user.id), eq(transactionsTable.plaidTransactionId, tx.transaction_id)));
-      }
-      for (const removed of page.data.removed) {
-        await db.delete(transactionsTable).where(and(eq(transactionsTable.userId, req.user.id), eq(transactionsTable.plaidTransactionId, removed.transaction_id)));
-      }
-      cursor = page.data.next_cursor;
-      hasMore = page.data.has_more;
-    }
-    await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date() }).where(eq(plaidItemsTable.id, item.id));
-    res.json({ imported });
-  } catch (error) {
+    res.json({ imported: await syncItem(req.user.id, item) });
+  } catch {
     req.log.error("Could not sync bank transactions");
     res.status(502).json({ error: "Could not sync transactions. Try again shortly." });
   }
+});
+
+// Refreshes every connected bank that hasn't synced in the last few hours. The app calls this when it opens.
+router.post("/plaid/sync-all", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const staleBefore = Date.now() - 4 * 60 * 60 * 1000;
+  const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.user.id));
+  let imported = 0, refreshed = 0, failed = 0;
+  for (const item of items) {
+    if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore) continue;
+    try { imported += await syncItem(req.user.id, item); refreshed += 1; } catch { failed += 1; req.log.warn("Could not refresh one connected bank"); }
+  }
+  res.json({ banks: items.length, refreshed, failed, imported });
 });
 
 router.delete("/plaid/items/:id", async (req, res): Promise<void> => {

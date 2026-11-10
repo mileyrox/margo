@@ -7,6 +7,7 @@ import { BackLink, EmptyState, ErrorState, PageTitle, Skeleton } from '@/compone
 import { ProductArt } from '@/components/margo/art';
 import { bandFor, fetchSwapCatalog, rowArt, rowLabel, rowSavings, type SwapCatalogRow } from '@/lib/swap-catalog';
 import { useProfileAnswers } from '@/lib/profile';
+import { EngineResult, SwapSearch, fetchMySwaps } from '@/components/margo/engine';
 import { cents, messageOf, money, parseList } from '@/lib/format';
 
 const productName = (brand: string, product: string) => (brand ? `${brand} ${product}` : product);
@@ -26,6 +27,7 @@ function useSwapLists() {
 export function SwapsPage() {
   const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
   const comparisons = useGetProductComparisons();
+  const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: (query) => (query.state.data?.length ? false : 20_000) });
   const { saved, switched } = useSwapLists();
   const [tab, setTab] = useState<'for-you' | 'saved' | 'switched'>('for-you');
   const rows = useMemo(() => (catalog.data || []).filter((row) =>
@@ -41,6 +43,12 @@ export function SwapsPage() {
       <strong>{yearly > 0 ? `${money(yearly)} a year` : `${switched.length} ${switched.length === 1 ? 'swap' : 'swaps'} made`}</strong>
       <div><span>{switched.length ? `${cents(switchedSavings)} less each time you shop` : 'Tap "I switched" on a swap to track it'}</span><span>{switched.length} switched</span></div>
     </section>
+    <SwapSearch />
+    {mine.data?.length ? <section className="m-section">
+      <div className="m-section-head"><h2>From your receipts</h2><span>{mine.data.length} {mine.data.length === 1 ? "product" : "products"}</span></div>
+      {mine.data.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} />)}
+    </section> : null}
+    <div className="m-section-head"><h2>Margo's picks</h2></div>
     <div className="m-chips" role="group" aria-label="Show swaps">
       {([['for-you', 'For you'], ['saved', `Saved${saved.length ? ` (${saved.length})` : ''}`], ['switched', `Switched${switched.length ? ` (${switched.length})` : ''}`]] as const).map(([value, label]) =>
         <button key={value} className={`m-chip ${tab === value ? 'on' : ''}`} aria-pressed={tab === value} onClick={() => setTab(value)}>{label}</button>)}
@@ -52,7 +60,7 @@ export function SwapsPage() {
         title={tab === 'saved' ? 'Nothing saved yet' : tab === 'switched' ? 'No switches yet' : 'No swaps ready yet'}
         body={tab === 'for-you' ? "I'll show swaps here once both products have prices." : 'Open a swap and tap the bookmark or "I switched" to keep track.'} /></div>}
     <Link href="/receipts?scan=receipt" className="m-btn outline"><Upload aria-hidden="true" />Scan a receipt for more swaps</Link>
-    <p className="m-fine">Prices change. Check the package and price before you buy.</p>
+    <p className="m-fine">Swaps are suggested by Margo from product facts. Prices change, so check the label and price before you buy. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
   </div>;
 }
 
@@ -147,9 +155,18 @@ const adminFields: Array<{ key: keyof SwapCatalogRow; label: string; kind?: 'num
 ];
 const numericKeys = new Set<keyof SwapCatalogRow>(['originalPrice', 'swapPrice', 'originalPricePerOz', 'swapPricePerOz', 'savingsPerOzPct', 'similarity']);
 
+export const isLive = (row: SwapCatalogRow) => row.status.startsWith('Ready') && (row.originalPrice || 0) > 0 && (row.swapPrice || 0) > 0;
+const blocker = (row: SwapCatalogRow) => {
+  if (row.status === "Don't show as a dupe") return 'Hidden on purpose';
+  const missing = [!(row.originalPrice && row.originalPrice > 0) && 'original price', !(row.swapPrice && row.swapPrice > 0) && 'swap price'].filter(Boolean);
+  if (!row.status.startsWith('Ready')) return missing.length ? `Needs approval and ${missing.join(' and ')}` : 'Needs your approval';
+  return missing.length ? `Needs ${missing.join(' and ')}` : 'Showing to users';
+};
+
 export function AdminSwapsPage() {
   const query = useQuery({ queryKey: ['admin-swap-catalog'], queryFn: () => fetchSwapCatalog(true) });
   const [rows, setRows] = useState<SwapCatalogRow[]>([]);
+  const [view, setView] = useState<'all' | 'live' | 'prices' | 'review'>('prices');
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -181,16 +198,26 @@ export function AdminSwapsPage() {
     const ok = await call('/api/admin/swap-catalog/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csv: await file.text() }) }, 'Could not import CSV.', (body) => body.message || 'Imported.');
     if (ok) setFile(null);
   };
+  const live = rows.filter(isLive).length;
+  const needsPrices = rows.filter((row) => row.status.startsWith('Ready') && !isLive(row)).length;
+  const needsReview = rows.filter((row) => !row.status.startsWith('Ready') && row.status !== "Don't show as a dupe").length;
+  const shown = rows.filter((row) => view === 'all' ? true : view === 'live' ? isLive(row) : view === 'prices' ? row.status.startsWith('Ready') && !isLive(row) : !row.status.startsWith('Ready') && row.status !== "Don't show as a dupe");
   return <div className="m-page wide">
-    <PageTitle title="Swap catalog" subtitle="Review, edit, approve, and re-import catalog rows by ID." />
+    <PageTitle title="Swap catalog" subtitle="A swap shows to users once it's approved and both prices are filled in." />
+    {rows.length > 0 && <div className="m-tiles">
+      <div className="m-tile"><span>Showing to users</span><strong>{live}</strong></div>
+      <div className="m-tile"><span>Need prices</span><strong>{needsPrices}</strong></div>
+      <div className="m-tile"><span>Need review</span><strong>{needsReview}</strong></div>
+    </div>}
+    {rows.length > 0 && <div className="m-chips">{([['prices', 'Needs prices'], ['review', 'Needs review'], ['live', 'Showing'], ['all', 'All']] as const).map(([value, label]) => <button key={value} className={`m-chip ${view === value ? 'on' : ''}`} onClick={() => setView(value)}>{label}</button>)}</div>}
     <section className="m-card m-stack">
       <label className="m-field-label">Import an updated CSV<input className="m-input" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label>
       <button className="m-btn navy" disabled={!file || busy} onClick={() => void importCsv()}><Upload aria-hidden="true" />Import or update</button>
       <span className="m-muted small">Existing IDs are updated and new IDs are added. Rows missing either price stay hidden from users.</span>
     </section>
     {message && <div className="m-success" role="status">{message}</div>}
-    {query.isLoading ? <Skeleton lines={5} /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : rows.map((row) => <article className="m-card m-stack" key={row.id}>
-      <div className="m-line"><span><strong>{row.id}</strong> <span className="m-muted">{row.status}</span></span><span className="m-actions">{row.status.startsWith('Review first') && <button className="m-btn outline small" disabled={busy} onClick={() => void approve(row)}>Approve</button>}<button className="m-btn navy small" disabled={busy} onClick={() => void save(row)}>Save</button></span></div>
+    {query.isLoading ? <Skeleton lines={5} /> : query.isError ? <ErrorState error={query.error} retry={() => query.refetch()} /> : shown.map((row) => <article className="m-card m-stack" key={row.id}>
+      <div className="m-line"><span><strong>{row.id}</strong> <span className="m-muted">{row.status} · </span><span className={isLive(row) ? 'olive' : 'burgundy'}>{blocker(row)}</span></span><span className="m-actions">{row.status.startsWith('Review first') && <button className="m-btn outline small" disabled={busy} onClick={() => void approve(row)}>Approve</button>}<button className="m-btn navy small" disabled={busy} onClick={() => void save(row)}>Save</button></span></div>
       <div className="m-fields">{adminFields.map(({ key, label, kind }) => <label key={key} className={kind === 'long' ? 'full' : ''}>{label}{kind === 'long'
         ? <textarea className="m-input" rows={key === 'flags' ? 3 : 4} value={String(row[key] ?? '')} onChange={(event) => update(row.id, key, event.target.value)} />
         : <input className="m-input" type={kind === 'number' ? 'number' : 'text'} step={kind === 'number' ? 'any' : undefined} value={String(row[key] ?? '')} onChange={(event) => update(row.id, key, event.target.value)} />}</label>)}</div>

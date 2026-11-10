@@ -23,7 +23,25 @@ export function HomePage() {
   const profile = useGetSwapProfile();
   const financeSettings = useGetFinanceSettings();
   const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
+  const qc = useQueryClient();
   const [period, setPeriod] = useState<'month' | 'week'>('month');
+  useEffect(() => {
+    // Pull new bank activity when Home opens. The server skips banks refreshed in the last few hours.
+    let cancelled = false;
+    fetch('/api/plaid/sync-all', { method: 'POST', credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result: { imported?: number } | null) => {
+        if (cancelled || !result?.imported) return;
+        void Promise.all([
+          qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }),
+          qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }),
+          qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() }),
+          qc.invalidateQueries({ queryKey: ['plaid-items'] }),
+        ]);
+      })
+      .catch(() => { /* Bank refresh is best-effort; manual Refresh lives in Settings. */ });
+    return () => { cancelled = true; };
+  }, [qc]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const firstName = user?.firstName?.trim();
   const now = new Date();
