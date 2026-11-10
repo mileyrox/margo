@@ -1,5 +1,5 @@
 import { db, swapLookupsTable, userSwapsTable, type SwapLookup } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { findSwaps, lookupBarcode, rememberForUser, voteOnSuggestion } from "../lib/swap-engine";
 
@@ -31,8 +31,14 @@ function serialize(row: SwapLookup) {
   };
 }
 
+const aiConfigured = () => Boolean(process.env.AI_INTEGRATIONS_OPENAI_API_KEY && process.env.AI_INTEGRATIONS_OPENAI_BASE_URL);
+const AI_OFF = "Swap search isn't switched on yet. In Replit, ask the Agent to add the OpenAI integration (Replit managed), then republish.";
+const TABLES_MISSING = "The swap tables aren't set up on this database yet. Ask Replit's Agent to run `pnpm --filter @workspace/db run push` on the production database, then republish.";
+const isMissingTable = (error: unknown) => String((error as { code?: string })?.code) === "42P01" || /does not exist/i.test(String((error as Error)?.message));
+
 router.post("/swaps/find", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
+  if (!aiConfigured()) { res.status(503).json({ error: AI_OFF }); return; }
   const body = (req.body ?? {}) as { query?: unknown; barcode?: unknown; retailer?: unknown; price?: unknown };
   const query = typeof body.query === "string" ? body.query.trim().slice(0, 200) : "";
   const barcode = typeof body.barcode === "string" ? body.barcode.trim() : "";
@@ -54,7 +60,7 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
     res.json(serialize(result));
   } catch (error) {
     req.log.error({ err: error }, "Swap search failed");
-    res.status(502).json({ error: "Swap search had a hiccup. Try again." });
+    res.status(502).json({ error: isMissingTable(error) ? TABLES_MISSING : "Swap search had a hiccup. Try again." });
   }
 });
 
@@ -88,6 +94,43 @@ router.post("/swaps/lookups/:id/vote", async (req, res): Promise<void> => {
   const saved = await voteOnSuggestion(String(req.params.id), index, vote as 1 | -1);
   if (!saved) { res.status(404).json({ error: "Swap not found" }); return; }
   res.json(serialize(saved));
+});
+
+/** Admin check: is each part of the swap engine working? */
+router.get("/admin/swap-engine-status", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const allowed = (process.env.SWAP_CATALOG_ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
+  if (!req.user.email || !allowed.includes(req.user.email.toLowerCase())) { res.status(403).json({ error: "Admin only" }); return; }
+  const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+  let tablesOk = true;
+  try {
+    const [lookups] = await db.select({ count: sql<number>`count(*)::int` }).from(swapLookupsTable);
+    const [mine] = await db.select({ count: sql<number>`count(*)::int` }).from(userSwapsTable);
+    checks.push({ name: "Database tables", ok: true, detail: `${lookups?.count ?? 0} products looked up, ${mine?.count ?? 0} saved to people's lists` });
+  } catch (error) {
+    tablesOk = false;
+    checks.push({ name: "Database tables", ok: false, detail: isMissingTable(error) ? TABLES_MISSING : "Couldn't read the swap tables." });
+  }
+  if (!aiConfigured()) {
+    checks.push({ name: "AI connection", ok: false, detail: AI_OFF });
+  } else {
+    try {
+      const response = await fetch(`${process.env.AI_INTEGRATIONS_OPENAI_BASE_URL!.replace(/\/+$/, "")}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(20_000),
+        body: JSON.stringify({ model: "gpt-5.6-terra", max_completion_tokens: 20, messages: [{ role: "user", content: "Reply with OK." }] }),
+      });
+      checks.push(response.ok
+        ? { name: "AI connection", ok: true, detail: "Working" }
+        : { name: "AI connection", ok: false, detail: response.status === 401 || response.status === 403 ? "The AI integration isn't approved for this app. In Replit, approve the OpenAI (Replit managed) integration." : response.status === 402 || response.status === 429 ? "Out of AI credits or rate limited. Check your Replit credits." : `The AI service answered with an error (${response.status}).` });
+    } catch {
+      checks.push({ name: "AI connection", ok: false, detail: "Couldn't reach the AI service. Try again in a minute." });
+    }
+  }
+  const links = process.env.SKIMLINKS_PUBLISHER_ID ? "Skimlinks" : process.env.SOVRN_API_KEY ? "Sovrn" : "";
+  checks.push({ name: "Affiliate links", ok: Boolean(links || process.env.AMAZON_ASSOCIATE_TAG), detail: [links && `${links} on`, process.env.AMAZON_ASSOCIATE_TAG ? "Amazon tag on" : ""].filter(Boolean).join(", ") || "Not set yet. Links still work, they just don't earn commission." });
+  res.json({ ok: tablesOk && checks.every((check) => check.ok || check.name === "Affiliate links"), checks });
 });
 
 /** Recent engine results for the admin to spot-check. */

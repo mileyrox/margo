@@ -570,3 +570,10 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-shelf-new.small { font-family: var(--m-sans); font-size: 16px; font-weight: 700; }
 .m-shelf-prices small { font-size: 13px; line-height: 1.3; color: var(--m-ink-2); }
 .m-shelf-prices a small { color: var(--m-navy); }
+
+.m-status-row { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.m-status-row small { font-size: 13px; line-height: 1.35; }
+.m-status-dot { width: 10px; height: 10px; border-radius: 5px; margin-top: 5px; flex-shrink: 0; }
+.m-status-dot.ok { background: var(--m-olive); }
+.m-status-dot.warn { background: #C9A227; }
+.m-status-dot.bad { background: var(--m-burgundy); }
