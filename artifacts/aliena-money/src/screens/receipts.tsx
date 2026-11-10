@@ -35,6 +35,7 @@ export function ReceiptPage() {
   const [barcode, setBarcode] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
   const [barcodeResult, setBarcodeResult] = useState<EngineLookup | null>(null);
+  const [manualCode, setManualCode] = useState('');
   const [barcodeBusy, setBarcodeBusy] = useState(false);
   useEffect(() => {
     if (!barcode) return;
@@ -56,52 +57,34 @@ export function ReceiptPage() {
 
   useEffect(() => {
     if (!cameraActive) return;
-    type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
-    type DetectorConstructor = new (options?: { formats: string[] }) => Detector;
-    const DetectorApi = (window as Window & { BarcodeDetector?: DetectorConstructor }).BarcodeDetector;
-    let stream: MediaStream | undefined;
-    let frame = 0;
+    // Works on iPhone Safari, Android Chrome and desktop browsers (BarcodeDetector alone misses Safari and Firefox).
     let stopped = false;
-    if (!DetectorApi) {
-      setCameraMessage('Barcode scanning is not supported in this browser yet. You can still scan a receipt.');
-      setCameraActive(false);
-      return;
-    }
+    let controls: { stop: () => void } | undefined;
     const start = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-        if (stopped) { stream.getTracks().forEach((track) => track.stop()); return; }
+        const { BrowserMultiFormatReader } = await import('@zxing/browser');
         const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        const detector = new DetectorApi({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
-        const scan = async () => {
-          if (stopped || !videoRef.current) return;
-          try {
-            const [result] = await detector.detect(videoRef.current);
-            if (result?.rawValue) {
-              setBarcode(result.rawValue);
-              setCameraMessage('Got it. Looking for swaps…');
-              setCameraActive(false);
-              return;
-            }
-          } catch { /* Keep trying on the next frame. */ }
-          frame = requestAnimationFrame(scan);
-        };
-        frame = requestAnimationFrame(scan);
+        if (stopped || !video) return;
+        const reader = new BrowserMultiFormatReader();
+        controls = await reader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
+          if (stopped || !result) return;
+          const text = result.getText();
+          if (!/^\d{8,14}$/.test(text)) return;
+          stopped = true;
+          controls?.stop();
+          setBarcode(text);
+          setCameraMessage('Got it. Looking for swaps…');
+          setCameraActive(false);
+        });
+        if (stopped) controls.stop();
       } catch (reason) {
-        setCameraMessage(messageOf(reason));
+        const denied = reason instanceof DOMException && reason.name === 'NotAllowedError';
+        setCameraMessage(denied ? 'Margo needs camera access to scan. Allow it in your browser settings, or type the numbers below.' : "The camera didn't start. You can type the numbers under the barcode instead.");
         setCameraActive(false);
       }
     };
     void start();
-    return () => {
-      stopped = true;
-      cancelAnimationFrame(frame);
-      stream?.getTracks().forEach((track) => track.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
-    };
+    return () => { stopped = true; controls?.stop(); };
   }, [cameraActive]);
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: getGetReceiptsQueryKey() }), qc.invalidateQueries({ queryKey: getGetProductComparisonsQueryKey() }), qc.invalidateQueries({ queryKey: getGetPurchaseHistoryQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() })]);
@@ -151,6 +134,10 @@ export function ReceiptPage() {
       <div className="m-row-icon"><span className="m-sheet-icon blue"><ScanBarcode aria-hidden="true" /></span><span><strong>Point your camera at the barcode</strong><small className="m-muted">Hold it steady inside the frame.</small></span></div>
       {cameraActive ? <><video className="m-video" ref={videoRef} muted playsInline aria-label="Barcode scanner camera" /><button className="m-btn outline" type="button" onClick={() => setCameraActive(false)}>Stop camera</button></>
         : <button className="m-btn navy" type="button" onClick={() => { setCameraMessage(''); setBarcode(''); setCameraActive(true); }}>Open camera</button>}
+      <form className="m-search" onSubmit={(event) => { event.preventDefault(); const digits = manualCode.replace(/\D/g, ''); if (digits.length >= 8) { setCameraActive(false); setBarcode(digits); } else setCameraMessage('Type the 8 to 14 numbers under the barcode.'); }}>
+        <input value={manualCode} onChange={(event) => setManualCode(event.target.value)} inputMode="numeric" placeholder="Or type the barcode numbers" aria-label="Barcode numbers" maxLength={20} />
+        <button className="m-btn navy small">Look up</button>
+      </form>
       {barcodeBusy && <small className="m-muted" role="status">Looking up this product…</small>}
       {cameraMessage && <small className="m-muted" role="status">{cameraMessage}</small>}
     </section>}

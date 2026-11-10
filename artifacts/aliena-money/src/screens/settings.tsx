@@ -123,6 +123,14 @@ export function SettingsPage() {
   const loadedProfile = useRef(false);
   // Only accounts listed in SWAP_CATALOG_ADMIN_EMAILS get a 200 here, so the admin row stays hidden for everyone else.
   const adminCatalog = useQuery({ queryKey: ['admin-swap-catalog'], queryFn: () => fetchSwapCatalog(true), retry: false });
+  const engineStatus = useQuery({
+    queryKey: ['swap-engine-status'], enabled: Boolean(adminCatalog.data), retry: false, staleTime: 60_000,
+    queryFn: async () => {
+      const response = await fetch('/api/admin/swap-engine-status', { credentials: 'include' });
+      if (!response.ok) throw new Error('Could not check the swap engine.');
+      return response.json() as Promise<{ ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }>;
+    },
+  });
 
   useEffect(() => { if (settings.data && rate === null) setRate(settings.data.taxReserveRate); }, [settings.data, rate]);
   useEffect(() => {
@@ -244,6 +252,11 @@ export function SettingsPage() {
     {adminCatalog.data && <section className="m-group">
       <h2>Admin</h2>
       <Link href="/admin/swaps" className="m-card m-line"><span><strong>Swap catalog</strong><small className="m-muted block">{adminCatalog.data.length ? `${adminCatalog.data.filter(isLive).length} of ${adminCatalog.data.length} swaps showing to users` : 'Import your swaps CSV to get started'}</small></span><ChevronRight aria-hidden="true" /></Link>
+      <div className="m-card m-stack" data-testid="swap-engine-status">
+        <div className="m-line"><strong>Swap engine</strong><button className="m-link-button small-link" onClick={() => void engineStatus.refetch()} disabled={engineStatus.isFetching}>{engineStatus.isFetching ? 'Checking…' : 'Check again'}</button></div>
+        {engineStatus.isLoading ? <Skeleton lines={2} /> : engineStatus.isError ? <span className="m-muted small">{messageOf(engineStatus.error)}</span>
+          : engineStatus.data?.checks.map((check) => <div key={check.name} className="m-status-row"><span className={`m-status-dot ${check.ok ? 'ok' : check.name === 'Affiliate links' ? 'warn' : 'bad'}`} aria-hidden="true" /><span><strong>{check.name}</strong><small className="m-muted block">{check.detail}</small></span></div>)}
+      </div>
     </section>}
 
     <section className="m-group">
