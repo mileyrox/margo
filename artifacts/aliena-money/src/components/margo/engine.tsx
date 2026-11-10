@@ -106,8 +106,8 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
         <small>{fromName}</small>
       </div>
       <a href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Open ${storeLabel}`}>
-        {!amazon && item.typicalPrice != null ? <strong className="m-shelf-new">{cents(item.typicalPrice)}</strong> : <strong className="m-shelf-new small">Check price</strong>}
-        <small>{toName}</small>
+        {item.typicalPrice != null ? <strong className="m-shelf-new">{amazon ? '~' : ''}{cents(item.typicalPrice)}</strong> : <strong className="m-shelf-new small">Check price</strong>}
+        <small>{toName}{amazon && item.typicalPrice != null ? ' · typical price' : ''}</small>
       </a>
     </div>
     <div className="m-shelf-more">
