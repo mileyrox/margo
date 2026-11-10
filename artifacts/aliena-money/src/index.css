@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @import '@clerk/themes/shadcn.css';
@@ -613,7 +613,6 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-plinth-shop svg { width: 15px; height: 15px; flex-shrink: 0; }
 .m-plinth-shop:hover { background: var(--m-navy); color: #fff; }
 
-/* ============ Blush theme ("1b on blush") ============
    Blush page, white cards with a faint edge and soft shadow, small corners,
    the ring sits straight on the page, and "For you today" is a navy note. */
 .m-card, .m-hero, .m-sheet-option, .m-burgundy-card, .m-swap-card, .m-swapcard, .m-navy-strip, .m-navy-strip.two, .m-rows, .m-budget-card,
@@ -663,3 +662,18 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-plinth-shop { border-radius: 8px; border-width: 1px; }
 .m-slip { border-radius: 8px; box-shadow: 0 14px 26px -20px rgba(11, 31, 75, .35); }
 .m-slip-store { background: var(--m-cream); }
+=======
+/* Savings receipt (paper slip) */
+.m-slip { margin-top: 28px; background: #fff; border: 1px solid #EBD6D6; border-radius: 4px; padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 12px; font-family: 'DM Mono', ui-monospace, monospace; color: var(--m-navy); }
+.m-slip hr { width: 100%; margin: 0; border: none; border-top: 1.5px dashed #D9BFBF; }
+.m-slip-head { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.m-slip-head strong { font-family: var(--m-serif); font-size: 22px; font-weight: 600; color: var(--m-burgundy); }
+.m-slip-head span, .m-slip p { font-size: 12px; color: var(--m-ink-2); text-align: center; margin: 0; }
+.m-slip-line { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.m-slip-store { flex-shrink: 0; min-width: 62px; font-family: var(--m-sans); font-size: 11px; font-weight: 700; background: #F9EEEE; border: 1px solid #EBD6D6; border-radius: 3px; padding: 3px 6px; text-align: center; }
+.m-slip-item { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.m-slip-saved { font-weight: 500; color: #5E6226; }
+.m-slip-row { display: flex; justify-content: space-between; font-size: 14px; }
+.m-slip-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 500; }
+.m-slip-total strong { font-family: var(--m-serif); font-size: 30px; font-weight: 600; color: var(--m-burgundy); }
+/* ============ Blush theme ("1b on blush") =====

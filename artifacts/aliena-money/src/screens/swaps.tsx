@@ -25,6 +25,27 @@ function useSwapLists() {
   return { saved, switched, toggle };
 }
 
+/** A paper-style receipt of what this person's swaps would save on one shopping trip. */
+function SavingsReceipt({ swaps, total }: { swaps: Awaited<ReturnType<typeof fetchMySwaps>>; total: number }) {
+  const lines = swaps.flatMap((lookup) => {
+    const best = lookup.suggestions[0];
+    const saved = lookup.price && best?.typicalPrice != null ? lookup.price - best.typicalPrice : 0;
+    return saved > 0.25 && best ? [{ id: lookup.id, store: /amazon/i.test(`${best.retailer} ${best.url}`) ? 'Amazon' : best.retailer || 'Store', item: `${lookup.brand || lookup.productName} to ${best.brand || best.name}`, saved }] : [];
+  });
+  if (!lines.length) return null;
+  const month = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(new Date());
+  return <section className="m-slip" aria-label="Savings receipt">
+    <div className="m-slip-head"><strong>Margo</strong><span>Savings receipt · {month}</span></div>
+    <hr />
+    {lines.map((line) => <div className="m-slip-line" key={line.id}><span className="m-slip-store">{line.store}</span><span className="m-slip-item">{line.item}</span><span className="m-slip-saved">{cents(line.saved)}</span></div>)}
+    <hr />
+    <div className="m-slip-row"><span>Swaps found</span><span>{lines.length}</span></div>
+    <div className="m-slip-total"><span>SAVED PER TRIP</span><strong>{cents(total)}</strong></div>
+    <hr />
+    <p>If you make every swap. Keep what you love.</p>
+  </section>;
+}
+
 export function SwapsPage() {
   const qc = useQueryClient();
   const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: 30_000 });
@@ -42,7 +63,7 @@ export function SwapsPage() {
     <SwapSearch />
     {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
       : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
-      : swaps.length ? <>{swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)}<p className="m-fine">Prices are typical prices from other stores. As an Amazon Associate I earn from qualifying purchases.</p></>
+      : swaps.length ? <>{swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)}<SavingsReceipt swaps={swaps} total={perShop} /><p className="m-fine">Prices are typical prices from other stores. As an Amazon Associate I earn from qualifying purchases.</p></>
       : <div className="m-card m-empty-swaps">
         <h2>Your swaps show up here</h2>
         <p className="m-muted">Scan a receipt or a barcode and I'll find a cheaper version of what you bought.</p>
