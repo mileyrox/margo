@@ -662,7 +662,6 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-plinth-shop { border-radius: 8px; border-width: 1px; }
 .m-slip { border-radius: 8px; box-shadow: 0 14px 26px -20px rgba(11, 31, 75, .35); }
 .m-slip-store { background: var(--m-cream); }
-=======
 /* Savings receipt (paper slip) */
 .m-slip { margin-top: 28px; background: #fff; border: 1px solid #EBD6D6; border-radius: 8px; box-shadow: 0 14px 26px -20px rgba(11, 31, 75, .35); padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 12px; font-family: 'DM Mono', ui-monospace, monospace; color: var(--m-navy); }
 .m-slip hr { width: 100%; margin: 0; border: none; border-top: 1.5px dashed #D9BFBF; }
@@ -677,3 +676,60 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-slip-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 500; }
 .m-slip-total strong { font-family: var(--m-serif); font-size: 30px; font-weight: 600; color: var(--m-burgundy); }
 /* ============ Blush theme ("1b on blush") =====
+/* Blush theme: remaining screens */
+.m-btn.outline { border-width: 1px; }
+.m-btn.pill { border-radius: 8px; }
+.m-navy-strip, .m-navy-strip.two { border-radius: 8px; }
+.m-income { background: var(--m-navy); border-color: var(--m-navy); color: #fff; border-radius: 8px; }
+.m-income-top small { color: #D5DBEE; }
+.m-income-icon { background: #25397A; color: #fff; }
+.m-income .m-btn.navy { background: #fff; color: var(--m-navy); }
+.m-income .m-btn.outline { border-color: #fff; color: #fff; }
+.m-income .m-link-button { color: #fff; }
+.m-bubble.margo { border-radius: 8px 8px 8px 2px; }
+.m-bubble.me { border-radius: 8px 8px 2px 8px; }
+.m-notice, .m-quote, .m-dropzone, .m-receipt-pair > div, .m-video { border-radius: 8px; }
+
+/* Blush theme: small corners everywhere (circles stay round) */
+.m-sheet-option,
+.m-card,
+.m-hero,
+.m-tile,
+.m-segment,
+.m-segment.wide,
+.m-chip,
+.m-chip.square,
+.m-save-tag,
+.m-btn,
+.m-btn.small,
+.m-icon-button,
+.m-error,
+.m-success,
+.m-income,
+.m-tip,
+.m-month,
+.m-month button,
+.m-input,
+.m-picker,
+.m-picker img,
+.m-video,
+.m-code,
+.m-swap-card,
+.m-navy-strip,
+.m-navy-strip.two,
+.m-receipt-pair > div,
+.m-app-tile,
+.m-quote,
+.m-rows,
+.m-money-input,
+.m-avatar-option,
+.m-budget-card,
+.m-choice,
+.m-amount,
+.m-send,
+.m-search,
+.m-swapcard,
+.m-today-back,
+.m-today-card,
+.m-bubble-detail { border-radius: 8px; }
+.m-picker img { border-radius: 6px; }
