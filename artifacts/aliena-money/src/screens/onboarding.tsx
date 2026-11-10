@@ -5,9 +5,11 @@ import {
   getGetBudgetPlanQueryKey, getGetSwapProfileQueryKey, useGetBudgetPlan, useGetSwapProfile, useUpdateBudgetPlan, useUpdateSwapProfile,
 } from '@workspace/api-client-react';
 import type { BudgetPlanInput, SwapProfileInput } from '@workspace/api-client-react';
-import { ArrowLeft, ArrowUp, Check } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
 import { Seal } from '@/components/margo/art';
+import { AmountEntry } from '@/components/margo/amount-entry';
+import { monthlyEquivalent } from '@/lib/amount-period';
 import { blankProfile } from '@/lib/profile';
 import { messageOf, money, parseList } from '@/lib/format';
 import { BankConnect, swapCategoryOptions } from './settings';
@@ -33,7 +35,7 @@ const split = [['Groceries', 0.4], ['Transportation', 0.2], ['Dining out', 0.15]
 
 const monthly = (a: Answers, key: string) => {
   const value = Math.max(0, Number(a[key]) || 0);
-  return a[`${key}Period`] === 'year' ? value / 12 : value;
+  return monthlyEquivalent(value, a[`${key}Period`] === 'year' ? 'year' : 'month');
 };
 
 const steps: Step[] = [
@@ -97,7 +99,6 @@ export function OnboardingPage() {
   const [busy, setBusy] = useState(false);
   const initialized = useRef(false);
   const chatRef = useRef<HTMLDivElement>(null);
-  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const visible = useMemo(() => steps.filter((step) => !step.show || step.show(answers)), [answers]);
   const current = visible.find((step) => step.id === pos) || visible[0];
@@ -138,15 +139,6 @@ export function OnboardingPage() {
     if (index > 0) setPos(visible[index - 1].id);
   };
   const answer = (value: string, extra: Answers = {}) => advance({ ...answers, [current.id]: value, ...extra });
-  const changeUnit = (nextUnit: 'month' | 'year') => {
-    if (nextUnit === unit) return;
-    const amount = Number(draft.replace(/[$,\s]/g, ''));
-    if (draft.trim() && Number.isFinite(amount)) {
-      const converted = unit === 'month' ? amount * 12 : amount / 12;
-      setDraft(String(Math.round(converted * 100) / 100));
-    }
-    setUnit(nextUnit);
-  };
   const sendAmount = () => {
     const value = Number(draft.replace(/[$,\s]/g, ''));
     if (!draft.trim() || !Number.isFinite(value) || value < 0) { setError('Enter an amount, even a rough one.'); return; }
@@ -246,11 +238,15 @@ export function OnboardingPage() {
         <button className="m-btn navy" onClick={sendMulti} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
       </>}
       {current.type === 'amount' && <>
-        {(current.units?.length || 0) > 1 && <div className="m-segment wide">{current.units!.map((value) => <button key={value} className={unit === value ? 'on' : ''} onPointerDown={(event) => event.preventDefault()} onClick={() => { changeUnit(value); amountInputRef.current?.focus({ preventScroll: true }); }}>{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}
-        <div className="m-amount-row">
-          <label className="m-amount"><span>$</span><input ref={amountInputRef} autoFocus inputMode="decimal" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={current.placeholder} aria-label="Amount" onKeyDown={(event) => { if (event.key === 'Enter') sendAmount(); }} /></label>
-          <button className="m-send" aria-label="Send" onClick={sendAmount}><ArrowUp aria-hidden="true" /></button>
-        </div>
+        <AmountEntry
+          amount={draft}
+          period={unit}
+          periods={current.units || ['month']}
+          placeholder={current.placeholder}
+          onAmountChange={setDraft}
+          onPeriodChange={setUnit}
+          onSubmit={sendAmount}
+        />
         {current.skip && <button className="m-link-button" onClick={() => answer('skipped')}>{current.skip}</button>}
       </>}
       {current.type === 'bank' && <><BankConnect compact onConnected={() => answer('Connected', { connect: 'Connected' })} /><button className="m-btn outline" onClick={() => answer('Not now', { connect: 'Not now' })}>Not now</button></>}
