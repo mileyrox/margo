@@ -11,7 +11,8 @@ import type { Transaction } from '@workspace/api-client-react';
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
 import { ProductArt } from '@/components/margo/art';
-import { artFor, bandFor, fetchSwapCatalog, rowArt, rowSavings } from '@/lib/swap-catalog';
+import { artFor, bandFor } from '@/lib/swap-catalog';
+import { fetchMySwaps } from '@/components/margo/engine';
 import { cents, dayKey, greeting, messageOf, money, shortDate } from '@/lib/format';
 
 export function HomePage() {
@@ -22,7 +23,7 @@ export function HomePage() {
   const comparisons = useGetProductComparisons();
   const profile = useGetSwapProfile();
   const financeSettings = useGetFinanceSettings();
-  const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
+  const mySwaps = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps });
   const qc = useQueryClient();
   const [period, setPeriod] = useState<'month' | 'week'>('month');
   useEffect(() => {
@@ -86,7 +87,9 @@ export function HomePage() {
   }, [plan.data?.categories, transactions.data]);
 
   const topComparison = comparisons.data?.slice().sort((a, b) => b.annualSavings - a.annualSavings)[0];
-  const topCatalog = catalog.data?.filter((row) => rowSavings(row) != null).sort((a, b) => (rowSavings(b) || 0) - (rowSavings(a) || 0))[0];
+  const savingOf = (lookup: NonNullable<typeof mySwaps.data>[number]) => (lookup.price && lookup.suggestions[0]?.typicalPrice != null ? lookup.price - lookup.suggestions[0].typicalPrice : 0);
+  const topMine = mySwaps.data?.slice().sort((a, b) => savingOf(b) - savingOf(a))[0];
+  const topMineSwap = topMine?.suggestions[0];
 
   return <div className="m-page">
     <div className="m-title-row">
@@ -146,13 +149,13 @@ export function HomePage() {
 
     <section className="m-section">
       <h2>Swap of the week</h2>
-      {topComparison ? <Link href="/swaps" className="m-card m-sotw">
+      {topMine && topMineSwap ? <Link href="/swaps" className="m-card m-sotw">
+        <div className="m-pair-art"><ProductArt art={artFor(`${topMine.category} ${topMine.productName}`)} band={bandFor(topMine.productName)} label={topMine.productName} /><ProductArt art={artFor(`${topMine.category} ${topMine.productName}`)} band={bandFor(topMineSwap.name, true)} label={topMineSwap.name} /></div>
+        <div className="m-sotw-foot"><span><strong>{topMineSwap.brand ? `${topMineSwap.brand} ` : ''}{topMineSwap.name}</strong><small>instead of {topMine.brand ? `${topMine.brand} ` : ''}{topMine.productName}</small></span>{savingOf(topMine) > 0.25 ? <span className="m-save-tag">Save {cents(savingOf(topMine))}</span> : null}</div>
+      </Link> : topComparison ? <Link href="/swaps" className="m-card m-sotw">
         <div className="m-pair-art"><ProductArt art={artFor(`${topComparison.category} ${topComparison.productName}`)} band={bandFor(topComparison.productName)} label={topComparison.productName} /><ProductArt art={artFor(`${topComparison.category} ${topComparison.productName}`)} band={bandFor(topComparison.alternativeName, true)} label={topComparison.alternativeName} /></div>
         <div className="m-sotw-foot"><span><strong>{topComparison.productName}</strong><small>{cents(topComparison.unitPrice)} → {cents(topComparison.alternativePrice)}</small></span><span className="m-save-tag">Save {money(topComparison.annualSavings)}/yr</span></div>
-      </Link> : topCatalog ? <Link href={`/swaps/${encodeURIComponent(topCatalog.id)}`} className="m-card m-sotw">
-        <div className="m-pair-art"><ProductArt art={rowArt(topCatalog)} band={bandFor(topCatalog.originalProduct)} label={topCatalog.originalProduct} /><ProductArt art={rowArt(topCatalog)} band={bandFor(topCatalog.swapProduct, true)} label={topCatalog.swapProduct} /></div>
-        <div className="m-sotw-foot"><span><strong>{topCatalog.originalProduct}</strong><small>{cents(topCatalog.originalPrice)} → {cents(topCatalog.swapPrice)}{topCatalog.swapRetailer ? ` at ${topCatalog.swapRetailer}` : ''}</small></span><span className="m-save-tag">Save {cents(rowSavings(topCatalog))}</span></div>
-      </Link> : <div className="m-card m-muted">Scan a receipt and I'll find a swap worth making.</div>}
+      </Link> : <Link href="/receipts?scan=receipt" className="m-card m-tip">Scan a receipt and I'll find your first swap<ChevronRight aria-hidden="true" /></Link>}
     </section>
 
     {(debtBalance > 0 || answers.hasDebt === 'Yes') && <DebtPayoffCard balance={debtBalance} monthlyPayment={debtPayment} startBalance={Number(answers.debtStartBalance || debtBalance)} />}

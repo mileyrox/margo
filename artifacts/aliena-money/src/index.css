@@ -467,3 +467,29 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-tag-price.small { font-size: 20px; }
 .m-tag-price.old.small { font-size: 18px; }
 .self-start { align-self: flex-start; }
+
+/* Compact swap card (option A) */
+.m-swapcard { display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 10px; border-radius: 20px; }
+.m-swapcard-art { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; justify-items: center; height: 76px; }
+.m-swapcard-art svg { width: 58px; height: 70px; }
+.m-swapcard-art .m-cutout { height: 76px; max-width: 90px; }
+.m-swapcard-board { height: 8px; margin: -6px -14px 0; background: #E3D6B8; border-bottom: 3px solid #CDBE9B; }
+.m-swapcard-names { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-swapcard-names > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-swapcard-names strong { font-size: 13px; line-height: 1.25; }
+.m-swapcard-names s { font-size: 13px; color: var(--m-ink-2); }
+.m-swapcard-names b { font-size: 13px; color: var(--m-burgundy); }
+.m-swapcard-names small { font-size: 12px; }
+.m-swapcard-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.m-buy { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--m-burgundy); text-decoration: none; }
+.m-buy svg { width: 15px; height: 15px; }
+.m-why-toggle { border-top: 1px solid var(--m-cream-2); padding-top: 4px; }
+.m-why-toggle summary { min-height: 36px; display: flex; align-items: center; font-size: 13px; color: var(--m-ink-2); cursor: pointer; list-style: none; }
+.m-why-toggle summary::-webkit-details-marker { display: none; }
+.m-why-toggle summary::after { content: '+'; margin-left: 6px; font-weight: 700; }
+.m-why-toggle[open] summary::after { content: '−'; }
+.m-why-toggle[open] { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+.m-empty-swaps { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 24px 20px; }
+.m-empty-swaps h2 { font-family: var(--m-serif); font-size: 22px; font-weight: 600; }
+.m-empty-swaps .m-btn { width: 100%; }
+.m-empty-swaps .m-pair-art { align-items: center; }

@@ -46,3 +46,15 @@ export const swapLookupsTable = pgTable("swap_lookups", {
 ]);
 
 export type SwapLookup = typeof swapLookupsTable.$inferSelect;
+
+/** Which products each person has scanned, searched or bought, so their Swaps tab only shows their own. */
+export const userSwapsTable = pgTable("user_swaps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id").notNull(),
+  lookupId: uuid("lookup_id").notNull().references(() => swapLookupsTable.id, { onDelete: "cascade" }),
+  source: varchar("source", { length: 16 }).$type<"receipt" | "barcode" | "search">().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("user_swaps_user_lookup_idx").on(table.userId, table.lookupId),
+  index("user_swaps_user_created_idx").on(table.userId, table.createdAt),
+]);

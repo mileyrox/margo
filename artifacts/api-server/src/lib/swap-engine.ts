@@ -1,4 +1,4 @@
-import { db, swapLookupsTable, type EngineSuggestion, type SwapLookup } from "@workspace/db";
+import { db, swapLookupsTable, userSwapsTable, type EngineSuggestion, type SwapLookup } from "@workspace/db";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 
 /**
@@ -205,11 +205,19 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   return job;
 }
 
+/** Remembers that this person bought, scanned or searched this product. */
+export async function rememberForUser(userId: string, lookupId: string, source: "receipt" | "barcode" | "search") {
+  await db.insert(userSwapsTable).values({ userId, lookupId, source }).onConflictDoNothing();
+}
+
 /** Runs lookups one at a time in the background, e.g. after a receipt is saved. */
 export function findSwapsInBackground(items: ProductInput[], userId: string) {
   void (async () => {
     for (const item of items.slice(0, 20)) {
-      try { await findSwaps(item, userId); } catch { /* keep going */ }
+      try {
+        const lookup = await findSwaps(item, userId);
+        if (lookup) await rememberForUser(userId, lookup.id, "receipt");
+      } catch { /* keep going */ }
     }
   })();
 }

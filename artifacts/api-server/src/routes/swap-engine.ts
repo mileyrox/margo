@@ -1,7 +1,7 @@
-import { db, receiptsTable, swapLookupsTable, type SwapLookup } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { db, swapLookupsTable, userSwapsTable, type SwapLookup } from "@workspace/db";
+import { and, desc, eq } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { cachedLookups, findSwaps, lookupBarcode, productKey, voteOnSuggestion } from "../lib/swap-engine";
+import { findSwaps, lookupBarcode, rememberForUser, voteOnSuggestion } from "../lib/swap-engine";
 
 const router: IRouter = Router();
 
@@ -43,13 +43,14 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
     let product = query ? { name: query, retailer, price: price > 0 ? price : null } : null;
     if (barcode) {
       const [known] = await db.select().from(swapLookupsTable).where(eq(swapLookupsTable.barcode, barcode.replace(/\D/g, ""))).limit(1);
-      if (known) { res.json(serialize(known)); return; }
+      if (known) { await rememberForUser(req.user.id, known.id, "barcode"); res.json(serialize(known)); return; }
       const found = await lookupBarcode(barcode);
       if (!found) { res.status(404).json({ error: "I couldn't find that barcode yet. Try typing the product name instead." }); return; }
       product = { ...found, retailer, price: price > 0 ? price : null } as typeof product & { barcode: string };
     }
     const result = await findSwaps(product!, req.user.id);
     if (!result) { res.status(503).json({ error: "Swap search is busy right now. Try again in a minute." }); return; }
+    if (result.status === "ready" && result.suggestions.length) await rememberForUser(req.user.id, result.id, barcode ? "barcode" : "search");
     res.json(serialize(result));
   } catch (error) {
     req.log.error({ err: error }, "Swap search failed");
@@ -57,14 +58,26 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
   }
 });
 
-/** Swaps for everything this user has bought on scanned receipts. */
+/** Only this person's swaps: from their receipts, barcode scans and searches, newest first. */
 router.get("/swaps/mine", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const receipts = await db.select({ items: receiptsTable.items }).from(receiptsTable)
-    .where(eq(receiptsTable.userId, req.user.id)).orderBy(desc(receiptsTable.purchasedAt)).limit(50);
-  const keys = receipts.flatMap((receipt) => receipt.items.map((item) => productKey(item.productName, item.brand)));
-  const rows = await cachedLookups(keys);
-  res.json(rows.filter((row) => row.status === "ready").map(serialize));
+  const rows = await db.select({ lookup: swapLookupsTable, source: userSwapsTable.source })
+    .from(userSwapsTable)
+    .innerJoin(swapLookupsTable, eq(userSwapsTable.lookupId, swapLookupsTable.id))
+    .where(eq(userSwapsTable.userId, req.user.id))
+    .orderBy(desc(userSwapsTable.createdAt))
+    .limit(100);
+  res.json(rows
+    .filter((row) => row.lookup.status === "ready")
+    .map((row) => ({ ...serialize(row.lookup), source: row.source }))
+    .filter((row) => row.suggestions.length));
+});
+
+/** Removes a swap from this person's list. */
+router.delete("/swaps/mine/:lookupId", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  await db.delete(userSwapsTable).where(and(eq(userSwapsTable.userId, req.user.id), eq(userSwapsTable.lookupId, String(req.params.lookupId))));
+  res.sendStatus(204);
 });
 
 router.post("/swaps/lookups/:id/vote", async (req, res): Promise<void> => {
