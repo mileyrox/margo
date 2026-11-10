@@ -1,13 +1,16 @@
 import express, { type Express } from "express";
-import cors from "cors";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware, getClerkProxyHost } from "./middlewares/clerkProxyMiddleware";
+import { blockOtherSites, corsPolicy, securityHeaders } from "./middlewares/security";
 
 const app: Express = express();
+// Replit sits in front of the app, so trust its forwarded headers for the real address.
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
 
 app.use(
   pinoHttp({
@@ -29,7 +32,9 @@ app.use(
   }),
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
-app.use(cors({ credentials: true, origin: true }));
+app.use(securityHeaders);
+app.use(corsPolicy);
+app.use(blockOtherSites);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
