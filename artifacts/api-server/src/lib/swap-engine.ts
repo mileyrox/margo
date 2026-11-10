@@ -76,7 +76,9 @@ const searchUrls: Array<[RegExp, (q: string) => string]> = [
 export function storeLink(retailer: string, productName: string, brand: string) {
   const q = encodeURIComponent(`${brand} ${productName}`.trim());
   const match = searchUrls.find(([pattern]) => pattern.test(retailer));
-  return affiliate(match ? match[1](q) : `https://www.google.com/search?tbm=shop&q=${q}`);
+  // No exact page: send people to Amazon's search for it (earns on the Amazon tag), unless the store has its own search.
+  if (!match || process.env.AMAZON_ASSOCIATE_TAG) return affiliate(`https://www.amazon.com/s?k=${q}`);
+  return affiliate(match[1](q));
 }
 
 /** Adds the Amazon tag to Amazon links, and wraps other store links with Skimlinks or Sovrn once approved. */
@@ -162,8 +164,8 @@ async function webSearchSwap(product: ProductInput, basePrompt: string, baseUrl:
   const prompt = `${basePrompt}
 
 Before answering, search the web for "dupe for ${name}" and "${name} cheaper alternative", and check the store page of the one you pick.
-In the suggestion object, also include "productUrl": the exact product page where it can be bought (for example a target.com, walmart.com, amazon.com or ulta.com product page), copied from your search results. Never a search page, a blog post or a made-up link. Use "" if you can't find the exact page.
-For "typicalPrice", use the price shown on that store page if you saw one, otherwise null.`;
+Then search Amazon for that exact swap. In the suggestion object, also include "productUrl": its Amazon product page (amazon.com/dp/... or amazon.com/.../dp/...), copied from your search results. If it truly isn't sold on Amazon, use its product page at another big store instead. Never a search page, a blog post or a made-up link. Use "" if you can't find the exact page.
+For "typicalPrice", use the usual price you saw for the swap at stores other than Amazon (for example Target, Walmart or the brand's site), otherwise null. Do not copy Amazon's price.`;
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/responses`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -272,8 +274,9 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
     if (status !== "error" && !result) return existing ?? null; // AI not configured
     const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, ...item }) => ({
       ...item,
-      // Amazon only allows prices that come from its own API, so never show a typical price for Amazon.
-      typicalPrice: /amazon/i.test(item.retailer) ? null : item.typicalPrice,
+      // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
+      typicalPrice: item.typicalPrice,
+      retailer: /amazon\./i.test(productUrl) ? "Amazon" : item.retailer,
       // The exact product page when web search found one, otherwise that store's search for it.
       url: productUrl ? affiliate(productUrl) : storeLink(item.retailer, item.name, item.brand),
       upVotes: 0,
