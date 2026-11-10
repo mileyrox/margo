@@ -1,7 +1,8 @@
 import { type ComponentType, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useAuth, useClerk } from '@clerk/react';
+import { ClerkProviderWithRoutes, ClerkQueryClientCacheInvalidator, SignInPage, SignUpPage } from '@/components/clerk-auth';
 import { getGetBudgetPlanQueryKey, useGetBudgetPlan } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -27,21 +28,32 @@ function NotFound() {
 }
 
 function AppRoutes() {
-  const auth = useAuth();
+  return <Switch>
+    <Route path="/sign-in/*?" component={SignInPage} />
+    <Route path="/sign-up/*?" component={SignUpPage} />
+    <Route component={AuthenticatedRoutes} />
+  </Switch>;
+}
+
+function AuthenticatedRoutes() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { signOut } = useClerk();
   const [path, setLocation] = useLocation();
-  const plan = useGetBudgetPlan({ query: { enabled: auth.isAuthenticated, queryKey: getGetBudgetPlanQueryKey() } });
+  const plan = useGetBudgetPlan({ query: { enabled: isLoaded && isSignedIn, queryKey: getGetBudgetPlanQueryKey(), retry: false } });
   useEffect(() => {
-    if (!auth.isAuthenticated || plan.isLoading || plan.isError) return;
+    if (!isLoaded || !isSignedIn || plan.isLoading || plan.isError) return;
     if (publicPages[path]) return;
     if (!plan.data?.setupComplete && path !== '/onboarding') setLocation('/onboarding');
     if (plan.data?.setupComplete && path === '/onboarding') setLocation('/');
-  }, [auth.isAuthenticated, plan.isLoading, plan.isError, plan.data, path, setLocation]);
+  }, [isLoaded, isSignedIn, plan.isLoading, plan.isError, plan.data, path, setLocation]);
   useEffect(() => { window.scrollTo(0, 0); }, [path]);
   // Legal pages are public so anyone (including Plaid and affiliate reviewers) can read them without signing in.
   const PublicPage = publicPages[path];
   if (PublicPage) return <PublicPage />;
-  if (auth.isLoading) return <main className="m-loading"><Skeleton /></main>;
-  if (!auth.isAuthenticated) return <WelcomePage />;
+  if (!isLoaded) return <main className="m-loading"><Skeleton /></main>;
+  if (!isSignedIn) return <WelcomePage />;
+  if (plan.isLoading) return <main className="m-loading"><Skeleton /></main>;
+  if (plan.isError) return <main className="m-page"><EmptyState title="We couldn't open your account" body="Your sign-in worked, but your saved plan isn't available right now." action={<div className="m-stack"><button className="m-btn navy" onClick={() => void plan.refetch()}>Try again</button><button className="m-btn outline" onClick={() => void signOut({ redirectUrl: import.meta.env.BASE_URL })}>Sign out</button></div>} /></main>;
   return <Shell><ErrorBoundary resetKey={path}><Switch>
     <Route path="/" component={HomePage} />
     <Route path="/transactions" component={SpendingPage} />
@@ -59,5 +71,5 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <QueryClientProvider client={client}><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><AppRoutes /></WouterRouter><Toaster /></TooltipProvider></QueryClientProvider>;
+  return <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}><ClerkProviderWithRoutes><QueryClientProvider client={client}><ClerkQueryClientCacheInvalidator /><TooltipProvider><AppRoutes /><Toaster /></TooltipProvider></QueryClientProvider></ClerkProviderWithRoutes></WouterRouter>;
 }

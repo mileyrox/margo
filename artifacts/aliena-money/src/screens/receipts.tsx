@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  getGetFinanceDashboardQueryKey, getGetProductComparisonsQueryKey, getGetPurchaseHistoryQueryKey, getGetReceiptsQueryKey,
+  customFetch, getGetFinanceDashboardQueryKey, getGetProductComparisonsQueryKey, getGetPurchaseHistoryQueryKey, getGetReceiptsQueryKey,
   useCreateReceipt, useDeleteReceipt, useGetProductComparisons, useGetReceipts, useRequestUploadUrl, useScanReceiptImage,
 } from '@workspace/api-client-react';
 import type { ReceiptInput, ReceiptScanResult } from '@workspace/api-client-react';
@@ -118,8 +118,8 @@ export function ReceiptPage() {
     try {
       if (!scanResult || !objectPath) {
         const requested = await uploadUrl.mutateAsync({ data: { name: file.name, size: file.size, contentType: file.type } });
-        const uploaded = await fetch(requested.uploadURL, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
-        if (!uploaded.ok) throw new Error('The receipt photo did not upload. Try again.');
+        // Signed object-storage uploads use their URL's grant, not app cookies.
+        await customFetch(requested.uploadURL, { method: 'PUT', credentials: 'omit', headers: { 'Content-Type': file.type }, body: file, responseType: 'text' });
         const result = await scanImage.mutateAsync({ data: { objectPath: requested.objectPath } });
         setObjectPath(requested.objectPath); setScanResult(result);
         if (!result.merchant || !result.items.length) setNotice("I couldn't read every detail. Tap “Fix an item” to correct anything I missed.");

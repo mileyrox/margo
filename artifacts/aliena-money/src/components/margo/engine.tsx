@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { customFetch } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { ProductArt } from './art';
@@ -16,16 +17,11 @@ export type EngineLookup = {
 };
 
 export async function findSwap(body: { query?: string; barcode?: string; retailer?: string; price?: number }): Promise<EngineLookup> {
-  const response = await fetch('/api/swaps/find', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || 'Swap search had a hiccup. Try again.');
-  return result as EngineLookup;
+  return customFetch<EngineLookup>('/api/swaps/find', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export async function fetchMySwaps(): Promise<EngineLookup[]> {
-  const response = await fetch('/api/swaps/mine', { credentials: 'include' });
-  if (!response.ok) throw new Error('Could not load your swaps.');
-  return response.json();
+  return customFetch<EngineLookup[]>('/api/swaps/mine');
 }
 
 export function SwapSearch() {
@@ -69,8 +65,8 @@ export function EngineResult({ lookup }: { lookup: EngineLookup }) {
     if (!item) return;
     setVoted(value);
     try {
-      const response = await fetch(`/api/swaps/lookups/${encodeURIComponent(data.id)}/vote`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: item.index, vote: value }) });
-      if (response.ok) { setData(await response.json()); void qc.invalidateQueries({ queryKey: ['my-swaps'] }); }
+      const updated = await customFetch<EngineLookup>(`/api/swaps/lookups/${encodeURIComponent(data.id)}/vote`, { method: 'POST', body: JSON.stringify({ index: item.index, vote: value }) });
+      setData(updated); void qc.invalidateQueries({ queryKey: ['my-swaps'] });
     } catch { /* a missed vote is fine */ }
   };
   if (!item) return <article className="m-card m-engine">

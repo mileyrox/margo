@@ -14,18 +14,6 @@ import {
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
-function hasAuthenticatedSession(
-  req: Request,
-): req is Request & { isAuthenticated: () => boolean } {
-  if (
-    !('isAuthenticated' in req) ||
-    typeof req.isAuthenticated !== 'function'
-  ) {
-    return false;
-  }
-
-  return req.isAuthenticated();
-}
 
 /**
  * POST /storage/uploads/request-url
@@ -38,12 +26,7 @@ function hasAuthenticatedSession(
 router.post(
   '/storage/uploads/request-url',
   async (req: Request, res: Response) => {
-    if (!hasAuthenticatedSession(req)) {
-      res.status(401).json({ error: 'Unauthorized' });
-
-      return;
-    }
-    if (!req.user?.id) {
+    if (!req.dbUser?.id) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -64,7 +47,7 @@ router.post(
         return;
       }
 
-      const ownerKey = Buffer.from(req.user.id).toString('base64url');
+      const ownerKey = Buffer.from(req.dbUser.id).toString('base64url');
       const uploadURL = await objectStorageService.getObjectEntityUploadURL(ownerKey);
       const objectPath =
         objectStorageService.normalizeObjectEntityPath(uploadURL);
@@ -131,7 +114,7 @@ router.get(
  */
 router.get('/storage/objects/*path', async (req: Request, res: Response) => {
   try {
-    if (!req.isAuthenticated()) {
+    if (!req.dbUser) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -143,7 +126,7 @@ router.get('/storage/objects/*path', async (req: Request, res: Response) => {
       await objectStorageService.getObjectEntityFile(objectPath);
 
     const canAccess = await objectStorageService.canAccessObjectEntity({
-      userId: req.user.id,
+      userId: req.dbUser.id,
       objectFile,
       requestedPermission: ObjectPermission.READ,
     });

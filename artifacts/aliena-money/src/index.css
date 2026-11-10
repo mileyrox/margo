@@ -1,8 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
+@layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
+@import '@clerk/themes/shadcn.css';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:is(.dark *));
+
+.m-auth { min-height: 100dvh; background: #FBF6E4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 24px 16px; }
+.cl-formFieldInput::placeholder { color: #4A5578; opacity: 1; }
+.cl-formButtonPrimary, .cl-formButtonPrimary span { color: #FFFFFF; }
 
 @theme inline {
   --color-background: hsl(var(--background)); --color-foreground: hsl(var(--foreground));

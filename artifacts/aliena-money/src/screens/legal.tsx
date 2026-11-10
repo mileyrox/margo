@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useAuth } from '@clerk/react';
 import { Seal } from '@/components/margo/art';
 
 /**
@@ -19,9 +19,9 @@ export const company = {
 };
 
 function LegalPage({ title, children }: { title: string; children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isSignedIn } = useAuth();
   return <main className="m-legal">
-    <Link href={isAuthenticated ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><Seal size={28} /><span>Margo</span></Link>
+    <Link href={isSignedIn ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><Seal size={28} /><span>Margo</span></Link>
     <article>
       <h1>{title}</h1>
       <p className="m-muted">Effective {company.effectiveDate}</p>
@@ -67,8 +67,8 @@ export function PrivacyPage() {
     <p>We share information only as needed to run Margo:</p>
     <ul>
       <li><strong>Plaid</strong>, to connect your accounts.</li>
-      <li><strong>Hosting, database and storage providers</strong> that run Margo for us (currently Replit and its cloud providers).</li>
-      <li><strong>AI service providers</strong> that read receipt images and help write swap explanations (currently OpenAI, through Replit). We send only what the task needs and do not allow them to use it to train their models where we can control that setting.</li>
+      <li><strong>Hosting, database and storage providers</strong> that run Margo for us.</li>
+      <li><strong>AI service providers</strong> that read receipt images and help write swap explanations (currently OpenAI). We send only what the task needs and do not allow them to use it to train their models where we can control that setting.</li>
       <li><strong>Authorities</strong>, if the law requires it or to protect someone's safety or rights.</li>
       <li><strong>A buyer or successor</strong>, if Margo is merged or sold. They must follow this policy.</li>
     </ul>

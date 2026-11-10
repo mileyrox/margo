@@ -12,8 +12,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
-function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
+function requireUser(req: Request, res: Response): boolean {
+  if (!req.dbUser) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
 }
 
@@ -31,7 +31,7 @@ router.get("/purchase-history", async (req, res): Promise<void> => {
     source: userProductPurchasesTable.source,
   }).from(userProductPurchasesTable)
     .leftJoin(productsTable, eq(userProductPurchasesTable.productId, productsTable.id))
-    .where(eq(userProductPurchasesTable.userId, req.user.id))
+    .where(eq(userProductPurchasesTable.userId, req.dbUser.id))
     .orderBy(sql`${userProductPurchasesTable.purchasedAt} desc`);
   res.json(GetPurchaseHistoryResponse.parse(rows.map((row) => ({
     ...row, purchasedAt: new Date(`${row.purchasedAt}T00:00:00.000Z`),
@@ -80,7 +80,7 @@ router.put("/product-alternatives/:alternativeId/vote", async (req, res): Promis
   const body = VoteOnProductAlternativeBody.safeParse(req.body);
   if (!params.success || !body.success) { res.status(400).json({ error: "Invalid alternative vote" }); return; }
   await db.insert(productVotesTable).values({
-    alternativeId: params.data.alternativeId, userId: req.user.id, vote: body.data.vote,
+    alternativeId: params.data.alternativeId, userId: req.dbUser.id, vote: body.data.vote,
   }).onConflictDoUpdate({
     target: [productVotesTable.alternativeId, productVotesTable.userId],
     set: { vote: body.data.vote },

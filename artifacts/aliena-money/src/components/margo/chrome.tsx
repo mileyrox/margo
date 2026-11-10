@@ -1,16 +1,16 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useUser } from '@clerk/react';
 import { BarChart3, ChevronLeft, CircleHelp, Home, LayoutGrid, Plus, ReceiptText, ScanBarcode, ShoppingBag, ArrowLeftRight } from 'lucide-react';
 import { CoinAvatar, Seal, parseLook } from './art';
 import { useProfileAnswers } from '@/lib/profile';
 import { messageOf } from '@/lib/format';
 
 function Header() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { answers } = useProfileAnswers();
   const look = parseLook(answers.avatar);
-  const initial = (user?.firstName?.[0] || user?.email?.[0] || 'M').toUpperCase();
+  const initial = (user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'M').toUpperCase();
   return <header className="m-header">
     <Link href="/" className="m-brand" aria-label="Margo home"><Seal size={32} /><span>Margo</span></Link>
     <Link href="/settings" className="m-avatar-button" aria-label="Open settings" data-testid="link-profile-avatar">

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import authRouter from "./auth";
+import { requireAuth } from "../middlewares/requireAuth";
 import financeRouter from "./finance";
 import extensionRouter from "./extension";
 import healthRouter from "./health";
@@ -12,7 +12,12 @@ import swapEngineRouter from "./swap-engine";
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use(authRouter);
+router.use([
+  "/finance", "/transactions", "/receipts", "/comparisons", "/budget-plan", "/swap-profile", "/settings", "/account",
+  "/purchase-history", "/products", "/product-alternatives",
+  "/extension/tokens", "/plaid", "/swap-catalog", "/swaps", "/admin",
+  "/storage/uploads", "/storage/objects",
+], requireAuth);
 router.use(financeRouter);
 router.use(purchaseIntelligenceRouter);
 router.use(extensionRouter);

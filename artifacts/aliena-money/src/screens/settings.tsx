@@ -1,9 +1,9 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useUser, useClerk } from '@clerk/react';
 import {
-  getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetFinanceSettingsQueryKey, getGetSwapProfileQueryKey, getGetTransactionsQueryKey,
+  customFetch, getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetFinanceSettingsQueryKey, getGetSwapProfileQueryKey, getGetTransactionsQueryKey,
   useDeleteMyData, useGetBudgetPlan, useGetFinanceDashboard, useGetFinanceSettings, useGetPurchaseHistory, useGetReceipts,
   useGetSwapProfile, useGetTransactions, useUpdateBudgetPlan, useUpdateFinanceSettings, useUpdateSwapProfile,
 } from '@workspace/api-client-react';
@@ -32,9 +32,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
   const banks = useQuery({
     queryKey: ['plaid-items'],
     queryFn: async () => {
-      const response = await fetch('/api/plaid/items', { credentials: 'include' });
-      if (!response.ok) throw new Error('Could not load connected banks.');
-      return response.json() as Promise<Array<{ id: string; institutionName: string | null; lastSyncAt: string | null }>>;
+      return customFetch<Array<{ id: string; institutionName: string | null; lastSyncAt: string | null }>>('/api/plaid/items');
     },
   });
   const invalidateMoney = () => Promise.all([qc.invalidateQueries({ queryKey: ['plaid-items'] }), qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetBudgetPlanQueryKey() })]);
@@ -43,10 +41,9 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
     onSuccess: async (publicToken, metadata) => {
       setBusy(true); setMessage('');
       try {
-        const exchange = await fetch('/api/plaid/exchange', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ publicToken, institutionId: metadata.institution?.institution_id, institutionName: metadata.institution?.name }) });
-        const linked = await exchange.json(); if (!exchange.ok || !linked.itemId) throw new Error(linked.error || 'Could not connect that bank.');
-        const synced = await fetch('/api/plaid/sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: linked.itemId }) });
-        if (!synced.ok) throw new Error('Bank connected, but activity could not be refreshed.');
+        const linked = await customFetch<{ itemId: string }>('/api/plaid/exchange', { method: 'POST', body: JSON.stringify({ publicToken, institutionId: metadata.institution?.institution_id, institutionName: metadata.institution?.name }) });
+        if (!linked.itemId) throw new Error('Could not connect that bank.');
+        await customFetch('/api/plaid/sync', { method: 'POST', body: JSON.stringify({ itemId: linked.itemId }) });
         await invalidateMoney();
         setMessage('Your bank is connected.');
         onConnected?.();
@@ -58,18 +55,15 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
   const connect = async () => {
     setBusy(true); setMessage('');
     try {
-      const response = await fetch('/api/plaid/link-token', { method: 'POST', credentials: 'include' });
-      const result = await response.json();
-      if (!response.ok || !result.linkToken) throw new Error(result.error || 'Could not start a bank connection.');
+      const result = await customFetch<{ linkToken: string }>('/api/plaid/link-token', { method: 'POST' });
+      if (!result.linkToken) throw new Error('Could not start a bank connection.');
       setLinkToken(result.linkToken);
     } catch (error) { setMessage(messageOf(error)); setBusy(false); }
   };
   const sync = async (id: string) => {
     setSyncing(id); setMessage('');
     try {
-      const response = await fetch('/api/plaid/sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: id }) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Could not refresh bank activity.');
+      await customFetch('/api/plaid/sync', { method: 'POST', body: JSON.stringify({ itemId: id }) });
       await Promise.all([banks.refetch(), invalidateMoney()]);
       setMessage('Your spending is up to date.');
     } catch (error) { setMessage(messageOf(error)); } finally { setSyncing(''); }
@@ -77,8 +71,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
   const disconnect = async (id: string) => {
     if (!window.confirm('Disconnect this bank? Your saved spending stays in Margo.')) return;
     try {
-      const response = await fetch(`/api/plaid/items/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
-      if (!response.ok) throw new Error('Could not disconnect this bank.');
+      await customFetch(`/api/plaid/items/${encodeURIComponent(id)}`, { method: 'DELETE' });
       await banks.refetch(); setMessage('Bank disconnected. Your saved spending stays in Margo.');
     } catch (error) { setMessage(messageOf(error)); }
   };
@@ -104,7 +97,9 @@ function Row({ label, value, children, danger = false }: { label: string; value?
 
 export function SettingsPage() {
   const qc = useQueryClient();
-  const { user, logout } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const logout = () => signOut({ redirectUrl: import.meta.env.BASE_URL });
   const settings = useGetFinanceSettings();
   const plan = useGetBudgetPlan();
   const profileQuery = useGetSwapProfile();
@@ -191,8 +186,8 @@ export function SettingsPage() {
   return <div className="m-page">
     <PageTitle title="Settings" />
     <section className="m-profile">
-      {look ? <CoinAvatar look={look} size={56} /> : <span className="m-profile-initial">{(user?.firstName?.[0] || user?.email?.[0] || 'M').toUpperCase()}</span>}
-      <span><strong>{name}</strong><small className="m-muted">{user?.email || 'Private to you'}</small></span>
+      {look ? <CoinAvatar look={look} size={56} /> : <span className="m-profile-initial">{(user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'M').toUpperCase()}</span>}
+      <span><strong>{name}</strong><small className="m-muted">{user?.primaryEmailAddress?.emailAddress || 'Private to you'}</small></span>
       <Link href="/avatar" className="m-link">{look ? 'Edit avatar' : 'Make your avatar'}</Link>
     </section>
     {error && <div className="m-error" role="alert">{error}</div>}

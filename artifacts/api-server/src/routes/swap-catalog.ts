@@ -17,14 +17,14 @@ const mapping = {
   savings_per_oz_pct: "savingsPerOzPct", match_type: "matchType", why_similar: "whySimilar",
 } as const;
 
-function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
+function requireUser(req: Request, res: Response): boolean {
+  if (!req.dbUser) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
 }
-function requireAdmin(req: Request, res: Response): req is Request & { user: Express.User } {
+function requireAdmin(req: Request, res: Response): boolean {
   if (!requireUser(req, res)) return false;
   const allowed = (process.env.SWAP_CATALOG_ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
-  if (!req.user.email || !allowed.includes(req.user.email.toLowerCase())) { res.status(403).json({ error: "Swap catalog admin access is not enabled for this account." }); return false; }
+  if (!req.identityEmail || !allowed.includes(req.identityEmail.toLowerCase())) { res.status(403).json({ error: "Swap catalog admin access is not enabled for this account." }); return false; }
   return true;
 }
 function parseCsv(source: string): Record<string, string>[] {

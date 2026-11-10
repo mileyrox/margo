@@ -13,8 +13,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 
 const router: IRouter = Router();
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
+function requireUser(req: Request, res: Response): boolean {
+  if (!req.dbUser) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
 }
 
@@ -24,7 +24,7 @@ router.get("/extension/tokens", async (req, res): Promise<void> => {
     id: extensionTokensTable.id, label: extensionTokensTable.label,
     createdAt: extensionTokensTable.createdAt, expiresAt: extensionTokensTable.expiresAt,
     lastUsedAt: extensionTokensTable.lastUsedAt,
-  }).from(extensionTokensTable).where(eq(extensionTokensTable.userId, req.user.id));
+  }).from(extensionTokensTable).where(eq(extensionTokensTable.userId, req.dbUser.id));
   res.json(GetExtensionTokensResponse.parse(rows));
 });
 
@@ -33,12 +33,12 @@ router.post("/extension/tokens", async (req, res): Promise<void> => {
   const body = CreateExtensionTokenBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   const existing = await db.select({ id: extensionTokensTable.id }).from(extensionTokensTable)
-    .where(eq(extensionTokensTable.userId, req.user.id));
+    .where(eq(extensionTokensTable.userId, req.dbUser.id));
   if (existing.length >= 5) { res.status(409).json({ error: "You can have up to five extension tokens" }); return; }
   const token = `alienext_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   const [created] = await db.insert(extensionTokensTable).values({
-    userId: req.user.id, tokenHash: hashToken(token), label: body.data.label.trim(), expiresAt,
+    userId: req.dbUser.id, tokenHash: hashToken(token), label: body.data.label.trim(), expiresAt,
   }).returning({
     id: extensionTokensTable.id, label: extensionTokensTable.label,
     createdAt: extensionTokensTable.createdAt, expiresAt: extensionTokensTable.expiresAt,
@@ -52,7 +52,7 @@ router.delete("/extension/tokens/:tokenId", async (req, res): Promise<void> => {
   const params = RevokeExtensionTokenParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const deleted = await db.delete(extensionTokensTable).where(and(
-    eq(extensionTokensTable.id, params.data.tokenId), eq(extensionTokensTable.userId, req.user.id),
+    eq(extensionTokensTable.id, params.data.tokenId), eq(extensionTokensTable.userId, req.dbUser.id),
   )).returning({ id: extensionTokensTable.id });
   if (!deleted.length) { res.status(404).json({ error: "Extension token not found" }); return; }
   res.status(204).end();

@@ -32,8 +32,8 @@ function classifyIncome(label: string, amount: number, history: Array<{ label: s
   return { incomePayerKey: payerKey, incomeReviewStatus: unusual ? "pending" as const : "none" as const, isTaxable: false };
 }
 
-function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
+function requireUser(req: Request, res: Response): boolean {
+  if (!req.dbUser) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
 }
 
@@ -94,7 +94,7 @@ router.post("/plaid/link-token", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   try {
     const response = await plaidClient().linkTokenCreate({
-      user: { client_user_id: req.user.id },
+      user: { client_user_id: req.dbUser.id },
       client_name: "Margo",
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
@@ -116,7 +116,7 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
     const institutionId = typeof req.body?.institutionId === "string" ? req.body.institutionId.slice(0, 120) : null;
     const institutionName = typeof req.body?.institutionName === "string" ? req.body.institutionName.slice(0, 160) : "Connected bank";
     const [item] = await db.insert(plaidItemsTable).values({
-      userId: req.user.id, itemId: exchange.data.item_id, accessTokenEncrypted: encryptToken(exchange.data.access_token),
+      userId: req.dbUser.id, itemId: exchange.data.item_id, accessTokenEncrypted: encryptToken(exchange.data.access_token),
       institutionId, institutionName,
     }).returning({ id: plaidItemsTable.id });
     res.status(201).json({ connected: true, itemId: item?.id });
@@ -129,7 +129,7 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
 router.get("/plaid/items", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const items = await db.select({ id: plaidItemsTable.id, institutionName: plaidItemsTable.institutionName, lastSyncAt: plaidItemsTable.lastSyncAt })
-    .from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.user.id));
+    .from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
   res.json(items);
 });
 
@@ -197,10 +197,10 @@ async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
 router.post("/plaid/sync", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const itemId = typeof req.body?.itemId === "string" ? req.body.itemId : "";
-  const [item] = await db.select().from(plaidItemsTable).where(and(eq(plaidItemsTable.id, itemId), eq(plaidItemsTable.userId, req.user.id)));
+  const [item] = await db.select().from(plaidItemsTable).where(and(eq(plaidItemsTable.id, itemId), eq(plaidItemsTable.userId, req.dbUser.id)));
   if (!item) { res.status(404).json({ error: "Connected bank not found" }); return; }
   try {
-    res.json({ imported: await syncItem(req.user.id, item) });
+    res.json({ imported: await syncItem(req.dbUser.id, item) });
   } catch {
     req.log.error("Could not sync bank transactions");
     res.status(502).json({ error: "Could not sync transactions. Try again shortly." });
@@ -211,25 +211,25 @@ router.post("/plaid/sync", async (req, res): Promise<void> => {
 router.post("/plaid/sync-all", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const staleBefore = Date.now() - 4 * 60 * 60 * 1000;
-  const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.user.id));
+  const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
   let imported = 0, refreshed = 0, failed = 0;
   for (const item of items) {
     if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore) continue;
-    try { imported += await syncItem(req.user.id, item); refreshed += 1; } catch { failed += 1; req.log.warn("Could not refresh one connected bank"); }
+    try { imported += await syncItem(req.dbUser.id, item); refreshed += 1; } catch { failed += 1; req.log.warn("Could not refresh one connected bank"); }
   }
   res.json({ banks: items.length, refreshed, failed, imported });
 });
 
 router.delete("/plaid/items/:id", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const [item] = await db.select().from(plaidItemsTable).where(and(eq(plaidItemsTable.id, req.params.id as string), eq(plaidItemsTable.userId, req.user.id)));
+  const [item] = await db.select().from(plaidItemsTable).where(and(eq(plaidItemsTable.id, req.params.id as string), eq(plaidItemsTable.userId, req.dbUser.id)));
   if (!item) { res.status(404).json({ error: "Connected bank not found" }); return; }
   try {
     await plaidClient().itemRemove({ access_token: decryptToken(item.accessTokenEncrypted) });
   } catch {
     req.log.warn("Plaid could not revoke an item during local disconnect");
   }
-  await db.delete(plaidItemsTable).where(and(eq(plaidItemsTable.id, req.params.id as string), eq(plaidItemsTable.userId, req.user.id)));
+  await db.delete(plaidItemsTable).where(and(eq(plaidItemsTable.id, req.params.id as string), eq(plaidItemsTable.userId, req.dbUser.id)));
   res.sendStatus(204);
 });
 

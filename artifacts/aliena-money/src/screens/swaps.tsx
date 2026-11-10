@@ -1,3 +1,4 @@
+import { customFetch } from '@workspace/api-client-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
@@ -184,9 +185,7 @@ export function AdminSwapsPage() {
   const call = async (url: string, init: RequestInit, fallback: string, success: (body: { message?: string }) => string) => {
     setBusy(true); setMessage('');
     try {
-      const response = await fetch(url, { credentials: 'include', ...init });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || fallback);
+      const body = await customFetch<{ message?: string }>(url, init);
       setMessage(success(body)); await refresh();
       return true;
     } catch (error) { setMessage(messageOf(error)); return false; } finally { setBusy(false); }

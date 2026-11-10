@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useUser } from '@clerk/react';
 import {
-  getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetTransactionsQueryKey,
+  customFetch, getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetTransactionsQueryKey,
   useGetBudgetPlan, useGetFinanceDashboard, useGetFinanceSettings, useGetProductComparisons,
   useGetSwapProfile, useGetTransactions, useReviewIncome,
 } from '@workspace/api-client-react';
@@ -15,7 +15,7 @@ import { artFor, bandFor, fetchSwapCatalog, rowArt, rowSavings } from '@/lib/swa
 import { cents, dayKey, greeting, messageOf, money, shortDate } from '@/lib/format';
 
 export function HomePage() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const dashboard = useGetFinanceDashboard();
   const plan = useGetBudgetPlan();
   const transactions = useGetTransactions();
@@ -28,8 +28,7 @@ export function HomePage() {
   useEffect(() => {
     // Pull new bank activity when Home opens. The server skips banks refreshed in the last few hours.
     let cancelled = false;
-    fetch('/api/plaid/sync-all', { method: 'POST', credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+    customFetch<{ imported?: number }>('/api/plaid/sync-all', { method: 'POST' })
       .then((result: { imported?: number } | null) => {
         if (cancelled || !result?.imported) return;
         void Promise.all([

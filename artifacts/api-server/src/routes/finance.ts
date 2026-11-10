@@ -69,15 +69,10 @@ const spendingCategories = [
   { category: "Utilities", weight: 15 },
 ] as const;
 
-function requireUser(
-  req: Request,
-  res: Response,
-): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
-  return true;
+function requireUser(req: Request, res: Response): boolean {
+  if (req.dbUser) return true;
+  res.status(401).json({ error: "Authentication required" });
+  return false;
 }
 
 function serializeTransaction(transaction: DbTransaction): ApiTransaction {
@@ -277,7 +272,7 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
       .select({ amount: transactionsTable.amount })
       .from(transactionsTable)
       .where(and(
-        eq(transactionsTable.userId, req.user.id),
+        eq(transactionsTable.userId, req.dbUser.id),
         eq(transactionsTable.type, "expense"),
         gte(transactionsTable.date, monthStart),
         lte(transactionsTable.date, today),
@@ -286,7 +281,7 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
       .select({ amount: transactionsTable.amount })
       .from(transactionsTable)
       .where(and(
-        eq(transactionsTable.userId, req.user.id),
+        eq(transactionsTable.userId, req.dbUser.id),
         eq(transactionsTable.type, "income"),
         eq(transactionsTable.isTaxable, true),
         gte(transactionsTable.date, yearStart),
@@ -295,14 +290,14 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
     db
       .select()
       .from(transactionsTable)
-      .where(eq(transactionsTable.userId, req.user.id))
+      .where(eq(transactionsTable.userId, req.dbUser.id))
       .orderBy(desc(transactionsTable.date), desc(transactionsTable.createdAt))
       .limit(8),
     db
       .select()
       .from(financeSettingsTable)
-      .where(eq(financeSettingsTable.userId, req.user.id)),
-    getUserComparisons(req.user.id),
+      .where(eq(financeSettingsTable.userId, req.dbUser.id)),
+    getUserComparisons(req.dbUser.id),
   ]);
   const [savedSettings] = settings;
   const taxReserveRate = savedSettings?.taxReserveRate ?? 25;
@@ -326,7 +321,7 @@ router.get("/transactions", async (req, res): Promise<void> => {
     return;
   }
 
-  const filters = [eq(transactionsTable.userId, req.user.id)];
+  const filters = [eq(transactionsTable.userId, req.dbUser.id)];
   if (query.data.type) filters.push(eq(transactionsTable.type, query.data.type));
   const rows = await db
     .select()
@@ -349,7 +344,7 @@ router.post("/transactions", async (req, res): Promise<void> => {
       ...parsed.data,
       date: parsed.data.date.toISOString().slice(0, 10),
       source: parsed.data.source ?? null,
-      userId: req.user.id,
+      userId: req.dbUser.id,
     })
     .returning();
   if (!transaction) {
@@ -369,7 +364,7 @@ router.put("/transactions/:id", async (req, res): Promise<void> => {
   }
   const [transaction] = await db.select().from(transactionsTable).where(and(
     eq(transactionsTable.id, params.data.id),
-    eq(transactionsTable.userId, req.user.id),
+    eq(transactionsTable.userId, req.dbUser.id),
   ));
   if (!transaction || transaction.type !== "income" || !transaction.incomePayerKey) {
     res.status(404).json({ error: "Income transaction not found" });
@@ -382,7 +377,7 @@ router.put("/transactions/:id", async (req, res): Promise<void> => {
   if (decision === "undo") {
     incomeReviewStatus = "pending";
     await db.delete(incomePayerPreferencesTable).where(and(
-      eq(incomePayerPreferencesTable.userId, req.user.id),
+      eq(incomePayerPreferencesTable.userId, req.dbUser.id),
       eq(incomePayerPreferencesTable.payerKey, transaction.incomePayerKey),
     ));
   } else if (decision === "later") {
@@ -391,7 +386,7 @@ router.put("/transactions/:id", async (req, res): Promise<void> => {
     incomeReviewStatus = decision;
     isTaxable = decision === "set-aside";
     await db.insert(incomePayerPreferencesTable).values({
-      userId: req.user.id,
+      userId: req.dbUser.id,
       payerKey: transaction.incomePayerKey,
       decision,
     }).onConflictDoUpdate({
@@ -404,7 +399,7 @@ router.put("/transactions/:id", async (req, res): Promise<void> => {
     .set({ incomeReviewStatus, isTaxable })
     .where(and(
       eq(transactionsTable.id, params.data.id),
-      eq(transactionsTable.userId, req.user.id),
+      eq(transactionsTable.userId, req.dbUser.id),
     ))
     .returning();
   if (!updated) {
@@ -425,7 +420,7 @@ router.delete("/transactions/:id", async (req, res): Promise<void> => {
     .delete(transactionsTable)
     .where(and(
       eq(transactionsTable.id, params.data.id),
-      eq(transactionsTable.userId, req.user.id),
+      eq(transactionsTable.userId, req.dbUser.id),
     ))
     .returning();
   if (!deleted) {
@@ -441,7 +436,7 @@ router.get("/settings", async (req, res): Promise<void> => {
   const [settings] = await db
     .select()
     .from(financeSettingsTable)
-    .where(eq(financeSettingsTable.userId, req.user.id));
+    .where(eq(financeSettingsTable.userId, req.dbUser.id));
   res.json(GetFinanceSettingsResponse.parse({
     taxReserveRate: settings?.taxReserveRate ?? 25,
   }));
@@ -456,7 +451,7 @@ router.put("/settings", async (req, res): Promise<void> => {
   }
   const [settings] = await db
     .insert(financeSettingsTable)
-    .values({ userId: req.user.id, taxReserveRate: parsed.data.taxReserveRate })
+    .values({ userId: req.dbUser.id, taxReserveRate: parsed.data.taxReserveRate })
     .onConflictDoUpdate({
       target: financeSettingsTable.userId,
       set: { taxReserveRate: parsed.data.taxReserveRate, updatedAt: new Date() },
@@ -469,7 +464,7 @@ router.put("/settings", async (req, res): Promise<void> => {
 
 router.get("/budget-plan", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const plan = await getBudgetPlanForUser(req.user.id);
+  const plan = await getBudgetPlanForUser(req.dbUser.id);
   res.json(GetBudgetPlanResponse.parse(plan));
 });
 
@@ -483,7 +478,7 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
   await db
     .insert(budgetPlansTable)
     .values({
-      userId: req.user.id,
+      userId: req.dbUser.id,
       annualIncome: parsed.data.annualIncome,
       annualSavingsGoal: parsed.data.annualSavingsGoal,
       monthlyRent: parsed.data.monthlyRent,
@@ -501,13 +496,13 @@ router.put("/budget-plan", async (req, res): Promise<void> => {
         updatedAt: new Date(),
       },
     });
-  const plan = await getBudgetPlanForUser(req.user.id);
+  const plan = await getBudgetPlanForUser(req.dbUser.id);
   res.json(UpdateBudgetPlanResponse.parse(plan));
 });
 
 router.get("/swap-profile", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const [saved] = await db.select({ profile: swapProfilesTable.profile }).from(swapProfilesTable).where(eq(swapProfilesTable.userId, req.user.id));
+  const [saved] = await db.select({ profile: swapProfilesTable.profile }).from(swapProfilesTable).where(eq(swapProfilesTable.userId, req.dbUser.id));
   res.json(GetSwapProfileResponse.parse(saved?.profile ?? emptySwapProfile));
 });
 
@@ -519,7 +514,7 @@ router.put("/swap-profile", async (req, res): Promise<void> => {
     return;
   }
   const profile = parsed.data;
-  await db.insert(swapProfilesTable).values({ userId: req.user.id, profile }).onConflictDoUpdate({
+  await db.insert(swapProfilesTable).values({ userId: req.dbUser.id, profile }).onConflictDoUpdate({
     target: swapProfilesTable.userId,
     set: { profile, updatedAt: new Date() },
   });
@@ -531,7 +526,7 @@ router.get("/receipts", async (req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(receiptsTable)
-    .where(eq(receiptsTable.userId, req.user.id))
+    .where(eq(receiptsTable.userId, req.dbUser.id))
     .orderBy(desc(receiptsTable.purchasedAt), desc(receiptsTable.createdAt));
   res.json(GetReceiptsResponse.parse(rows.map(serializeReceipt)));
 });
@@ -539,7 +534,7 @@ router.get("/receipts", async (req, res): Promise<void> => {
 router.delete("/account/data", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const savedReceipts = await db.select({ objectPath: receiptsTable.objectPath })
-    .from(receiptsTable).where(eq(receiptsTable.userId, req.user.id));
+    .from(receiptsTable).where(eq(receiptsTable.userId, req.dbUser.id));
   try {
     for (const receipt of savedReceipts) {
       if (!receipt.objectPath) continue;
@@ -552,16 +547,16 @@ router.delete("/account/data", async (req, res): Promise<void> => {
     return;
   }
   await db.transaction(async (tx) => {
-    await tx.delete(userProductPurchasesTable).where(eq(userProductPurchasesTable.userId, req.user.id));
-    await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.user.id));
-    await tx.delete(integrationConnectionsTable).where(eq(integrationConnectionsTable.userId, req.user.id));
-    await tx.delete(extensionTokensTable).where(eq(extensionTokensTable.userId, req.user.id));
-    await tx.delete(plaidItemsTable).where(eq(plaidItemsTable.userId, req.user.id));
-    await tx.delete(transactionsTable).where(eq(transactionsTable.userId, req.user.id));
-    await tx.delete(receiptsTable).where(eq(receiptsTable.userId, req.user.id));
-    await tx.delete(budgetPlansTable).where(eq(budgetPlansTable.userId, req.user.id));
-    await tx.delete(financeSettingsTable).where(eq(financeSettingsTable.userId, req.user.id));
-    await tx.delete(swapProfilesTable).where(eq(swapProfilesTable.userId, req.user.id));
+    await tx.delete(userProductPurchasesTable).where(eq(userProductPurchasesTable.userId, req.dbUser.id));
+    await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.dbUser.id));
+    await tx.delete(integrationConnectionsTable).where(eq(integrationConnectionsTable.userId, req.dbUser.id));
+    await tx.delete(extensionTokensTable).where(eq(extensionTokensTable.userId, req.dbUser.id));
+    await tx.delete(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
+    await tx.delete(transactionsTable).where(eq(transactionsTable.userId, req.dbUser.id));
+    await tx.delete(receiptsTable).where(eq(receiptsTable.userId, req.dbUser.id));
+    await tx.delete(budgetPlansTable).where(eq(budgetPlansTable.userId, req.dbUser.id));
+    await tx.delete(financeSettingsTable).where(eq(financeSettingsTable.userId, req.dbUser.id));
+    await tx.delete(swapProfilesTable).where(eq(swapProfilesTable.userId, req.dbUser.id));
   });
   res.sendStatus(204);
 });
@@ -573,7 +568,7 @@ router.post("/receipts/scan", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Choose a receipt photo to scan." });
     return;
   }
-  const ownerKey = Buffer.from(req.user.id).toString("base64url");
+  const ownerKey = Buffer.from(req.dbUser.id).toString("base64url");
   if (!parsed.data.objectPath.startsWith(`/objects/uploads/${ownerKey}/`)) {
     res.status(403).json({ error: "This receipt photo is not available to your account." });
     return;
@@ -662,7 +657,7 @@ router.post("/receipts", async (req, res): Promise<void> => {
   try {
     if (objectPath) {
       await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
-        owner: req.user.id,
+        owner: req.dbUser.id,
         visibility: "private",
       });
     }
@@ -674,7 +669,7 @@ router.post("/receipts", async (req, res): Promise<void> => {
 
   const receipt = await db.transaction(async (tx) => {
     const [savedReceipt] = await tx.insert(receiptsTable).values({
-      userId: req.user.id,
+      userId: req.dbUser.id,
       merchant: parsed.data.merchant,
       purchasedAt: parsed.data.purchasedAt.toISOString().slice(0, 10),
       total: parsed.data.total,
@@ -692,7 +687,7 @@ router.post("/receipts", async (req, res): Promise<void> => {
         eq(productsTable.normalizedName, normalizedName), eq(productsTable.brand, brand),
       )).limit(1);
       await tx.insert(userProductPurchasesTable).values({
-        userId: req.user.id, productId: product?.id ?? null, receiptId: savedReceipt.id,
+        userId: req.dbUser.id, productId: product?.id ?? null, receiptId: savedReceipt.id,
         source: "receipt", productNameSnapshot: item.productName.trim(), unitPrice: item.unitPrice,
         quantity: 1, purchasedAt: parsed.data.purchasedAt.toISOString().slice(0, 10),
       });
@@ -706,7 +701,7 @@ router.post("/receipts", async (req, res): Promise<void> => {
   // Look up cheaper swaps for every item in the background so they're ready on the Swaps tab.
   findSwapsInBackground(parsed.data.items.map((item) => ({
     name: item.productName, brand: item.brand ?? null, category: item.category, retailer: parsed.data.merchant, price: item.unitPrice,
-  })), req.user.id);
+  })), req.dbUser.id);
   res.status(201).json(CreateReceiptResponse.parse(serializeReceipt(receipt)));
 });
 
@@ -722,7 +717,7 @@ router.delete("/receipts/:id", async (req, res): Promise<void> => {
     .from(receiptsTable)
     .where(and(
       eq(receiptsTable.id, params.data.id),
-      eq(receiptsTable.userId, req.user.id),
+      eq(receiptsTable.userId, req.dbUser.id),
     ));
   if (!receipt) {
     res.status(404).json({ error: "Receipt not found" });
@@ -740,7 +735,7 @@ router.delete("/receipts/:id", async (req, res): Promise<void> => {
     .delete(receiptsTable)
     .where(and(
       eq(receiptsTable.id, params.data.id),
-      eq(receiptsTable.userId, req.user.id),
+      eq(receiptsTable.userId, req.dbUser.id),
     ));
   DeleteReceiptResponse.parse(undefined);
   res.sendStatus(204);
@@ -748,7 +743,7 @@ router.delete("/receipts/:id", async (req, res): Promise<void> => {
 
 router.get("/comparisons", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const comparisons = await getUserComparisons(req.user.id);
+  const comparisons = await getUserComparisons(req.dbUser.id);
   res.json(GetProductComparisonsResponse.parse(comparisons));
 });
 

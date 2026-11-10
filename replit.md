@@ -15,6 +15,7 @@ A personal money app for tracking everyday spending, taxable non-W-2 income, tax
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
+- Authentication: Replit-managed Clerk with same-origin session cookies. Local user IDs and all existing data relationships are preserved through the session claim `userId`; new local rows are provisioned on the first protected request. Clerk owns identity fields; PostgreSQL owns app data. Sign-out uses Clerk's client SDK.
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)

@@ -1,10 +1,10 @@
 import { Link } from 'wouter';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useLocation } from 'wouter';
 import { ArrowLeftRight, BarChart3, PiggyBank } from 'lucide-react';
 import { Seal } from '@/components/margo/art';
 
 export function WelcomePage() {
-  const { login } = useAuth();
+  const [, navigate] = useLocation();
   const benefits = [
     { icon: BarChart3, text: 'See where your money actually goes' },
     { icon: ArrowLeftRight, text: 'Get cheaper swaps for things you already buy' },
@@ -15,8 +15,8 @@ export function WelcomePage() {
     <h1>Keep what you love. Spend less on it.</h1>
     <div className="m-welcome-list">{benefits.map(({ icon: Icon, text }) => <div key={text}><span><Icon aria-hidden="true" /></span><p>{text}</p></div>)}</div>
     <div className="m-welcome-actions">
-      <button className="m-btn burgundy pill big" onClick={login} data-testid="button-get-started">Get started</button>
-      <button className="m-link-button" onClick={login} data-testid="button-existing-account">I already have an account</button>
+      <button className="m-btn burgundy pill big" onClick={() => navigate('/sign-up')} data-testid="button-get-started">Get started</button>
+      <button className="m-link-button" onClick={() => navigate('/sign-in')} data-testid="button-existing-account">I already have an account</button>
       <p className="m-fine">By continuing, you agree to Margo's <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>. Margo is for people 18 and older.</p>
     </div>
   </main>;

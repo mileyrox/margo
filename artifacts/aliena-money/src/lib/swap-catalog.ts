@@ -1,4 +1,5 @@
 import type { ProductArtKind } from '@/components/margo/art';
+import { customFetch } from '@workspace/api-client-react';
 
 export type SwapCatalogRow = {
   id: string; groupName: string; category: string; originalBrand: string; originalProduct: string; originalRetailer: string;
@@ -8,9 +9,7 @@ export type SwapCatalogRow = {
 };
 
 export async function fetchSwapCatalog(admin = false): Promise<SwapCatalogRow[]> {
-  const response = await fetch(admin ? '/api/admin/swap-catalog' : '/api/swap-catalog', { credentials: 'include' });
-  if (!response.ok) throw new Error(response.status === 403 ? 'This account is not authorized to manage the swap catalog.' : 'Could not load the swap catalog.');
-  return response.json();
+  return customFetch<SwapCatalogRow[]>(admin ? '/api/admin/swap-catalog' : '/api/swap-catalog');
 }
 
 /** Picks a stand-in cut-out illustration until real background-removed product photos are wired up. */

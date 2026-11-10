@@ -5,8 +5,8 @@ import { cachedLookups, findSwaps, lookupBarcode, productKey, voteOnSuggestion }
 
 const router: IRouter = Router();
 
-function requireUser(req: Request, res: Response): req is Request & { user: Express.User } {
-  if (!req.isAuthenticated()) { res.status(401).json({ error: "Authentication required" }); return false; }
+function requireUser(req: Request, res: Response): boolean {
+  if (!req.dbUser) { res.status(401).json({ error: "Authentication required" }); return false; }
   return true;
 }
 
@@ -48,7 +48,7 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
       if (!found) { res.status(404).json({ error: "I couldn't find that barcode yet. Try typing the product name instead." }); return; }
       product = { ...found, retailer, price: price > 0 ? price : null } as typeof product & { barcode: string };
     }
-    const result = await findSwaps(product!, req.user.id);
+    const result = await findSwaps(product!, req.dbUser.id);
     if (!result) { res.status(503).json({ error: "Swap search is busy right now. Try again in a minute." }); return; }
     res.json(serialize(result));
   } catch (error) {
@@ -61,7 +61,7 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
 router.get("/swaps/mine", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const receipts = await db.select({ items: receiptsTable.items }).from(receiptsTable)
-    .where(eq(receiptsTable.userId, req.user.id)).orderBy(desc(receiptsTable.purchasedAt)).limit(50);
+    .where(eq(receiptsTable.userId, req.dbUser.id)).orderBy(desc(receiptsTable.purchasedAt)).limit(50);
   const keys = receipts.flatMap((receipt) => receipt.items.map((item) => productKey(item.productName, item.brand)));
   const rows = await cachedLookups(keys);
   res.json(rows.filter((row) => row.status === "ready").map(serialize));
@@ -81,7 +81,7 @@ router.post("/swaps/lookups/:id/vote", async (req, res): Promise<void> => {
 router.get("/admin/swap-lookups", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   const allowed = (process.env.SWAP_CATALOG_ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
-  if (!req.user.email || !allowed.includes(req.user.email.toLowerCase())) { res.status(403).json({ error: "Admin only" }); return; }
+  if (!req.identityEmail || !allowed.includes(req.identityEmail.toLowerCase())) { res.status(403).json({ error: "Admin only" }); return; }
   const rows = await db.select().from(swapLookupsTable).orderBy(desc(swapLookupsTable.updatedAt)).limit(200);
   res.json(rows.map(serialize));
 });

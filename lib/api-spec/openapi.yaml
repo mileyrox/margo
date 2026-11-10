@@ -10,8 +10,6 @@ servers:
 tags:
   - name: health
     description: Health operations
-  - name: Auth
-    description: Browser and mobile authentication endpoints.
   - name: Finance
     description: Personal finance, receipts, tax settings, and savings comparisons.
   - name: Storage
@@ -30,126 +28,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /auth/user:
-    get:
-      tags: [Auth]
-      operationId: getCurrentAuthUser
-      summary: Get the current authenticated user
-      parameters:
-        - $ref: "#/components/parameters/AuthorizationSessionHeader"
-        - $ref: "#/components/parameters/SessionCookie"
-      responses:
-        "200":
-          description: Authentication state.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthUserEnvelope"
-  /login:
-    get:
-      tags: [Auth]
-      operationId: beginBrowserLogin
-      summary: Start browser login
-      parameters:
-        - name: returnTo
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        "302":
-          description: Redirect to the identity provider.
-  /callback:
-    get:
-      tags: [Auth]
-      operationId: handleBrowserLoginCallback
-      summary: Complete browser login
-      parameters:
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: iss
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uri
-      responses:
-        "302":
-          description: Redirect after login.
-  /logout:
-    get:
-      tags: [Auth]
-      operationId: logoutBrowserSession
-      summary: End browser session
-      parameters:
-        - $ref: "#/components/parameters/AuthorizationSessionHeader"
-        - $ref: "#/components/parameters/SessionCookie"
-        - name: returnTo
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        "302":
-          description: Redirect after logout.
-  /mobile-auth/token-exchange:
-    post:
-      tags: [Auth]
-      operationId: exchangeMobileAuthorizationCode
-      summary: Exchange mobile authorization code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MobileTokenExchangeRequest"
-      responses:
-        "200":
-          description: Session created.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MobileTokenExchangeSuccess"
-        "400":
-          description: Invalid request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "401":
-          description: Invalid authorization code.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "500":
-          description: Token exchange failed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-  /mobile-auth/logout:
-    post:
-      tags: [Auth]
-      operationId: logoutMobileSession
-      summary: End mobile session
-      parameters:
-        - $ref: "#/components/parameters/AuthorizationSessionHeader"
-      responses:
-        "200":
-          description: Logout processed.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LogoutSuccess"
   /finance/dashboard:
     get:
       tags: [Finance]
@@ -754,49 +632,7 @@ components:
       required: false
       schema:
         type: string
-    SessionCookie:
-      name: sid
-      in: cookie
-      required: false
-      schema:
-        type: string
   schemas:
-    AuthUser:
-      type: object
-      required: [id, email, firstName, lastName, profileImageUrl]
-      properties:
-        id: { type: string }
-        email: { type: [string, "null"], format: email }
-        firstName: { type: [string, "null"] }
-        lastName: { type: [string, "null"] }
-        profileImageUrl: { type: [string, "null"] }
-    AuthUserEnvelope:
-      type: object
-      required: [user]
-      properties:
-        user:
-          oneOf:
-            - $ref: "#/components/schemas/AuthUser"
-            - type: "null"
-    MobileTokenExchangeRequest:
-      type: object
-      required: [code, code_verifier, redirect_uri, state]
-      properties:
-        code: { type: string, minLength: 1 }
-        code_verifier: { type: string, minLength: 1 }
-        redirect_uri: { type: string, format: uri, minLength: 1 }
-        state: { type: string, minLength: 1 }
-        nonce: { type: string, minLength: 1 }
-    MobileTokenExchangeSuccess:
-      type: object
-      required: [token]
-      properties:
-        token: { type: string }
-    LogoutSuccess:
-      type: object
-      required: [success]
-      properties:
-        success: { type: boolean, const: true }
     ErrorEnvelope:
       type: object
       required: [error]
