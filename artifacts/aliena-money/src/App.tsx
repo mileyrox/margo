@@ -13,7 +13,7 @@ import { SpendingPage } from '@/screens/spending';
 import { ReceiptPage } from '@/screens/receipts';
 import { AdminSwapsPage, SwapDetailPage, SwapsPage } from '@/screens/swaps';
 import { MoneyAppsPage } from '@/screens/money-apps';
-import { SettingsPage } from '@/screens/settings';
+import { PlaidOAuthPage, SettingsPage } from '@/screens/settings';
 import { OnboardingPage } from '@/screens/onboarding';
 import { AvatarPage } from '@/screens/avatar';
 import { WelcomePage } from '@/screens/welcome';
@@ -42,7 +42,7 @@ function AuthenticatedRoutes() {
   const plan = useGetBudgetPlan({ query: { enabled: isLoaded && isSignedIn, queryKey: getGetBudgetPlanQueryKey(), retry: false } });
   useEffect(() => {
     if (!isLoaded || !isSignedIn || plan.isLoading || plan.isError) return;
-    if (publicPages[path]) return;
+    if (publicPages[path] || path === '/plaid-oauth') return;
     if (!plan.data?.setupComplete && path !== '/onboarding') setLocation('/onboarding');
     if (plan.data?.setupComplete && path === '/onboarding') setLocation('/');
   }, [isLoaded, isSignedIn, plan.isLoading, plan.isError, plan.data, path, setLocation]);
@@ -66,6 +66,7 @@ function AuthenticatedRoutes() {
     <Route path="/avatar" component={AvatarPage} />
     <Route path="/profile" component={SettingsPage} />
     <Route path="/settings" component={SettingsPage} />
+    <Route path="/plaid-oauth" component={PlaidOAuthPage} />
     <Route component={NotFound} />
   </Switch></ErrorBoundary></Shell>;
 }

@@ -90,6 +90,22 @@ function transactionCategory(primary?: string | null, detailed?: string | null):
   return "Shopping";
 }
 
+/** Turns Plaid's error into a plain-words reason the app can show (never includes keys or tokens). */
+function plaidReason(error: unknown, fallback: string): string {
+  const message = String((error as Error)?.message || "");
+  if (/credentials are not configured/i.test(message)) return "Bank connections aren't set up yet: PLAID_CLIENT_ID or PLAID_SECRET is missing in Replit Secrets.";
+  const data = (error as { response?: { data?: { error_code?: string; error_message?: string } } })?.response?.data;
+  const code = data?.error_code || "";
+  const env = process.env.PLAID_ENV === "production" ? "production" : "sandbox";
+  if (code === "INVALID_API_KEYS") return `Plaid didn't accept the keys. PLAID_ENV is "${env}", so PLAID_SECRET must be your ${env} secret from the Plaid Dashboard (each environment has its own secret).`;
+  if (/redirect/i.test(data?.error_message || "")) return "PLAID_REDIRECT_URI doesn't match the Plaid Dashboard. Add it exactly (including https:// and /plaid-oauth) under Developers > API > Allowed redirect URIs, or remove the secret for now.";
+  if (code === "INVALID_PRODUCT" || code === "PRODUCTS_NOT_SUPPORTED" || code === "PRODUCT_NOT_ENABLED") return "Transactions isn't enabled on your Plaid account for this environment yet. Check your Plaid Dashboard or request access.";
+  if (code === "UNAUTHORIZED_ENVIRONMENT" || code === "INVALID_ENVIRONMENT") return "Your Plaid account isn't approved for production yet. Set PLAID_ENV to sandbox for now, or finish Plaid's production request.";
+  if (code === "RATE_LIMIT_EXCEEDED") return "Plaid is rate limiting right now. Try again in a minute.";
+  if (code) return `${fallback} (Plaid: ${code}${data?.error_message ? `, ${data.error_message}` : ""})`;
+  return fallback;
+}
+
 router.post("/plaid/link-token", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
   try {
@@ -99,11 +115,15 @@ router.post("/plaid/link-token", async (req, res): Promise<void> => {
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",
+      // Lets big banks (Chase, Bank of America, Wells Fargo...) send people back to Margo after they sign in.
+      // Must exactly match an Allowed redirect URI in the Plaid Dashboard, e.g. https://your-app.replit.app/plaid-oauth
+      ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
     });
     res.json({ linkToken: response.data.link_token });
   } catch (error) {
-    req.log.error("Could not create Plaid Link token");
-    res.status(502).json({ error: "Could not start a bank connection" });
+    const reason = plaidReason(error, "Could not start a bank connection.");
+    req.log.error({ plaid: (error as { response?: { data?: { error_code?: string } } })?.response?.data?.error_code, reason }, "Could not create Plaid Link token");
+    res.status(502).json({ error: reason });
   }
 });
 
@@ -122,7 +142,7 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
     res.status(201).json({ connected: true, itemId: item?.id });
   } catch (error) {
     req.log.error("Could not exchange Plaid public token");
-    res.status(502).json({ error: "Could not finish the bank connection" });
+    res.status(502).json({ error: plaidReason(error, "Could not finish the bank connection.") });
   }
 });
 

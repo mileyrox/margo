@@ -19,7 +19,13 @@ export const today = () => new Date().toISOString().slice(0, 10);
 export const dayKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-export const messageOf = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
+export const messageOf = (error: unknown) => {
+  if (!(error instanceof Error)) return 'Something went wrong. Try again.';
+  // API errors arrive as "HTTP 503 Service Unavailable: <reason>"; show people just the reason.
+  const reason = error.message.replace(/^HTTP \d{3}[^:]*:\s*/, '').trim();
+  if (/^HTTP \d{3}/.test(reason) || !reason) return error.message.startsWith('HTTP 401') ? 'Please sign in again.' : 'Something went wrong. Try again.';
+  return reason;
+};
 
 export const parseList = (value: string | undefined): string[] => {
   if (!value) return [];
