@@ -22,6 +22,7 @@ type Step = {
   placeholder?: string;
   skip?: string;
   none?: string;
+  otherInput?: boolean;
   show?: (a: Answers) => boolean;
 };
 
@@ -40,7 +41,7 @@ const steps: Step[] = [
   { id: 'sideGig', type: 'choice', say: (a) => [`Got it, about ${money(monthly(a, 'takeHome'))} a month.`, 'Do you also earn from side gigs? Shifts, rideshare, freelancing, anything like that.'], options: ['Yes', 'No'] },
   { id: 'savingsGoal', type: 'amount', units: ['year', 'month'], placeholder: '6,000', say: (a) => [...(a.sideGig === 'Yes' ? ["Nice. I'll flag gig money and suggest setting aside 25% for taxes."] : []), 'How much do you want to save?'] },
   { id: 'savingFor', type: 'choice', say: (a) => { const income = monthly(a, 'takeHome'); const pct = income ? Math.round(monthly(a, 'savingsGoal') / income * 100) : 0; return [`That's ${money(monthly(a, 'savingsGoal'))} a month, about ${pct}% of your take-home.`, "What's your biggest money goal right now?"]; }, options: ['Build an emergency fund', 'Pay off debt', 'Save for something big', 'Buy a home', 'Invest for later', 'Just spend less'] },
-  { id: 'nonNegotiables', type: 'multi', say: () => ['Good one. Now the important part.', "What will you never give up? I won't suggest swaps for these."], options: keepOptions, none: "Nothing, I'm flexible" },
+  { id: 'nonNegotiables', type: 'multi', say: () => ['Good one. Now the important part.', "What will you never give up? I won't suggest swaps for these."], options: [...keepOptions, 'Other'], otherInput: true, none: "Nothing, I'm flexible" },
   { id: 'swapCategories', type: 'multi', say: () => ['Noted.', 'Where should I look for cheaper options?'], options: ['Groceries', 'Household', 'Personal care', 'Clothing', 'Dining out', 'Subscriptions', 'Travel', 'Pet supplies'] },
   { id: 'rent', type: 'amount', units: ['month'], placeholder: '1,450', say: () => ["Now your regular bills. What's your rent or mortgage?"], skip: "I don't pay rent" },
   { id: 'carPayment', type: 'amount', units: ['month'], placeholder: '350', say: () => ['Car payment?'], skip: 'No car payment' },
@@ -128,6 +129,15 @@ export function OnboardingPage() {
     if (!draft.trim() || !Number.isFinite(value) || value < 0) { setError('Enter an amount, even a rough one.'); return; }
     answer(String(value), { [`${current.id}Period`]: unit });
   };
+  const sendMulti = () => {
+    if (current.otherInput && selected.includes('Other')) {
+      const other = draft.trim();
+      if (!other) { setError('Add what you would never give up.'); return; }
+      answer(JSON.stringify([...new Set([...selected.filter((item) => item !== 'Other'), other])]));
+      return;
+    }
+    answer(JSON.stringify(selected));
+  };
   const restart = () => { setAnswers((a) => Object.fromEntries(Object.entries(a).filter(([key]) => ['avatar', 'savedSwaps', 'switchedSwaps'].includes(key)))); setPos('hi'); };
 
   const finish = async () => {
@@ -205,7 +215,8 @@ export function OnboardingPage() {
       {current.type === 'multi' && <>
         <span className="m-muted small">Tap all that apply</span>
         <div className="m-dock-choices left">{(current.options || []).map((option) => { const on = selected.includes(option); return <button key={option} className={`m-choice ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => setSelected((list) => on ? list.filter((item) => item !== option) : [...list, option])}>{on && <Check aria-hidden="true" />}{option}</button>; })}</div>
-        <button className="m-btn navy" onClick={() => answer(JSON.stringify(selected))} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
+        {current.otherInput && selected.includes('Other') && <label className="m-amount"><input autoFocus type="text" maxLength={100} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What would you never give up?" aria-label="Your other non-negotiable" onKeyDown={(event) => { if (event.key === 'Enter') sendMulti(); }} /></label>}
+        <button className="m-btn navy" onClick={sendMulti} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
       </>}
       {current.type === 'amount' && <>
         {(current.units?.length || 0) > 1 && <div className="m-segment wide">{current.units!.map((value) => <button key={value} className={unit === value ? 'on' : ''} onClick={() => setUnit(value)}>{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}
