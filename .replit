@@ -26,3 +26,6 @@ SWAP_CATALOG_ADMIN_EMAILS = "mileywagner12@gmail.com"
 
 [nix]
 channel = "stable-25_05"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-7678970e-bb4e-42c3-a235-9a91f4234091"
