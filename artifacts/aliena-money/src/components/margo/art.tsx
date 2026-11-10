@@ -27,7 +27,7 @@ export type Unlock = { kind: 'saved'; amount: number } | { kind: 'debt' };
 export type AvatarOption = { id: string; label: string; unlock?: Unlock };
 
 export const avatarCatalog: Record<keyof AvatarLook, AvatarOption[]> = {
-  hair: [{ id: 'none', label: 'None' }, { id: 'curls', label: 'Curls' }, { id: 'bun', label: 'Bun' }, { id: 'bob', label: 'Bob' }, { id: 'spiky', label: 'Spiky' }, { id: 'waves', label: 'Long waves' }],
+  hair: [{ id: 'none', label: 'None' }, { id: 'long', label: 'Long straight' }, { id: 'bangs', label: 'Bangs' }, { id: 'bun', label: 'Bun' }, { id: 'waves', label: 'Long waves' }, { id: 'short', label: 'Short' }, { id: 'side', label: 'Side part' }, { id: 'spiky', label: 'Spiky' }, { id: 'curls', label: 'Curly' }],
   eyes: [{ id: 'dots', label: 'Dots' }, { id: 'happy', label: 'Happy' }, { id: 'wink', label: 'Wink' }, { id: 'big', label: 'Wide' }, { id: 'sleepy', label: 'Sleepy' }, { id: 'money', label: 'Money eyes', unlock: { kind: 'saved', amount: 250 } }],
   brows: [{ id: 'none', label: 'None' }, { id: 'flat', label: 'Calm' }, { id: 'raised', label: 'Curious' }, { id: 'bold', label: 'Determined' }],
   mouth: [{ id: 'smile', label: 'Smile' }, { id: 'grin', label: 'Grin' }, { id: 'smirk', label: 'Smirk' }, { id: 'oh', label: 'Oh!' }, { id: 'tongue', label: 'Silly' }],
@@ -47,6 +47,8 @@ export function parseLook(value: string | undefined): AvatarLook | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(value) as Partial<AvatarLook>;
+    // 'bob' was retired; people who picked it get the closest new style.
+    if (parsed.hair === 'bob') parsed.hair = 'bangs';
     return { ...defaultLook, ...parsed };
   } catch {
     return null;
