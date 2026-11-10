@@ -46,6 +46,15 @@ export async function lookupBarcode(barcode: string): Promise<ProductInput | nul
       };
     } catch { /* try the next database */ }
   }
+  // Fallback for everyday US products the open databases don't have (free tier, about 100 lookups a day).
+  try {
+    const response = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+    if (response.ok) {
+      const body = await response.json() as { items?: Array<{ title?: string; brand?: string; category?: string; size?: string }> };
+      const item = body.items?.[0];
+      if (item?.title) return { name: item.title, brand: item.brand || "", category: (item.category || "").split(">").pop()?.trim() || "", barcode: code };
+    }
+  } catch { /* not found anywhere */ }
   return null;
 }
 
@@ -110,20 +119,30 @@ Rules:
 Return JSON only:
 {"category": string, "sizeText": string, "typicalPrice": number|null,
  "suggestions": [{"name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "shortReason": string, "differences": string, "confidence": "high"|"medium"|"low"}]}`;
-  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+  const call = (extra: Record<string, unknown>) => fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
-      model: "gpt-5.6-terra",
-      max_completion_tokens: 1800,
+      model: process.env.SWAP_AI_MODEL || "gpt-5.6-terra",
+      // Reasoning models spend part of this budget thinking, so leave plenty of room for the answer.
+      max_completion_tokens: 8000,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
+      ...extra,
     }),
   });
-  if (!response.ok) throw new Error(`Swap AI request failed with ${response.status}`);
-  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const raw = JSON.parse(payload.choices?.[0]?.message?.content || "{}") as Record<string, unknown>;
+  let response = await call({ reasoning_effort: "low" });
+  if (response.status === 400) response = await call({});
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Swap AI request failed with ${response.status}: ${detail}`);
+  }
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }> };
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  // An empty answer is a failure, not "no swap", so it isn't saved as "nothing found".
+  if (!content) throw new Error(`Swap AI returned no answer (${payload.choices?.[0]?.finish_reason || "unknown"})`);
+  const raw = JSON.parse(content) as Record<string, unknown>;
   const price = (value: unknown) => { const n = Number(value); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
   const list = Array.isArray(raw.suggestions) ? raw.suggestions as Record<string, unknown>[] : [];
   const originalPrice = product.price ?? price(raw.typicalPrice);
@@ -170,7 +189,9 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   const brand = clean(input.brand, 120);
   const key = productKey(name, brand);
   const [existing] = await db.select().from(swapLookupsTable).where(eq(swapLookupsTable.productKey, key)).limit(1);
-  const fresh = existing && existing.status !== "error" && Date.now() - existing.updatedAt.getTime() < CACHE_DAYS * 86_400_000;
+  // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
+  const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
+  const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
   if (existing && (fresh || existing.source === "admin")) return existing;
   if (inflight.has(key)) return inflight.get(key)!;
   if (!(await underDailyLimit(userId))) return existing ?? null;
@@ -178,7 +199,7 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   const job = (async () => {
     let status: SwapLookup["status"] = "ready";
     let result: Awaited<ReturnType<typeof askAi>> = null;
-    try { result = await askAi({ ...input, name, brand }); } catch { status = "error"; }
+    try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
     const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map((item) => ({
       ...item,

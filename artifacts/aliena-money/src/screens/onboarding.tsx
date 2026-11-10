@@ -21,6 +21,8 @@ type Step = {
   say: (a: Answers) => string[];
   options?: string[];
   units?: Array<'month' | 'year'>;
+  /** A balance owed, not a monthly amount. */
+  total?: boolean;
   placeholder?: string;
   skip?: string;
   none?: string;
@@ -48,13 +50,14 @@ const steps: Step[] = [
   { id: 'swapCategories', type: 'multi', say: () => ['Noted.', 'Where should I look for cheaper options?'], options: swapOptions, otherInput: true },
   { id: 'rent', type: 'amount', units: ['month'], placeholder: '1,450', say: () => ["Now your regular bills. What's your rent or mortgage?"], skip: "I don't pay rent" },
   { id: 'carPayment', type: 'amount', units: ['month'], placeholder: '350', say: () => ['Car payment?'], skip: 'No car payment' },
+  { id: 'carBalance', type: 'amount', total: true, units: ['month'], placeholder: '14,000', show: (a) => monthly(a, 'carPayment') > 0, say: () => ['About how much do you still owe on the car?'], skip: "I'm not sure" },
   { id: 'phoneBill', type: 'amount', units: ['month'], placeholder: '85', say: () => ['Phone bill?'], skip: 'Someone else pays it' },
   { id: 'pets', type: 'choice', say: () => ['Any pets?'], options: ['Yes', 'No'] },
   { id: 'petCosts', type: 'amount', units: ['month'], placeholder: '120', show: (a) => a.pets === 'Yes', say: () => ['About how much a month on food, vet, and insurance?'] },
   { id: 'otherBillsList', type: 'multi', say: () => ['Anything else you pay every month?'], options: Object.keys(otherBillEstimates), none: "That's it" },
-  { id: 'hasDebt', type: 'choice', say: (a) => [parseList(a.otherBillsList).length ? "I'll estimate those for now. You can fix the amounts later." : 'Got it.', 'Are you paying off any debt?'], options: ['Yes', 'No debt'] },
-  { id: 'debtTypes', type: 'multi', show: (a) => a.hasDebt === 'Yes', say: () => ['No judgment here. What kind?'], options: ['Credit card', 'Student loan', 'Car loan', 'Personal loan', 'Medical bills'] },
-  { id: 'debtBalance', type: 'amount', units: ['month'], placeholder: '3,200', show: (a) => a.hasDebt === 'Yes', say: () => ['Roughly how much is left to pay, all together?'] },
+  { id: 'hasDebt', type: 'choice', say: (a) => [parseList(a.otherBillsList).length ? "I'll estimate those for now. You can fix the amounts later." : 'Got it.', 'Are you paying off any other debt? Not counting your car payment.'], options: ['Yes', 'No debt'] },
+  { id: 'debtTypes', type: 'multi', show: (a) => a.hasDebt === 'Yes', say: () => ['No judgment here. What kind?'], options: ['Credit card', 'Student loan', 'Personal loan', 'Medical bills'] },
+  { id: 'debtBalance', type: 'amount', total: true, units: ['month'], placeholder: '3,200', show: (a) => a.hasDebt === 'Yes', say: () => ['Roughly how much is left to pay, all together? Leave out the car.'] },
   { id: 'debtPayment', type: 'amount', units: ['month'], placeholder: '360', show: (a) => a.hasDebt === 'Yes', say: () => ['And about how much do you pay toward it each month?'] },
   { id: 'budget', type: 'budget', say: () => ["Okay, here's your starting budget. I used your answers, plus typical spending for everything else."], options: ['Looks good', "I'll tweak it later"] },
   { id: 'connect', type: 'bank', say: () => ['Last thing. Want me to connect your bank so your budget tracks itself?', 'I can see purchases. I can never move your money.'] },
@@ -78,7 +81,7 @@ function budgetFor(a: Answers) {
 
 function reply(step: Step, a: Answers) {
   const value = a[step.id];
-  if (step.type === 'amount') return value === 'skipped' ? step.skip : `${money(value)} a ${a[`${step.id}Period`] || step.units?.[0] || 'month'}`;
+  if (step.type === 'amount') return value === 'skipped' ? step.skip : step.total ? `About ${money(value)}` : `${money(value)} a ${a[`${step.id}Period`] || step.units?.[0] || 'month'}`;
   if (step.type === 'multi') { const list = parseList(value); return list.length ? list.join(', ') : step.none || 'None'; }
   return value;
 }
@@ -167,6 +170,7 @@ export function OnboardingPage() {
       hasDebt: answers.hasDebt === 'Yes' ? 'Yes' : 'No',
       rent: answers.rent === 'skipped' ? '0' : answers.rent || '0',
       carPayment: answers.carPayment === 'skipped' ? '0' : answers.carPayment || '0',
+      carBalance: answers.carPayment === 'skipped' || answers.carBalance === 'skipped' ? '' : answers.carBalance || '',
       phoneBill: answers.phoneBill === 'skipped' ? '0' : answers.phoneBill || '0',
     };
     const profile: SwapProfileInput = {

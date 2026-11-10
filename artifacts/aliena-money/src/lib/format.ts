@@ -14,6 +14,14 @@ export const shortDate = (value: string) => {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
 };
 
+/** True when a YYYY-MM-DD date is within the last `days` days (today counts). */
+export const withinDays = (value: string, days: number) => {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return false;
+  const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - (days - 1));
+  return date >= start;
+};
+
 export const today = () => new Date().toISOString().slice(0, 10);
 
 export const dayKey = (date: Date) =>

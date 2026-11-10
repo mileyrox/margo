@@ -13,7 +13,7 @@ import { ErrorState, Skeleton } from '@/components/margo/chrome';
 import { ProductArt } from '@/components/margo/art';
 import { artFor, bandFor } from '@/lib/swap-catalog';
 import { fetchMySwaps } from '@/components/margo/engine';
-import { cents, dayKey, greeting, messageOf, money, shortDate } from '@/lib/format';
+import { cents, dayKey, greeting, messageOf, money, shortDate, withinDays } from '@/lib/format';
 
 type TodayCard = {
   key: string; tag: string; title: string; body: string;
@@ -104,7 +104,7 @@ export function HomePage() {
     qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }),
   ]);
   const cards: TodayCard[] = [];
-  (transactions.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending').slice(0, 2).forEach((item) => {
+  (transactions.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending' && withinDays(item.date, 7)).slice(0, 2).forEach((item) => {
     const amount = Number(item.amount) * taxRate / 100;
     cards.push({
       key: `income-${item.id}`, tag: 'New income', title: `${money(item.amount)} from ${item.label}`,

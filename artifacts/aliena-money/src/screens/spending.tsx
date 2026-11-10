@@ -9,7 +9,7 @@ import type { Transaction } from '@workspace/api-client-react';
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react';
 import { EmptyState, ErrorState, PageTitle, Skeleton } from '@/components/margo/chrome';
 import { IncomeReviewCards, TransactionRows } from './home';
-import { dayKey, messageOf, money, today } from '@/lib/format';
+import { dayKey, messageOf, money, today, withinDays } from '@/lib/format';
 
 export const spendCategories = ['Rent', 'Groceries', 'Dining out', 'Shopping', 'Personal care', 'Beauty', 'Transportation', 'Subscriptions', 'Utilities'] as const;
 
@@ -30,7 +30,8 @@ export function SpendingPage() {
   useEffect(() => { if (new URLSearchParams(search).has('add')) setFormOpen(true); }, [search]);
   const taxRate = Number(financeSettings.data?.taxReserveRate ?? 25);
   const monthRows = useMemo(() => (query.data || []).filter((item) => item.date.slice(0, 7) === selectedMonth).sort((a, b) => b.date.localeCompare(a.date)), [query.data, selectedMonth]);
-  const pendingIncome = (query.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending');
+  // Only ask about income from the past week, so older deposits don't pile up as notifications.
+  const pendingIncome = (query.data || []).filter((item) => item.type === 'income' && item.incomeReviewStatus === 'pending' && withinDays(item.date, 7));
   const list = useMemo(() => monthRows.filter((item) => filter === 'all' || item.type === filter), [monthRows, filter]);
   const groups = useMemo(() => {
     const grouped = new Map<string, Transaction[]>();
