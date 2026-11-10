@@ -42,9 +42,8 @@ export function SwapsPage() {
     <SwapSearch />
     {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
       : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
-      : swaps.length ? swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)
+      : swaps.length ? <>{swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)}<p className="m-fine">Prices are typical prices from other stores. As an Amazon Associate I earn from qualifying purchases.</p></>
       : <div className="m-card m-empty-swaps">
-        <div className="m-pair-art"><ProductArt art="towels" band="#1E4E9E" width={56} label="A product you buy" /><ArrowRight className="m-swap-arrow" aria-hidden="true" /><ProductArt art="towels" band="#6D712E" width={56} label="A cheaper swap" /></div>
         <h2>Your swaps show up here</h2>
         <p className="m-muted">Scan a receipt or a barcode and I'll find a cheaper version of what you bought.</p>
         <Link href="/receipts?scan=receipt" className="m-btn burgundy"><Upload aria-hidden="true" />Scan a receipt</Link>

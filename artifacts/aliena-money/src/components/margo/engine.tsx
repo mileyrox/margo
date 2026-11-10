@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { customFetch } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Search, ThumbsDown, ThumbsUp } from 'lucide-react';
-import { ProductArt } from './art';
-import { artFor, bandFor } from '@/lib/swap-catalog';
-import { cents, messageOf } from '@/lib/format';
+import { ArrowUpRight, Search } from 'lucide-react';
+import { cents, messageOf, money } from '@/lib/format';
 
 export type EngineSuggestion = {
   index: number; name: string; brand: string; retailer: string; matchType: 'Dupe' | 'Cheaper option'; sizeText: string;
@@ -52,19 +50,19 @@ export function SwapSearch() {
   </section>;
 }
 
-/** A product photo on white with the white blended away, or the drawn cut-out when there's no photo yet. */
-function Cutout({ imageUrl, art, band, label }: { imageUrl?: string | null; art: ReturnType<typeof artFor>; band: string; label: string }) {
+/** The real product photo, or the brand name on a white tile when there's no photo. */
+function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; brand: string; label: string; swap?: boolean }) {
   const [failed, setFailed] = useState(false);
-  if (imageUrl && !failed) return <img className="m-cutout" src={imageUrl} alt={label} loading="lazy" onError={() => setFailed(true)} />;
-  return <ProductArt art={art} band={band} width={96} label={label} />;
+  return <span className={`m-plinth-photo ${swap ? 'swap' : ''}`}>
+    {imageUrl && !failed ? <img src={imageUrl} alt={label} loading="lazy" onError={() => setFailed(true)} /> : <span className="m-plinth-brand" role="img" aria-label={label}>{brand}</span>}
+  </span>;
 }
 
-/** One swap on a wooden shelf: what you buy on the left, the swap on the right (tap it to open the store). */
+/** One swap on two display stands: what you buy on the left, the swap on the right with its price on the stand. */
 export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRemove?: () => void }) {
   const qc = useQueryClient();
   const [data, setData] = useState(lookup);
   const [voted, setVoted] = useState<1 | -1 | null>(null);
-  const art = artFor(`${data.category} ${data.productName}`);
   const item = data.suggestions[0];
   const vote = async (value: 1 | -1) => {
     if (!item) return;
@@ -78,38 +76,35 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
   };
   const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
   if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I didn't find a swap I'm confident in for ${data.brand ? `${data.brand} ` : ''}${fromName}. It may already be a good deal.`}</p>;
-  const amazon = /amazon/i.test(item.retailer);
+  const amazon = /amazon/i.test(item.retailer) || /amazon\./i.test(item.url);
   const toName = `${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
   const savings = data.price && item.typicalPrice != null ? data.price - item.typicalPrice : null;
   const reason = item.shortReason || (item.matchType === 'Dupe' ? 'dupe' : 'cheaper option');
-  const storeLabel = `${item.brand || item.name}${item.retailer ? ` at ${item.retailer}` : ''}`;
-  return <article className="m-shelf-swap">
-    <div className="m-shelf-row">
-      <div className="m-shelf-item">
-        <span className="m-shelf-brand">{data.brand || data.productName}</span>
-        <Cutout imageUrl={data.imageUrl} art={art} band={bandFor(data.productName)} label={`${data.brand} ${fromName}`} />
+  const fromBrand = data.brand || data.productName;
+  const toBrand = item.brand || item.name;
+  const store = amazon ? 'Amazon' : item.retailer || 'the store';
+  return <article className="m-plinth-swap">
+    <div className="m-plinth-head">
+      <strong>{savings != null && savings > 0.25 ? `Save ${money(savings)}` : item.matchType}</strong>
+      <span>{reason}</span>
+    </div>
+    <div className="m-plinth-row">
+      <div className="m-plinth">
+        <Photo imageUrl={data.imageUrl} brand={fromBrand} label={`${fromBrand} ${fromName}`} />
+        <span className="m-plinth-top" aria-hidden="true" />
+        <span className="m-plinth-base">{data.price ? <s>{cents(data.price)}</s> : <small>You buy</small>}</span>
       </div>
-      <div className="m-shelf-mid">
-        {savings != null && savings > 0.25 ? <span className="m-shelf-save">Save {cents(savings)}</span> : <span className="m-shelf-save">{item.matchType}</span>}
-        <svg aria-hidden="true" width="100" height="22" viewBox="0 0 108 24"><path d="M4 13 C 30 8, 60 16, 94 11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><path d="M84 3 L 100 11 L 86 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span className="m-shelf-why">{reason}</span>
-      </div>
-      <a className="m-shelf-item link" href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Open ${storeLabel}`}>
-        <span className="m-shelf-brand"><u>{item.brand || item.name}</u> ↗</span>
-        <Cutout imageUrl={item.imageUrl} art={art} band={bandFor(item.name, true)} label={`${item.brand} ${toName}`} />
+      <a className="m-plinth swap" href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Shop ${toBrand} ${toName} on ${store}`}>
+        <Photo imageUrl={item.imageUrl} brand={toBrand} label={`${toBrand} ${toName}`} swap />
+        <span className="m-plinth-top" aria-hidden="true" />
+        <span className="m-plinth-base">{item.typicalPrice != null ? <b>{amazon ? '~' : ''}{cents(item.typicalPrice)}</b> : <small>See price</small>}</span>
       </a>
     </div>
-    <div className="m-wood" aria-hidden="true"><i /><b /><s /></div>
-    <div className="m-shelf-prices">
-      <div>
-        {data.price ? <s className="m-shelf-old">{cents(data.price)}</s> : <span className="m-shelf-old none">You buy</span>}
-        <small>{fromName}</small>
-      </div>
-      <a href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Open ${storeLabel}`}>
-        {item.typicalPrice != null ? <strong className="m-shelf-new">{amazon ? '~' : ''}{cents(item.typicalPrice)}</strong> : <strong className="m-shelf-new small">Check price</strong>}
-        <small>{toName}{amazon && item.typicalPrice != null ? ' · typical price' : ''}</small>
-      </a>
+    <div className="m-plinth-names">
+      <span><strong>{fromBrand}</strong>{data.productName !== fromBrand ? fromName : data.sizeText}</span>
+      <span><strong>{toBrand}</strong>{toName}</span>
     </div>
+    <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
       <details>
         <summary>Why it's similar</summary>
@@ -118,6 +113,5 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </details>
       {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)}>Not a match</button> : null}
     </div>
-    {amazon && <small className="m-muted">As an Amazon Associate I earn from qualifying purchases.</small>}
   </article>;
 }
