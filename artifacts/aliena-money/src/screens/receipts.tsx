@@ -62,11 +62,16 @@ export function ReceiptPage() {
     let controls: { stop: () => void } | undefined;
     const start = async () => {
       try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser');
+        const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import('@zxing/browser'), import('@zxing/library')]);
         const video = videoRef.current;
         if (stopped || !video) return;
-        const reader = new BrowserMultiFormatReader();
-        controls = await reader.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, video, (result) => {
+        // Only look for product barcodes, and try harder on each frame. This is faster and much more reliable on phones.
+        const hints = new Map<number, unknown>([
+          [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8]],
+          [DecodeHintType.TRY_HARDER, true],
+        ]);
+        const reader = new BrowserMultiFormatReader(hints as never, { delayBetweenScanAttempts: 150 });
+        controls = await reader.decodeFromConstraints({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } }, video, (result) => {
           if (stopped || !result) return;
           const text = result.getText();
           if (!/^\d{8,14}$/.test(text)) return;
@@ -132,7 +137,7 @@ export function ReceiptPage() {
 
     {barcodeMode && <section className="m-card m-stack">
       <div className="m-row-icon"><span className="m-sheet-icon blue"><ScanBarcode aria-hidden="true" /></span><span><strong>Point your camera at the barcode</strong><small className="m-muted">Hold it steady inside the frame.</small></span></div>
-      {cameraActive ? <><video className="m-video" ref={videoRef} muted playsInline aria-label="Barcode scanner camera" /><button className="m-btn outline" type="button" onClick={() => setCameraActive(false)}>Stop camera</button></>
+      {cameraActive ? <><video className="m-video" ref={videoRef} muted playsInline autoPlay aria-label="Barcode scanner camera" /><button className="m-btn outline" type="button" onClick={() => setCameraActive(false)}>Stop camera</button></>
         : <button className="m-btn navy" type="button" onClick={() => { setCameraMessage(''); setBarcode(''); setCameraActive(true); }}>Open camera</button>}
       <form className="m-search" onSubmit={(event) => { event.preventDefault(); const digits = manualCode.replace(/\D/g, ''); if (digits.length >= 8) { setCameraActive(false); setBarcode(digits); } else setCameraMessage('Type the 8 to 14 numbers under the barcode.'); }}>
         <input value={manualCode} onChange={(event) => setManualCode(event.target.value)} inputMode="numeric" placeholder="Or type the barcode numbers" aria-label="Barcode numbers" maxLength={20} />

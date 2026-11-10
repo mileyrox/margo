@@ -339,7 +339,7 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-app-tile.earn { background: var(--m-blue); }
 .m-app-tile.save { background: #DCDDBF; }
 .m-app-tile.logo { background: #fff; border: 1px solid rgba(90, 15, 26, 0.12); overflow: hidden; }
-.m-app-tile.logo img { width: 34px; height: 34px; object-fit: contain; border-radius: 8px; }
+.m-app-tile.logo img { width: 100%; height: 100%; object-fit: cover; }
 .m-quote { background: var(--m-cream-3); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
 .m-quote small { font-size: 12px; font-weight: 700; color: var(--m-burgundy); }
 .m-quote span { font-family: var(--m-serif); font-style: italic; font-size: 15px; line-height: 1.4; }

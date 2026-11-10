@@ -46,6 +46,15 @@ export async function lookupBarcode(barcode: string): Promise<ProductInput | nul
       };
     } catch { /* try the next database */ }
   }
+  // Fallback for everyday US products the open databases don't have (free tier, about 100 lookups a day).
+  try {
+    const response = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
+    if (response.ok) {
+      const body = await response.json() as { items?: Array<{ title?: string; brand?: string; category?: string; size?: string }> };
+      const item = body.items?.[0];
+      if (item?.title) return { name: item.title, brand: item.brand || "", category: (item.category || "").split(">").pop()?.trim() || "", barcode: code };
+    }
+  } catch { /* not found anywhere */ }
   return null;
 }
 
@@ -67,12 +76,19 @@ const searchUrls: Array<[RegExp, (q: string) => string]> = [
 export function storeLink(retailer: string, productName: string, brand: string) {
   const q = encodeURIComponent(`${brand} ${productName}`.trim());
   const match = searchUrls.find(([pattern]) => pattern.test(retailer));
-  let url = match ? match[1](q) : `https://www.google.com/search?tbm=shop&q=${q}`;
-  if (/amazon/i.test(retailer)) {
-    const tag = process.env.AMAZON_ASSOCIATE_TAG;
-    return tag ? `${url}&tag=${encodeURIComponent(tag)}` : url;
-  }
-  // Skimlinks or Sovrn turn ordinary store links into affiliate links once approved.
+  return affiliate(match ? match[1](q) : `https://www.google.com/search?tbm=shop&q=${q}`);
+}
+
+/** Adds the Amazon tag to Amazon links, and wraps other store links with Skimlinks or Sovrn once approved. */
+export function affiliate(link: string): string {
+  let url = link;
+  try {
+    const parsed = new URL(link);
+    if (/(^|\.)amazon\.com$/i.test(parsed.hostname)) {
+      if (process.env.AMAZON_ASSOCIATE_TAG) parsed.searchParams.set("tag", process.env.AMAZON_ASSOCIATE_TAG);
+      return parsed.toString();
+    }
+  } catch { return link; }
   if (process.env.SKIMLINKS_PUBLISHER_ID) url = `https://go.skimresources.com/?id=${encodeURIComponent(process.env.SKIMLINKS_PUBLISHER_ID)}&url=${encodeURIComponent(url)}`;
   else if (process.env.SOVRN_API_KEY) url = `https://redirect.viglink.com?key=${encodeURIComponent(process.env.SOVRN_API_KEY)}&u=${encodeURIComponent(url)}`;
   return url;
@@ -82,7 +98,7 @@ export function storeLink(retailer: string, productName: string, brand: string) 
 
 const storeBrands = "Target: Up & Up, Good & Gather, Favorite Day, Everspring. Walmart: Great Value, Equate, Mainstays. Kroger: Kroger, Simple Truth, Private Selection. Costco: Kirkland Signature. Amazon: Amazon Basics, Solimo, Amazon Elements. CVS: CVS Health. Walgreens: Walgreens brand. Aldi: Aldi exclusive brands. Trader Joe's: Trader Joe's. Ulta: Ulta Beauty Collection. Sephora: Sephora Collection. Whole Foods: 365 by Whole Foods Market.";
 
-async function askAi(product: ProductInput): Promise<{ category: string; sizeText: string; typicalPrice: number | null; suggestions: Omit<EngineSuggestion, "url" | "upVotes" | "downVotes">[] } | null> {
+export async function askAi(product: ProductInput): Promise<{ category: string; sizeText: string; typicalPrice: number | null; suggestions: Array<Omit<EngineSuggestion, "url" | "upVotes" | "downVotes"> & { productUrl: string }> } | null> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey || !baseUrl) return null;
@@ -110,20 +126,91 @@ Rules:
 Return JSON only:
 {"category": string, "sizeText": string, "typicalPrice": number|null,
  "suggestions": [{"name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "shortReason": string, "differences": string, "confidence": "high"|"medium"|"low"}]}`;
-  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+  // First choice: search the web for "dupe for ..." so the swap is current and links to the exact product page.
+  const searched = await webSearchSwap(product, prompt, baseUrl, apiKey).catch((error) => { console.error("[swap-engine] web search", (error as Error).message); return null; });
+  if (searched) return parseAnswer(searched.text, product, searched.cited);
+  const call = (extra: Record<string, unknown>) => fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
-      model: "gpt-5.6-terra",
-      max_completion_tokens: 1800,
+      model: process.env.SWAP_AI_MODEL || "gpt-5.6-terra",
+      // Reasoning models spend part of this budget thinking, so leave plenty of room for the answer.
+      max_completion_tokens: 8000,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
+      ...extra,
     }),
   });
-  if (!response.ok) throw new Error(`Swap AI request failed with ${response.status}`);
-  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const raw = JSON.parse(payload.choices?.[0]?.message?.content || "{}") as Record<string, unknown>;
+  let response = await call({ reasoning_effort: "low" });
+  if (response.status === 400) response = await call({});
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Swap AI request failed with ${response.status}: ${detail}`);
+  }
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }> };
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  // An empty answer is a failure, not "no swap", so it isn't saved as "nothing found".
+  if (!content) throw new Error(`Swap AI returned no answer (${payload.choices?.[0]?.finish_reason || "unknown"})`);
+  return parseAnswer(content, product, null);
+}
+
+/** Asks the AI with web search turned on. Returns null when web search isn't available, so the plain AI is used instead. */
+async function webSearchSwap(product: ProductInput, basePrompt: string, baseUrl: string, apiKey: string): Promise<{ text: string; cited: string[] } | null> {
+  if (process.env.SWAP_WEB_SEARCH === "off") return null;
+  const name = `${product.brand ? `${product.brand} ` : ""}${product.name}`;
+  const prompt = `${basePrompt}
+
+Before answering, search the web for "dupe for ${name}" and "${name} cheaper alternative", and check the store page of the one you pick.
+In the suggestion object, also include "productUrl": the exact product page where it can be bought (for example a target.com, walmart.com, amazon.com or ulta.com product page), copied from your search results. Never a search page, a blog post or a made-up link. Use "" if you can't find the exact page.
+For "typicalPrice", use the price shown on that store page if you saw one, otherwise null.`;
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/responses`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(90_000),
+    body: JSON.stringify({
+      model: process.env.SWAP_AI_MODEL || "gpt-5.6-terra",
+      tools: [{ type: "web_search" }],
+      reasoning: { effort: "low" },
+      max_output_tokens: 8000,
+      input: prompt,
+    }),
+  });
+  // Web search not offered on this connection: fall back quietly.
+  if ([400, 404, 405, 422, 501].includes(response.status)) { console.warn("[swap-engine] web search unavailable", response.status); return null; }
+  if (!response.ok) throw new Error(`Web search request failed with ${response.status}`);
+  const payload = await response.json() as { output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string; annotations?: Array<{ type?: string; url?: string }> }> }> };
+  let text = "";
+  const cited: string[] = [];
+  for (const item of payload.output ?? []) {
+    if (item.type !== "message") continue;
+    for (const part of item.content ?? []) {
+      if (part.type !== "output_text") continue;
+      text += part.text ?? "";
+      for (const note of part.annotations ?? []) if (note.url) cited.push(note.url);
+    }
+  }
+  return text.trim() ? { text, cited } : null;
+}
+
+/** Keeps a product link only if it's a real store product page the search actually found. */
+function checkedProductUrl(value: unknown, cited: string[] | null): string {
+  if (!cited || typeof value !== "string") return "";
+  let url: URL;
+  try { url = new URL(value.trim()); } catch { return ""; }
+  if (url.protocol !== "https:") return "";
+  if (/\/(s|search|searchpage|catalogsearch)(\/|$)|[?&](q|k|searchterm|keyword|query|ntt)=/i.test(`${url.pathname}${url.search}`)) return "";
+  const host = url.hostname.replace(/^www\./, "");
+  const found = cited.some((link) => { try { const c = new URL(link); return c.hostname.replace(/^www\./, "") === host && (c.pathname === url.pathname || c.href.startsWith(url.href.split("?")[0])); } catch { return false; } });
+  // It must look like a product page (not a blog or list), and the search must have seen this page or this store.
+  const productPage = /\/(dp|gp\/product|p|ip|product|products|prd)\/|\/A-\d+|\/pdp\/|\.html?$/i.test(url.pathname) && !/\/(blog|blogs|story|stories|article|articles|news|best-|list)/i.test(url.pathname);
+  const sameStore = cited.some((link) => { try { return new URL(link).hostname.replace(/^www\./, "") === host; } catch { return false; } });
+  return productPage && (found || sameStore) ? url.toString().split("#")[0] : "";
+}
+
+function parseAnswer(content: string, product: ProductInput, cited: string[] | null) {
+  const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
+  const raw = JSON.parse(json || "{}") as Record<string, unknown>;
   const price = (value: unknown) => { const n = Number(value); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
   const list = Array.isArray(raw.suggestions) ? raw.suggestions as Record<string, unknown>[] : [];
   const originalPrice = product.price ?? price(raw.typicalPrice);
@@ -142,6 +229,7 @@ Return JSON only:
       shortReason: clean(String(item.shortReason || ""), 40).toLowerCase(),
       differences: clean(String(item.differences || ""), 200),
       confidence: (["high", "medium", "low"].includes(String(item.confidence)) ? item.confidence : "low") as EngineSuggestion["confidence"],
+      productUrl: checkedProductUrl(item.productUrl, cited),
     })).filter((item) => item.name && item.whySimilar.length
       && item.confidence !== "low"
       && !(originalPrice && item.typicalPrice && item.typicalPrice >= originalPrice)),
@@ -170,7 +258,9 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   const brand = clean(input.brand, 120);
   const key = productKey(name, brand);
   const [existing] = await db.select().from(swapLookupsTable).where(eq(swapLookupsTable.productKey, key)).limit(1);
-  const fresh = existing && existing.status !== "error" && Date.now() - existing.updatedAt.getTime() < CACHE_DAYS * 86_400_000;
+  // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
+  const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
+  const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
   if (existing && (fresh || existing.source === "admin")) return existing;
   if (inflight.has(key)) return inflight.get(key)!;
   if (!(await underDailyLimit(userId))) return existing ?? null;
@@ -178,13 +268,14 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   const job = (async () => {
     let status: SwapLookup["status"] = "ready";
     let result: Awaited<ReturnType<typeof askAi>> = null;
-    try { result = await askAi({ ...input, name, brand }); } catch { status = "error"; }
+    try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
-    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map((item) => ({
+    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, ...item }) => ({
       ...item,
       // Amazon only allows prices that come from its own API, so never show a typical price for Amazon.
       typicalPrice: /amazon/i.test(item.retailer) ? null : item.typicalPrice,
-      url: storeLink(item.retailer, item.name, item.brand),
+      // The exact product page when web search found one, otherwise that store's search for it.
+      url: productUrl ? affiliate(productUrl) : storeLink(item.retailer, item.name, item.brand),
       upVotes: 0,
       downVotes: 0,
     }));

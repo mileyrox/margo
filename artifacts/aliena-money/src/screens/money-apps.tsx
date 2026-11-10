@@ -8,24 +8,25 @@ import { money } from '@/lib/format';
  * Apps Miley has used herself. To add a referral link, replace `url`.
  * Fill in `helped` with a sentence in your own words and it shows as "How it helped me".
  */
-type MoneyApp = { name: string; initial: string; domain: string; kind: string; tag: 'Earn' | 'Save'; value: string; note: string; helped: string; url: string };
+type MoneyApp = { name: string; logo: string; initial: string; kind: string; tag: 'Earn' | 'Save'; value: string; note: string; helped: string; url: string };
 
 export const moneyApps: MoneyApp[] = [
-  { name: 'Instawork', domain: 'instawork.com', initial: 'I', kind: 'Flexible hourly shifts', tag: 'Earn', value: 'Hourly pay, set per shift', note: 'Shifts vary by city', helped: '', url: 'https://www.instawork.com/' },
-  { name: 'Qwick', domain: 'qwick.com', initial: 'Q', kind: 'Hospitality shifts', tag: 'Earn', value: 'Hourly pay, set per shift', note: 'Mostly food and bev', helped: '', url: 'https://www.qwick.com/' },
-  { name: 'Instacart Shopper', domain: 'instacart.com', initial: 'C', kind: 'Grocery shopping and delivery', tag: 'Earn', value: 'Per order, plus tips', note: 'Gas and car costs add up', helped: '', url: 'https://shoppers.instacart.com/' },
-  { name: 'Kale', domain: 'kale.com', initial: 'K', kind: 'Brands pay you for short videos', tag: 'Earn', value: 'Paid brand deals and prizes', note: 'No follower minimum', helped: '', url: 'https://www.kale.com/' },
-  { name: 'User Interviews', domain: 'userinterviews.com', initial: 'U', kind: 'Paid research studies', tag: 'Earn', value: 'Set by each study', note: "Invites aren't guaranteed", helped: '', url: 'https://www.userinterviews.com/' },
-  { name: 'Lemonade Pet', domain: 'lemonade.com', initial: 'L', kind: 'Pet insurance', tag: 'Save', value: 'Fewer surprise vet bills', note: 'Read the waiting periods', helped: '', url: 'https://www.lemonade.com/pet' },
-  { name: 'Kayak', domain: 'kayak.com', initial: 'K', kind: 'Compare flights and hotels', tag: 'Save', value: 'Price alerts on trips', note: 'Prices change fast', helped: '', url: 'https://www.kayak.com/' },
+  { name: 'Instawork', logo: 'instawork', initial: 'I', kind: 'Flexible hourly shifts', tag: 'Earn', value: 'Hourly pay, set per shift', note: 'Shifts vary by city', helped: '', url: 'https://app.instawork.com/worker?ref_code=m99oln6&utm_source=refer-copy-button' },
+  { name: 'Qwick', logo: 'qwick', initial: 'Q', kind: 'Hospitality shifts', tag: 'Earn', value: 'Hourly pay, set per shift', note: 'Mostly food and bev', helped: '', url: 'https://www.qwick.com/' },
+  { name: 'Instacart Shopper', logo: 'instacart', initial: 'C', kind: 'Grocery shopping and delivery', tag: 'Earn', value: 'Per order, plus tips', note: 'Gas and car costs add up', helped: '', url: 'https://shoppers.instacart.com/?referral=MILEYW34194&utm_medium=copy&utm_source=instacart_referral&utm_campaign=supply_referral' },
+  { name: 'Kale', logo: 'kale', initial: 'K', kind: 'Brands pay you for short videos', tag: 'Earn', value: 'Paid brand deals and prizes', note: 'No follower minimum', helped: '', url: 'https://kalecard.com/?ref=KA897C1C' },
+  { name: 'Focus Group', logo: 'focus-group', initial: 'F', kind: 'Paid research studies', tag: 'Earn', value: 'Set by each study', note: "Invites aren't guaranteed", helped: '', url: 'https://www.focusgroup.com/Account/Join?ref=_5m_Oq2mlR5XfEGH46osKQ~~&aid=16' },
+  { name: 'Lemonade Pet', logo: 'lemonade', initial: 'L', kind: 'Pet insurance', tag: 'Save', value: 'Fewer surprise vet bills', note: 'Read the waiting periods', helped: '', url: 'https://lemonade.com/r/lanetrognitz' },
+  { name: 'TickPick', logo: 'tickpick', initial: 'T', kind: 'Event tickets with no buyer fees', tag: 'Save', value: 'The price you see is the price you pay', note: 'Compare the total, not just the ticket', helped: '', url: 'https://www.tickpick.com/' },
+  { name: 'Kayak', logo: 'kayak', initial: 'K', kind: 'Compare flights and hotels', tag: 'Save', value: 'Price alerts on trips', note: 'Prices change fast', helped: '', url: 'https://www.kayak.com/' },
 ];
 
-/** The company's own logo (its site icon), with the first letter as a fallback if it can't load. */
+/** The company's logo from public/logos, with the first letter as a fallback if it can't load. */
 function AppLogo({ app }: { app: MoneyApp }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <span className={`m-app-tile ${app.tag === 'Earn' ? 'earn' : 'save'}`} aria-hidden="true">{app.initial}</span>;
   return <span className="m-app-tile logo" aria-hidden="true">
-    <img src={`https://www.google.com/s2/favicons?domain=${app.domain}&sz=128`} alt="" loading="lazy" onError={() => setFailed(true)} onLoad={(event) => { if (event.currentTarget.naturalWidth <= 16) setFailed(true); }} />
+    <img src={`${import.meta.env.BASE_URL}logos/${app.logo}.png`} alt="" loading="lazy" onError={() => setFailed(true)} />
   </span>;
 }
 

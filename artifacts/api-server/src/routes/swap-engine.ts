@@ -49,13 +49,14 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
     let product = query ? { name: query, retailer, price: price > 0 ? price : null } : null;
     if (barcode) {
       const [known] = await db.select().from(swapLookupsTable).where(eq(swapLookupsTable.barcode, barcode.replace(/\D/g, ""))).limit(1);
-       if (known) { await rememberForUser(req.dbUser.id, known.id, "barcode"); res.json(serialize(known)); return; }
-      const found = await lookupBarcode(barcode);
+      if (known?.status === "ready" && known.suggestions.length) { await rememberForUser(req.dbUser.id, known.id, "barcode"); res.json(serialize(known)); return; }
+      const found = known ? { name: known.productName, brand: known.brand, category: known.category, barcode: known.barcode ?? barcode } : await lookupBarcode(barcode);
       if (!found) { res.status(404).json({ error: "I couldn't find that barcode yet. Try typing the product name instead." }); return; }
       product = { ...found, retailer, price: price > 0 ? price : null } as typeof product & { barcode: string };
     }
     const result = await findSwaps(product!, req.dbUser.id);
-    if (!result) { res.status(503).json({ error: "Swap search is busy right now. Try again in a minute." }); return; }
+    if (!result) { res.status(503).json({ error: "You've hit today's swap search limit, or swap search is busy. Try again later." }); return; }
+    if (result.status === "error") { res.status(502).json({ error: "The AI couldn't answer just now. Try again in a minute. If it keeps happening, check the Swap engine card in Settings." }); return; }
     if (result.status === "ready" && result.suggestions.length) await rememberForUser(req.dbUser.id, result.id, barcode ? "barcode" : "search");
     res.json(serialize(result));
   } catch (error) {
@@ -119,10 +120,11 @@ router.get("/admin/swap-engine-status", async (req, res): Promise<void> => {
         method: "POST",
         headers: { Authorization: `Bearer ${process.env.AI_INTEGRATIONS_OPENAI_API_KEY}`, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(20_000),
-        body: JSON.stringify({ model: "gpt-5.6-terra", max_completion_tokens: 20, messages: [{ role: "user", content: "Reply with OK." }] }),
+        body: JSON.stringify({ model: process.env.SWAP_AI_MODEL || "gpt-5.6-terra", max_completion_tokens: 2000, messages: [{ role: "user", content: "Reply with the word OK." }] }),
       });
+      const answer = response.ok ? ((await response.json()) as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content?.trim() : "";
       checks.push(response.ok
-        ? { name: "AI connection", ok: true, detail: "Working" }
+        ? answer ? { name: "AI connection", ok: true, detail: "Working" } : { name: "AI connection", ok: false, detail: "The AI connected but sent back an empty answer. Tell Claude." }
         : { name: "AI connection", ok: false, detail: response.status === 401 || response.status === 403 ? "The AI integration isn't approved for this app. In Replit, approve the OpenAI (Replit managed) integration." : response.status === 402 || response.status === 429 ? "Out of AI credits or rate limited. Check your Replit credits." : `The AI service answered with an error (${response.status}).` });
     } catch {
       checks.push({ name: "AI connection", ok: false, detail: "Couldn't reach the AI service. Try again in a minute." });
