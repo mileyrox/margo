@@ -84,26 +84,22 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
   const toBrand = item.brand || item.name;
   const store = amazon ? 'Amazon' : item.retailer || 'the store';
   return <article className="m-plinth-swap">
-    <div className="m-plinth-head">
-      <strong>{savings != null && savings > 0.25 ? `Save ${money(savings)}` : item.matchType}</strong>
-      <span>{reason}</span>
-    </div>
     <div className="m-plinth-row">
       <div className="m-plinth">
         <Photo imageUrl={data.imageUrl} brand={fromBrand} label={`${fromBrand} ${fromName}`} />
         <span className="m-plinth-top" aria-hidden="true" />
         <span className="m-plinth-base">{data.price ? <s>{cents(data.price)}</s> : <small>You buy</small>}</span>
       </div>
+      {savings != null && savings > 0.25
+        ? <span className="m-plinth-save"><small>Save</small><b>{money(savings)}</b></span>
+        : <span className="m-plinth-save word"><b>{item.matchType === 'Dupe' ? 'Dupe' : 'Costs less'}</b></span>}
       <a className="m-plinth swap" href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Shop ${toBrand} ${toName} on ${store}`}>
         <Photo imageUrl={item.imageUrl} brand={toBrand} label={`${toBrand} ${toName}`} swap />
         <span className="m-plinth-top" aria-hidden="true" />
         <span className="m-plinth-base">{item.typicalPrice != null ? <b>{amazon ? '~' : ''}{cents(item.typicalPrice)}</b> : <small>See price</small>}</span>
       </a>
     </div>
-    <div className="m-plinth-names">
-      <span><strong>{fromBrand}</strong>{data.productName !== fromBrand ? fromName : data.sizeText}</span>
-      <span><strong>{toBrand}</strong>{toName}</span>
-    </div>
+    <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
       <details>

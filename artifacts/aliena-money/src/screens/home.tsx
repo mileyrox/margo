@@ -27,11 +27,11 @@ const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(t
 
 /** Darker as a budget fills up; burgundy once it's over. */
 function bubbleShade(used: number): [string, string] {
-  if (used > 1) return ['#5A0F1A', '#FBF6E4'];
-  if (used >= 0.85) return ['#0B1F4B', '#FBF6E4'];
-  if (used >= 0.6) return ['#3D4E78', '#FBF6E4'];
-  if (used >= 0.35) return ['#9AA6C4', '#0B1F4B'];
-  return ['#E3E7F0', '#0B1F4B'];
+  if (used > 1) return ['#5A0F1A', '#FFFFFF'];
+  if (used >= 0.85) return ['#0B1F4B', '#FFFFFF'];
+  if (used >= 0.6) return ['#7F93C9', '#0B1F4B'];
+  if (used >= 0.35) return ['#B9C6E6', '#0B1F4B'];
+  return ['#DDE4F4', '#0B1F4B'];
 }
 
 export function HomePage() {
