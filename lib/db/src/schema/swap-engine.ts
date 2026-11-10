@@ -9,6 +9,8 @@ export type EngineSuggestion = {
   sizeText: string;
   typicalPrice: number | null;
   whySimilar: string[];
+  /** 2 to 4 words shown under the arrow, like "same 6 rolls". */
+  shortReason?: string;
   differences: string;
   confidence: "high" | "medium" | "low";
   url: string;

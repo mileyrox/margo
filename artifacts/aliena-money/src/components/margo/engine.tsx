@@ -7,7 +7,7 @@ import { cents, messageOf } from '@/lib/format';
 
 export type EngineSuggestion = {
   index: number; name: string; brand: string; retailer: string; matchType: 'Dupe' | 'Cheaper option'; sizeText: string;
-  typicalPrice: number | null; whySimilar: string[]; differences: string; confidence: 'high' | 'medium' | 'low'; url: string;
+  typicalPrice: number | null; whySimilar: string[]; shortReason?: string; differences: string; confidence: 'high' | 'medium' | 'low'; url: string;
   imageUrl?: string | null; upVotes: number; downVotes: number;
 };
 export type EngineLookup = {
@@ -63,50 +63,59 @@ function Cutout({ imageUrl, art, band, label }: { imageUrl?: string | null; art:
   return <ProductArt art={art} band={band} width={96} label={label} />;
 }
 
+/** One swap on a wooden shelf: what you buy on the left, the swap on the right (tap it to open the store). */
 export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRemove?: () => void }) {
   const qc = useQueryClient();
   const [data, setData] = useState(lookup);
   const [voted, setVoted] = useState<1 | -1 | null>(null);
   const art = artFor(`${data.category} ${data.productName}`);
-  const title = `${data.brand ? `${data.brand} ` : ''}${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
   const item = data.suggestions[0];
   const vote = async (value: 1 | -1) => {
     if (!item) return;
     setVoted(value);
     try {
       const response = await fetch(`/api/swaps/lookups/${encodeURIComponent(data.id)}/vote`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: item.index, vote: value }) });
-      if (response.ok) { setData(await response.json()); void qc.invalidateQueries({ queryKey: ['my-swaps'] }); }
+      if (response.ok) setData(await response.json());
+      if (value === -1) onRemove?.();
+      void qc.invalidateQueries({ queryKey: ['my-swaps'] });
     } catch { /* a missed vote is fine */ }
   };
-  if (!item) return <div className="m-card m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I didn't find a swap I'm confident in for ${title}. It may already be a good deal.`}</div>;
+  const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
+  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I didn't find a swap I'm confident in for ${data.brand ? `${data.brand} ` : ''}${fromName}. It may already be a good deal.`}</p>;
   const amazon = /amazon/i.test(item.retailer);
-  const swapTitle = `${item.brand ? `${item.brand} ` : ''}${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
+  const toName = `${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
   const savings = data.price && item.typicalPrice != null ? data.price - item.typicalPrice : null;
-  return <article className="m-card m-swapcard">
-    <div className="m-swapcard-art">
-      <Cutout imageUrl={data.imageUrl} art={art} band={bandFor(data.productName)} label={title} />
-      <Cutout imageUrl={item.imageUrl} art={art} band={bandFor(item.name, true)} label={swapTitle} />
-    </div>
-    <div className="m-swapcard-board" aria-hidden="true" />
-    <div className="m-swapcard-names">
-      <span><strong>{title}</strong>{data.price ? <s>{cents(data.price)}</s> : <small className="m-muted">You buy</small>}</span>
-      <span><strong>{swapTitle}</strong>{!amazon && item.typicalPrice != null ? <b>About {cents(item.typicalPrice)}</b> : <small className="m-muted">{item.matchType}</small>}</span>
-    </div>
-    <div className="m-swapcard-foot">
-      {savings != null && savings > 0.25 ? <span className="m-save-tag">Save {cents(savings)}</span> : <span className="m-muted small">{item.matchType}</span>}
-      <a className="m-buy" href={item.url} target="_blank" rel="noreferrer sponsored">{amazon ? 'Check price on Amazon' : `Buy${item.retailer ? ` at ${item.retailer}` : ''}`}<ArrowUpRight aria-hidden="true" /></a>
-    </div>
-    <details className="m-why-toggle">
-      <summary>Why it's similar</summary>
-      <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>
-      {item.differences && <small className="m-muted">Difference: {item.differences}</small>}
-      <div className="m-engine-actions">
-        <span className="m-muted small">Good swap?</span>
-        <button type="button" className={`m-icon-button ${voted === 1 ? 'on' : ''}`} aria-label="Good swap" aria-pressed={voted === 1} disabled={voted !== null} onClick={() => void vote(1)}><ThumbsUp aria-hidden="true" /></button>
-        <button type="button" className={`m-icon-button ${voted === -1 ? 'on' : ''}`} aria-label="Not a good swap" aria-pressed={voted === -1} disabled={voted !== null} onClick={() => void vote(-1)}><ThumbsDown aria-hidden="true" /></button>
-        {onRemove && <button type="button" className="m-link-button" onClick={onRemove}>Remove</button>}
+  const reason = item.shortReason || (item.matchType === 'Dupe' ? 'dupe' : 'cheaper option');
+  const storeLabel = `${item.brand || item.name}${item.retailer ? ` at ${item.retailer}` : ''}`;
+  return <article className="m-shelf-swap">
+    <div className="m-shelf-row">
+      <div className="m-shelf-item">
+        <span className="m-shelf-brand">{data.brand || data.productName}</span>
+        <Cutout imageUrl={data.imageUrl} art={art} band={bandFor(data.productName)} label={`${data.brand} ${fromName}`} />
       </div>
-      {amazon && <small className="m-muted">As an Amazon Associate I earn from qualifying purchases.</small>}
-    </details>
+      <div className="m-shelf-mid">
+        {savings != null && savings > 0.25 ? <span className="m-shelf-save">Save {cents(savings)}</span> : <span className="m-shelf-save">{item.matchType}</span>}
+        <svg aria-hidden="true" width="100" height="22" viewBox="0 0 108 24"><path d="M4 13 C 30 8, 60 16, 94 11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><path d="M84 3 L 100 11 L 86 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="m-shelf-why">{reason}</span>
+      </div>
+      <a className="m-shelf-item link" href={item.url} target="_blank" rel="noreferrer sponsored" aria-label={`Open ${storeLabel}`}>
+        <span className="m-shelf-brand"><u>{item.brand || item.name}</u> ↗</span>
+        <Cutout imageUrl={item.imageUrl} art={art} band={bandFor(item.name, true)} label={`${item.brand} ${toName}`} />
+      </a>
+    </div>
+    <div className="m-wood" aria-hidden="true"><i /><b /><s /></div>
+    <div className="m-shelf-names">
+      <span>{fromName}{data.price ? <> <s>{cents(data.price)}</s></> : null}</span>
+      <a href={item.url} target="_blank" rel="noreferrer sponsored">{toName}{!amazon && item.typicalPrice != null ? <> <b>~{cents(item.typicalPrice)}</b></> : amazon ? <> <b>check price</b></> : null}</a>
+    </div>
+    <div className="m-shelf-more">
+      <details>
+        <summary>Why it's similar</summary>
+        <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>
+        {item.differences && <small className="m-muted">Difference: {item.differences}</small>}
+      </details>
+      {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)}>Not a match</button> : null}
+    </div>
+    {amazon && <small className="m-muted">As an Amazon Associate I earn from qualifying purchases.</small>}
   </article>;
 }

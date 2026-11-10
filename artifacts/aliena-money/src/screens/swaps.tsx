@@ -37,12 +37,7 @@ export function SwapsPage() {
     await qc.invalidateQueries({ queryKey: ['my-swaps'] });
   };
   return <div className="m-page">
-    <PageTitle title="Swaps" action={swaps.length ? <span className="m-muted small">{swaps.length} found</span> : undefined} />
-    {swaps.length > 0 && perShop > 0 && <section className="m-burgundy-card">
-      <span>If you made every swap below</span>
-      <strong>{cents(perShop)} less</strong>
-      <div><span>each time you buy them all</span></div>
-    </section>}
+    <PageTitle title="Your swaps" subtitle={swaps.length ? `${swaps.length} ${swaps.length === 1 ? 'swap' : 'swaps'}${perShop > 0 ? ` · about ${cents(perShop)} less per trip` : ''}` : undefined} />
     <SwapSearch />
     {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
       : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
@@ -54,7 +49,7 @@ export function SwapsPage() {
         <Link href="/receipts?scan=receipt" className="m-btn burgundy"><Upload aria-hidden="true" />Scan a receipt</Link>
         <Link href="/receipts?scan=barcode" className="m-btn outline"><ScanBarcode aria-hidden="true" />Scan a barcode</Link>
       </div>}
-    <p className="m-fine">Swaps are suggested by Margo from product facts. Prices change, so check the label and price before you buy. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
+    <p className="m-fine">Tap the swap to open the store. Swaps come from product facts; prices change, so check the label and price. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
   </div>;
 }
 
