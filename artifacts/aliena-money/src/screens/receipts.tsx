@@ -154,7 +154,7 @@ export function ReceiptPage() {
       {barcodeBusy && <small className="m-muted" role="status">Looking up this product…</small>}
       {cameraMessage && <small className="m-muted" role="status">{cameraMessage}</small>}
     </section>}
-    {barcodeMode && barcodeResult && <EngineResult lookup={barcodeResult} />}
+    {barcodeMode && barcodeResult && <><EngineResult lookup={barcodeResult} /><p className="m-fine">Product details from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>.</p></>}
 
     <form className="m-card m-stack" onSubmit={saveReceipt}>
       <h2 className="m-h2">{scanResult ? 'Check what I found' : 'Start with a photo'}</h2>

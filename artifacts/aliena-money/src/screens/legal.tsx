@@ -172,6 +172,8 @@ export function DisclosuresPage() {
       <li><strong>Money apps are ones we've used.</strong> Every app on the Money apps page has been used by Margo's founder. Some links there are referral links that pay us a bonus.</li>
       <li><strong>Amazon.</strong> As an Amazon Associate I earn from qualifying purchases.</li>
     </ul>
+    <h2>Where swap information comes from</h2>
+    <p>Margo suggests swaps by comparing product facts like type, size and key ingredients, using AI and public product data. "Dupe" means two products share key features, not that they are identical or made by the same company. Brand names are used only to identify products and belong to their owners. Barcode product details come from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>.</p>
     <p>Questions? Email <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a>.</p>
   </LegalPage>;
 }
