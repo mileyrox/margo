@@ -99,6 +99,9 @@ router.post("/plaid/link-token", async (req, res): Promise<void> => {
       products: [Products.Transactions],
       country_codes: [CountryCode.Us],
       language: "en",
+      // Lets big banks (Chase, Bank of America, Wells Fargo...) send people back to Margo after they sign in.
+      // Must exactly match an Allowed redirect URI in the Plaid Dashboard, e.g. https://your-app.replit.app/plaid-oauth
+      ...(process.env.PLAID_REDIRECT_URI ? { redirect_uri: process.env.PLAID_REDIRECT_URI } : {}),
     });
     res.json({ linkToken: response.data.link_token });
   } catch (error) {

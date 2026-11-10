@@ -24,7 +24,7 @@ const clerkAppearance = {
   options: {
     logoPlacement: 'inside' as const,
     logoLinkUrl: basePath || '/',
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/margo-wordmark.png`,
   },
   variables: {
     colorPrimary: '#5A0F1A', colorForeground: '#0B1F4B',
@@ -49,7 +49,7 @@ const clerkAppearance = {
     formFieldSuccessText: { color: '#6D712E' },
     alertText: { color: '#5A0F1A' },
     logoBox: { justifyContent: 'center' },
-    logoImage: { height: '56px' },
+    logoImage: { height: '44px', width: 'auto' },
     socialButtonsBlockButton: { borderColor: '#E8DFC4', background: '#FFFFFF' },
     formButtonPrimary: { background: '#5A0F1A', color: '#FFFFFF' },
     formFieldInput: { background: '#FBF6E4', color: '#0B1F4B' },

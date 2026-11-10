@@ -34,7 +34,7 @@ export function SwapsPage() {
     return sum + (lookup.price && best?.typicalPrice != null ? Math.max(0, lookup.price - best.typicalPrice) : 0);
   }, 0);
   const remove = async (id: string) => {
-    await fetch(`/api/swaps/mine/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
+    await customFetch(`/api/swaps/mine/${encodeURIComponent(id)}`, { method: 'DELETE', responseType: 'text' }).catch(() => undefined);
     await qc.invalidateQueries({ queryKey: ['my-swaps'] });
   };
   return <div className="m-page">

@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser, useClerk } from '@clerk/react';
 import {
@@ -23,6 +23,41 @@ export const keepOptions = ['Morning coffee', 'Name-brand favorites', 'Organic p
 
 type BudgetCategory = BudgetPlanInput['categoryBudgets'][number]['category'];
 
+const OAUTH_TOKEN_KEY = 'margo-plaid-link-token';
+const OAUTH_RETURN_KEY = 'margo-plaid-return-to';
+const saveForOAuth = (token: string) => { try { window.localStorage.setItem(OAUTH_TOKEN_KEY, token); window.localStorage.setItem(OAUTH_RETURN_KEY, window.location.pathname); } catch { /* fine */ } };
+const clearOAuth = () => { try { window.localStorage.removeItem(OAUTH_TOKEN_KEY); } catch { /* fine */ } };
+
+async function finishBankConnection(publicToken: string | null, institution: { institution_id?: string | null; name?: string | null } | null | undefined) {
+  const linked = await customFetch<{ itemId: string }>('/api/plaid/exchange', { method: 'POST', body: JSON.stringify({ publicToken, institutionId: institution?.institution_id, institutionName: institution?.name }) });
+  if (!linked.itemId) throw new Error('Could not connect that bank.');
+  await customFetch('/api/plaid/sync', { method: 'POST', body: JSON.stringify({ itemId: linked.itemId }) });
+}
+
+/** Big banks send people here after they sign in on the bank's own site. Link picks up where it left off. */
+export function PlaidOAuthPage() {
+  const qc = useQueryClient();
+  const [, setLocation] = useLocation();
+  const [message, setMessage] = useState('Finishing your bank connection…');
+  const token = (() => { try { return window.localStorage.getItem(OAUTH_TOKEN_KEY); } catch { return null; } })();
+  const returnTo = (() => { try { return window.localStorage.getItem(OAUTH_RETURN_KEY) || '/settings'; } catch { return '/settings'; } })();
+  const { open, ready } = usePlaidLink({
+    token,
+    receivedRedirectUri: window.location.href,
+    onSuccess: async (publicToken, metadata) => {
+      try {
+        await finishBankConnection(publicToken, metadata.institution);
+        clearOAuth();
+        await Promise.all([qc.invalidateQueries({ queryKey: ['plaid-items'] }), qc.invalidateQueries({ queryKey: getGetTransactionsQueryKey() }), qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() })]);
+        setLocation(returnTo);
+      } catch (error) { setMessage(messageOf(error)); }
+    },
+    onExit: () => { clearOAuth(); setLocation(returnTo); },
+  });
+  useEffect(() => { if (token && ready) open(); }, [token, ready, open]);
+  return <div className="m-page"><PageTitle title="Connecting your bank" /><div className="m-card">{token ? message : <>That connection expired. <Link href="/settings">Try again from Settings</Link>.</>}</div></div>;
+}
+
 export function BankConnect({ onConnected, compact = false }: { onConnected?: () => void; compact?: boolean }) {
   const qc = useQueryClient();
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -41,9 +76,8 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
     onSuccess: async (publicToken, metadata) => {
       setBusy(true); setMessage('');
       try {
-        const linked = await customFetch<{ itemId: string }>('/api/plaid/exchange', { method: 'POST', body: JSON.stringify({ publicToken, institutionId: metadata.institution?.institution_id, institutionName: metadata.institution?.name }) });
-        if (!linked.itemId) throw new Error('Could not connect that bank.');
-        await customFetch('/api/plaid/sync', { method: 'POST', body: JSON.stringify({ itemId: linked.itemId }) });
+        await finishBankConnection(publicToken, metadata.institution);
+        clearOAuth();
         await invalidateMoney();
         setMessage('Your bank is connected.');
         onConnected?.();
@@ -57,6 +91,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
     try {
       const result = await customFetch<{ linkToken: string }>('/api/plaid/link-token', { method: 'POST' });
       if (!result.linkToken) throw new Error('Could not start a bank connection.');
+      saveForOAuth(result.linkToken);
       setLinkToken(result.linkToken);
     } catch (error) { setMessage(messageOf(error)); setBusy(false); }
   };
@@ -126,9 +161,7 @@ export function SettingsPage() {
   const engineStatus = useQuery({
     queryKey: ['swap-engine-status'], enabled: Boolean(adminCatalog.data), retry: false, staleTime: 60_000,
     queryFn: async () => {
-      const response = await fetch('/api/admin/swap-engine-status', { credentials: 'include' });
-      if (!response.ok) throw new Error('Could not check the swap engine.');
-      return response.json() as Promise<{ ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }>;
+      return customFetch<{ ok: boolean; checks: Array<{ name: string; ok: boolean; detail: string }> }>('/api/admin/swap-engine-status');
     },
   });
 
