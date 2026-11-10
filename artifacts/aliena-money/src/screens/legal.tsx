@@ -12,8 +12,8 @@ export const company = {
   state: '[State]',
   venue: '[County, State]',
   address: '[Mailing address]',
-  privacyEmail: '[Privacy email]',
-  supportEmail: '[Support email]',
+  privacyEmail: 'miley@margomoney.co',
+  supportEmail: 'miley@margomoney.co',
   effectiveDate: '[Effective date]',
   backupDays: 30,
 };
