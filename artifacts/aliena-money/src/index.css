@@ -439,3 +439,21 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-legal-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--m-cream-2); color: var(--m-navy); text-decoration: none; font-size: 15px; }
 .m-legal-row:last-child { border-bottom: none; }
 .m-legal-row svg { width: 16px; height: 16px; color: var(--m-ink-2); }
+
+/* ---------- Swap engine ---------- */
+.m-search { display: flex; align-items: center; gap: 8px; background: var(--m-white); border: 1.5px solid var(--m-navy); border-radius: 16px; padding: 4px 4px 4px 14px; }
+.m-search > svg { width: 18px; height: 18px; color: var(--m-ink-2); }
+.m-search input { flex: 1; min-width: 0; min-height: 44px; border: none; outline: none; background: transparent; font-size: 15px; }
+.m-engine { display: flex; flex-direction: column; gap: 12px; }
+.m-engine-head, .m-engine-top { display: flex; gap: 12px; align-items: center; }
+.m-engine-head > span, .m-engine-top > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-engine-head strong, .m-engine-top strong { font-size: 15px; line-height: 1.25; }
+.m-engine-head small, .m-engine-top small { font-size: 13px; }
+.m-engine-swap { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--m-cream-2); }
+.m-engine-label { font-size: 12px; }
+.m-engine-label b { color: var(--m-burgundy); }
+.m-why { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.m-engine-actions { display: flex; align-items: center; gap: 4px; }
+.m-engine-actions .m-btn { margin-right: auto; }
+.m-icon-button.on { background: var(--m-cream-3); color: var(--m-navy); }
+.m-why, .m-legal ul { list-style: disc; }

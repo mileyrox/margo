@@ -7,6 +7,7 @@ import { BackLink, EmptyState, ErrorState, PageTitle, Skeleton } from '@/compone
 import { ProductArt } from '@/components/margo/art';
 import { bandFor, fetchSwapCatalog, rowArt, rowLabel, rowSavings, type SwapCatalogRow } from '@/lib/swap-catalog';
 import { useProfileAnswers } from '@/lib/profile';
+import { EngineResult, SwapSearch, fetchMySwaps } from '@/components/margo/engine';
 import { cents, messageOf, money, parseList } from '@/lib/format';
 
 const productName = (brand: string, product: string) => (brand ? `${brand} ${product}` : product);
@@ -26,6 +27,7 @@ function useSwapLists() {
 export function SwapsPage() {
   const catalog = useQuery({ queryKey: ['swap-catalog'], queryFn: () => fetchSwapCatalog() });
   const comparisons = useGetProductComparisons();
+  const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: (query) => (query.state.data?.length ? false : 20_000) });
   const { saved, switched } = useSwapLists();
   const [tab, setTab] = useState<'for-you' | 'saved' | 'switched'>('for-you');
   const rows = useMemo(() => (catalog.data || []).filter((row) =>
@@ -41,6 +43,12 @@ export function SwapsPage() {
       <strong>{yearly > 0 ? `${money(yearly)} a year` : `${switched.length} ${switched.length === 1 ? 'swap' : 'swaps'} made`}</strong>
       <div><span>{switched.length ? `${cents(switchedSavings)} less each time you shop` : 'Tap "I switched" on a swap to track it'}</span><span>{switched.length} switched</span></div>
     </section>
+    <SwapSearch />
+    {mine.data?.length ? <section className="m-section">
+      <div className="m-section-head"><h2>From your receipts</h2><span>{mine.data.length} {mine.data.length === 1 ? "product" : "products"}</span></div>
+      {mine.data.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} />)}
+    </section> : null}
+    <div className="m-section-head"><h2>Margo's picks</h2></div>
     <div className="m-chips" role="group" aria-label="Show swaps">
       {([['for-you', 'For you'], ['saved', `Saved${saved.length ? ` (${saved.length})` : ''}`], ['switched', `Switched${switched.length ? ` (${switched.length})` : ''}`]] as const).map(([value, label]) =>
         <button key={value} className={`m-chip ${tab === value ? 'on' : ''}`} aria-pressed={tab === value} onClick={() => setTab(value)}>{label}</button>)}
@@ -52,7 +60,7 @@ export function SwapsPage() {
         title={tab === 'saved' ? 'Nothing saved yet' : tab === 'switched' ? 'No switches yet' : 'No swaps ready yet'}
         body={tab === 'for-you' ? "I'll show swaps here once both products have prices." : 'Open a swap and tap the bookmark or "I switched" to keep track.'} /></div>}
     <Link href="/receipts?scan=receipt" className="m-btn outline"><Upload aria-hidden="true" />Scan a receipt for more swaps</Link>
-    <p className="m-fine">Prices change. Check the package and price before you buy.</p>
+    <p className="m-fine">Swaps are suggested by Margo from product facts. Prices change, so check the label and price before you buy. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>
   </div>;
 }
 

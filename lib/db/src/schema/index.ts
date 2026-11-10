@@ -23,4 +23,4 @@ export * from "./budget-plan";
 export * from "./swap-profile";
 export * from "./swap-catalog";
 export * from "./purchase-intelligence";
-export * from "./plaid";
+export * from "./plaid";export * from "./swap-engine";

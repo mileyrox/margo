@@ -1,3 +1,4 @@
+import { findSwapsInBackground } from "../lib/swap-engine";
 import {
   CreateReceiptBody,
   CreateReceiptResponse,
@@ -702,6 +703,10 @@ router.post("/receipts", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Could not save receipt" });
     return;
   }
+  // Look up cheaper swaps for every item in the background so they're ready on the Swaps tab.
+  findSwapsInBackground(parsed.data.items.map((item) => ({
+    name: item.productName, brand: item.brand ?? null, category: item.category, retailer: parsed.data.merchant, price: item.unitPrice,
+  })), req.user.id);
   res.status(201).json(CreateReceiptResponse.parse(serializeReceipt(receipt)));
 });
 

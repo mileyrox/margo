@@ -66,3 +66,9 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 ## Swap catalog
 - Admins are listed in `SWAP_CATALOG_ADMIN_EMAILS`. They see an Admin section in Settings that links to `/admin/swaps`, where they can import the CSV and fill in prices.
 - A swap shows to users only when its status starts with "Ready" and both prices are above zero.
+
+## Swap engine
+- `artifacts/api-server/src/lib/swap-engine.ts` finds cheaper swaps for any product: receipt items (in the background after a receipt is saved), typed searches (`POST /api/swaps/find`) and barcodes (Open Food Facts and Open Beauty Facts, free).
+- Results are cached per product in the `swap_lookups` table for 30 days, so each product is looked up once. Each user can trigger at most 40 new lookups a day.
+- Store links are built automatically. Optional secrets turn them into affiliate links: `AMAZON_ASSOCIATE_TAG` (Amazon search links, no prices shown), and `SKIMLINKS_PUBLISHER_ID` or `SOVRN_API_KEY` (all other stores).
+- People can thumbs up or down each suggestion; clearly rejected ones are hidden. Admins can review recent results at `GET /api/admin/swap-lookups`.
