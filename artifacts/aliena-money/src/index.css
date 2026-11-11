@@ -791,3 +791,15 @@ a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4
 .m-bubble-area { background: transparent; border: none; box-shadow: none; padding: 0; }
 /* The mascot's navy blazer needs a light edge on the navy slide */
 .m-recap.navy .m-mascot { filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
+
+/* The sign-up agreement */
+.m-agree { max-width: 480px; margin: 0 auto; padding-top: 40px; }
+.m-agree-head { display: flex; flex-direction: column; gap: 8px; }
+.m-agree-head h1 { font-family: var(--m-serif); font-size: 32px; font-weight: 600; line-height: 1.1; }
+.m-agree-head p { font-size: 15px; color: var(--m-ink-2); }
+.m-agree-list { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.45; color: var(--m-ink-2); }
+.m-agree-list strong { display: block; color: var(--m-navy); font-size: 15px; }
+.m-agree-check { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.45; cursor: pointer; }
+.m-agree-check input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--m-navy); margin: 0; }
+.m-agree-check a { color: var(--m-navy); font-weight: 700; }
+.m-agree .m-btn:disabled { opacity: .45; }

@@ -165,6 +165,8 @@ export function OnboardingPage() {
     const otherBills = parseList(answers.otherBillsList).reduce((sum, name) => sum + (otherBillEstimates[name] || 0), 0);
     const stored: Answers = {
       ...answers,
+      // Keep the record of the sign-up agreement.
+      ...(profileQuery.data?.onboardingAnswers?.agreedAt ? { agreedAt: profileQuery.data.onboardingAnswers.agreedAt, agreedVersion: profileQuery.data.onboardingAnswers.agreedVersion || '' } : {}),
       otherBills: String(otherBills),
       debtStartBalance: answers.debtBalance || '',
       hasDebt: answers.hasDebt === 'Yes' ? 'Yes' : 'No',

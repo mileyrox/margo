@@ -173,7 +173,7 @@ export function affiliate(link: string): string {
 
 const storeBrands = "Target: Up & Up, Good & Gather, Favorite Day, Everspring. Walmart: Great Value, Equate, Mainstays. Kroger: Kroger, Simple Truth, Private Selection. Costco: Kirkland Signature. Amazon: Amazon Basics, Solimo, Amazon Elements. CVS: CVS Health. Walgreens: Walgreens brand. Aldi: Aldi exclusive brands. Trader Joe's: Trader Joe's. Ulta: Ulta Beauty Collection. Sephora: Sephora Collection. Whole Foods: 365 by Whole Foods Market.";
 
-export async function askAi(product: ProductInput): Promise<{ category: string; sizeText: string; typicalPrice: number | null; suggestions: Array<Omit<EngineSuggestion, "url" | "upVotes" | "downVotes"> & { productUrl: string }> } | null> {
+export async function askAi(product: ProductInput): Promise<{ category: string; sizeText: string; typicalPrice: number | null; originalPageUrl?: string; suggestions: Array<Omit<EngineSuggestion, "url" | "upVotes" | "downVotes"> & { productUrl: string; photoPageUrl?: string }> } | null> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey || !baseUrl) return null;
@@ -238,6 +238,7 @@ async function webSearchSwap(product: ProductInput, basePrompt: string, baseUrl:
 
 Before answering, search the web for "dupe for ${name}" and "${name} cheaper alternative", and check the store page of the one you pick.
 Then search Amazon for that exact swap. In the suggestion object, also include "productUrl": its Amazon product page (amazon.com/dp/... or amazon.com/.../dp/...), copied from your search results. If it truly isn't sold on Amazon, use its product page at another big store instead. Never a search page, a blog post or a made-up link. Use "" if you can't find the exact page.
+For photos, also include two more links copied from your search results, never Amazon: in the suggestion object "photoPageUrl" (the swap's product page at Target, Walmart, Ulta, CVS, Walgreens or the brand's own site), and at the top level "originalPageUrl" (a product page for the original product at one of those stores or its brand's site). Use "" when you can't find one.
 For "typicalPrice", use the usual price you saw for the swap at stores other than Amazon (for example Target, Walmart or the brand's site), otherwise null. Do not copy Amazon's price.`;
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/responses`, {
     method: "POST",
@@ -283,6 +284,17 @@ function checkedProductUrl(value: unknown, cited: string[] | null): string {
   return productPage && (found || sameStore) ? url.toString().split("#")[0] : "";
 }
 
+/** A store page the search actually visited, used only to read that store's product photo. Never Amazon. */
+function photoPage(value: unknown, cited: string[] | null): string {
+  if (!cited || typeof value !== "string") return "";
+  try {
+    const url = new URL(value.trim());
+    const host = url.hostname.replace(/^www\./, "");
+    if (url.protocol !== "https:" || /(^|\.)amazon\./i.test(host)) return "";
+    return cited.some((link) => { try { return new URL(link).hostname.replace(/^www\./, "") === host; } catch { return false; } }) ? url.toString().split("#")[0] : "";
+  } catch { return ""; }
+}
+
 function parseAnswer(content: string, product: ProductInput, cited: string[] | null) {
   const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
   const raw = JSON.parse(json || "{}") as Record<string, unknown>;
@@ -293,6 +305,7 @@ function parseAnswer(content: string, product: ProductInput, cited: string[] | n
     category: clean(String(raw.category || product.category || ""), 80),
     sizeText: clean(String(raw.sizeText || ""), 60),
     typicalPrice: price(raw.typicalPrice),
+    originalPageUrl: photoPage(raw.originalPageUrl, cited),
     suggestions: list.slice(0, 1).map((item) => ({
       name: clean(String(item.name || ""), 160),
       brand: clean(String(item.brand || ""), 100),
@@ -305,6 +318,7 @@ function parseAnswer(content: string, product: ProductInput, cited: string[] | n
       differences: clean(String(item.differences || ""), 200),
       confidence: (["high", "medium", "low"].includes(String(item.confidence)) ? item.confidence : "low") as EngineSuggestion["confidence"],
       productUrl: checkedProductUrl(item.productUrl, cited),
+      photoPageUrl: photoPage(item.photoPageUrl, cited),
     })).filter((item) => item.name && item.whySimilar.length
       && item.confidence !== "low"
       && !(originalPrice && item.typicalPrice && item.typicalPrice >= originalPrice)),
@@ -363,7 +377,8 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
     try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
     const firstPage = result?.suggestions?.[0]?.productUrl || "";
-    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, ...item }) => ({
+    const swapPhotoPage = result?.suggestions?.[0]?.photoPageUrl || "";
+    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl: _photoPage, ...item }) => ({
       ...item,
       // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
       typicalPrice: item.typicalPrice,
@@ -375,8 +390,8 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
     }));
     if (status === "ready" && !suggestions.length) status = "none";
     // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
-    if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
-    const imageUrl = input.imageUrl || existing?.imageUrl || await findProductImage(name, brand).catch(() => null);
+    if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (swapPhotoPage ? await pagePhoto(swapPhotoPage) : null) ?? (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
+    const imageUrl = input.imageUrl || existing?.imageUrl || (result?.originalPageUrl ? await pagePhoto(result.originalPageUrl) : null) || await findProductImage(name, brand).catch(() => null);
     const values = {
       productKey: key, productName: name, brand,
       category: clean(result?.category || input.category, 80),
