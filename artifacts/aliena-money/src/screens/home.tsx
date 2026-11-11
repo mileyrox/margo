@@ -190,7 +190,7 @@ export function HomePage() {
           <span>of {money(budget)}</span>
         </div>
       </div>
-      <Link className="m-recap-link" href="/recap">See your week in money<ChevronRight aria-hidden="true" /></Link>
+      <Link className="m-recap-link" href="/recap?view=full">See your week in money<ChevronRight aria-hidden="true" /></Link>
       {savingsGoal > 0 && <div className="m-ring-goal">
         <div className="m-line"><span>Savings goal</span><span><strong>{money(savedSoFar)}</strong> of {money(savingsGoal)}</span></div>
         <div className="m-bar on-navy"><i style={{ width: `${Math.min(100, savedSoFar / savingsGoal * 100)}%` }} /></div>
