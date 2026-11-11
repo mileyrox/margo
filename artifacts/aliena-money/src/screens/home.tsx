@@ -32,12 +32,11 @@ const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(t
 
 /** Army green that only gets darker as a budget fills up. It never turns red. */
 function bubbleShade(used: number): [string, string] {
-  if (used > 1) return ['#33360F', '#FFFFFF'];
-  // Army green: light with lots of room, deeper as the budget gets used up.
-  if (used >= 0.85) return ['#4F5320', '#FFFFFF'];
-  if (used >= 0.6) return ['#7F8644', '#FFFFFF'];
-  if (used >= 0.35) return ['#B4BB85', '#0B1F4B'];
-  return ['#DFE3C8', '#0B1F4B'];
+  // A smooth army green: every percent gets its own shade, light when barely used, deepest when over. Never red.
+  const t = Math.min(1, Math.max(0, used / 1.2));
+  const light = [223, 227, 200], dark = [51, 54, 15];
+  const mix = light.map((value, i) => Math.round(value + (dark[i] - value) * t));
+  return [`rgb(${mix.join(', ')})`, t > 0.48 ? '#FFFFFF' : '#0B1F4B'];
 }
 
 export function HomePage() {
@@ -239,7 +238,9 @@ export function HomePage() {
             const used = row.target > 0 ? row.used / row.target : 0;
             const [bg, color] = bubbleShade(used);
             // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
-            const size = Math.round(88 + 64 * Math.min(1, Math.max(0, used)));
+            // Grows with every percent spent. Past the limit it keeps growing, more slowly, so no two different amounts match.
+            const pct = Math.max(0, used);
+            const size = 84 + 70 * Math.min(1, pct) + (pct > 1 ? 36 * (1 - Math.exp(-(pct - 1) * 2)) : 0);
             const on = sel?.name === row.name;
             return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''}`} style={{ width: size, height: size, background: bg, color }} aria-pressed={on}
               aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} onClick={() => setSelected(row.name)} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>

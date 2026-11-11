@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Margo: cheaper swaps",
+  "short_name": "Margo",
+  "version": "0.1.0",
+  "description": "Click Margo on a product page to find a cheaper swap that does the same job.",
+  "action": {
+    "default_title": "Find a cheaper swap with Margo",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+  },
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*"],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'" }
+}

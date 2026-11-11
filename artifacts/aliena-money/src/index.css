@@ -803,3 +803,4 @@ a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4
 .m-agree-check input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--m-navy); margin: 0; }
 .m-agree-check a { color: var(--m-navy); font-weight: 700; }
 .m-agree .m-btn:disabled { opacity: .45; }
+.m-code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; resize: none; }

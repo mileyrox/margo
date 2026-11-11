@@ -56,6 +56,7 @@ import {
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { revokeAllPlaidItems } from "./plaid";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -547,6 +548,8 @@ router.delete("/account/data", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Some receipt photos could not be deleted. Try again." });
     return;
   }
+  // Cut off bank access at Plaid first, so deleting really ends Margo's access, not just our copy.
+  await revokeAllPlaidItems(req.dbUser.id);
   await db.transaction(async (tx) => {
     await tx.delete(userProductPurchasesTable).where(eq(userProductPurchasesTable.userId, req.dbUser.id));
     await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.dbUser.id));

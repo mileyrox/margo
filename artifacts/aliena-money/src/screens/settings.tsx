@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchMySwaps } from '@/components/margo/engine';
 import { useUser, useClerk } from '@clerk/react';
 import {
   customFetch, getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetFinanceSettingsQueryKey, getGetSwapProfileQueryKey, getGetTransactionsQueryKey,
@@ -15,7 +16,7 @@ import { CoinAvatar, parseLook } from '@/components/margo/art';
 import { blankProfile } from '@/lib/profile';
 import { fetchSwapCatalog } from '@/lib/swap-catalog';
 import { isLive } from './swaps';
-import { dateLabel, messageOf, money, parseList } from '@/lib/format';
+import { dateLabel, messageOf, money, parseList, shortDate } from '@/lib/format';
 import { spendCategories } from './spending';
 
 export const swapCategoryOptions = [['groceries', 'Groceries'], ['household', 'Household'], ['beauty', 'Personal care'], ['clothes', 'Clothing'], ['subscriptions', 'Subscriptions'], ['travel', 'Travel']] as const;
@@ -130,6 +131,41 @@ function Row({ label, value, children, danger = false }: { label: string; value?
   </details>;
 }
 
+type ExtensionToken = { id: string; label: string; createdAt: string; expiresAt: string; lastUsedAt?: string | null };
+
+/** Connects the Margo Chrome extension: makes a one-time code the person pastes into the extension. */
+function ExtensionConnect() {
+  const qc = useQueryClient();
+  const tokens = useQuery({ queryKey: ['extension-tokens'], queryFn: () => customFetch<ExtensionToken[]>('/api/extension/tokens') });
+  const [code, setCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const makeCode = async () => {
+    setError(''); setBusy(true); setCopied(false);
+    try {
+      const created = await customFetch<ExtensionToken & { token: string }>('/api/extension/tokens', { method: 'POST', body: JSON.stringify({ label: 'Chrome extension' }) });
+      // The code carries this app's address and the token, so the extension knows where to ask.
+      setCode(btoa(JSON.stringify({ u: window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, ''), t: created.token })).replace(/=+$/, ''));
+      void qc.invalidateQueries({ queryKey: ['extension-tokens'] });
+    } catch (reason) { setError(messageOf(reason)); } finally { setBusy(false); }
+  };
+  const remove = async (id: string) => {
+    try { await customFetch(`/api/extension/tokens/${encodeURIComponent(id)}`, { method: 'DELETE', responseType: 'text' }); void qc.invalidateQueries({ queryKey: ['extension-tokens'] }); } catch (reason) { setError(messageOf(reason)); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setCopied(false); } };
+  return <div className="m-stack">
+    <span className="m-muted small">On a product page, click the Margo icon in Chrome and it finds a cheaper swap. To connect it, make a code here and paste it into the extension.</span>
+    {code ? <div className="m-stack">
+      <textarea className="m-input m-code" readOnly value={code} rows={3} aria-label="Connection code" onFocus={(event) => event.currentTarget.select()} />
+      <button type="button" className="m-btn navy" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy code'}</button>
+      <span className="m-muted small">Keep this code private. It lets the extension find swaps for your account for 90 days. You can remove it anytime below.</span>
+    </div> : <button type="button" className="m-btn navy" disabled={busy} onClick={() => void makeCode()}>{busy ? 'Making a code…' : 'Get a connection code'}</button>}
+    {error && <p className="m-error" role="alert">{error}</p>}
+    {(tokens.data || []).map((token) => <div key={token.id} className="m-line"><span>{token.label} <small className="m-muted">· {token.lastUsedAt ? `used ${shortDate(token.lastUsedAt)}` : 'not used yet'}</small></span><button type="button" className="m-link-button" onClick={() => void remove(token.id)}>Remove</button></div>)}
+  </div>;
+}
+
 export function SettingsPage() {
   const qc = useQueryClient();
   const { user } = useUser();
@@ -209,8 +245,10 @@ export function SettingsPage() {
     if (rate === null) return;
     updateRate.mutate({ data: { taxReserveRate: rate } }, { onSuccess: () => { done('Tax set-aside saved.'); void qc.invalidateQueries({ queryKey: getGetFinanceSettingsQueryKey() }); void qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }); }, onError: fail });
   };
+  const mySwapsForExport = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps });
+  const plaidItemsForExport = useQuery({ queryKey: ['plaid-items'], queryFn: () => customFetch<Array<{ institutionName: string | null; createdAt?: string }>>('/api/plaid/items') });
   const exportData = () => {
-    const data = { transactions: transactions.data || [], receipts: receipts.data || [], purchaseHistory: purchaseHistory.data || [], budget: plan.data || null, shoppingPreferences: profileQuery.data || null, financeSettings: settings.data || null, dashboard: dashboard.data || null };
+    const data = { swaps: mySwapsForExport.data || [], connectedBanks: (plaidItemsForExport.data || []).map((item) => ({ institutionName: item.institutionName, connectedAt: item.createdAt })), transactions: transactions.data || [], receipts: receipts.data || [], purchaseHistory: purchaseHistory.data || [], budget: plan.data || null, shoppingPreferences: profileQuery.data || null, financeSettings: settings.data || null, dashboard: dashboard.data || null };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'margo-my-data.json'; anchor.click(); URL.revokeObjectURL(url);
   };
@@ -272,6 +310,11 @@ export function SettingsPage() {
     <section className="m-group">
       <h2>Banks</h2>
       <div className="m-card"><BankConnect /></div>
+    </section>
+
+    <section className="m-group">
+      <h2>Chrome extension</h2>
+      <div className="m-card"><ExtensionConnect /></div>
     </section>
 
     <section className="m-group">

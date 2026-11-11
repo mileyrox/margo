@@ -253,4 +253,12 @@ router.delete("/plaid/items/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+/** Tells Plaid to cut off Margo's access to every bank this person connected. Used when they delete their data. */
+export async function revokeAllPlaidItems(userId: string): Promise<void> {
+  const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, userId));
+  for (const item of items) {
+    try { await plaidClient().itemRemove({ access_token: decryptToken(item.accessTokenEncrypted) }); } catch { /* already revoked or Plaid unreachable; the local copy is still deleted */ }
+  }
+}
+
 export default router;

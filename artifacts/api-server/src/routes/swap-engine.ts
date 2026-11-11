@@ -1,5 +1,6 @@
-import { db, swapLookupsTable, userSwapsTable, type SwapLookup } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { db, extensionTokensTable, swapLookupsTable, userSwapsTable, type SwapLookup } from "@workspace/db";
+import { createHash } from "node:crypto";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { findSwaps, identifyBarcodeOnline, lookupBarcode, rememberForUser, voteOnSuggestion } from "../lib/swap-engine";
 
@@ -142,6 +143,45 @@ router.get("/admin/swap-lookups", async (req, res): Promise<void> => {
   if (!req.identityEmail || !allowed.includes(req.identityEmail.toLowerCase())) { res.status(403).json({ error: "Admin only" }); return; }
   const rows = await db.select().from(swapLookupsTable).orderBy(desc(swapLookupsTable.updatedAt)).limit(200);
   res.json(rows.map(serialize));
+});
+
+/**
+ * The Chrome extension: someone clicks the Margo icon on a product page, and the extension sends what's on the page.
+ * It signs in with its own token (made in Settings), never the person's Margo sign-in, and finds a swap the same way the app does.
+ */
+router.post("/extension/swap", async (req, res): Promise<void> => {
+  const bearer = req.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!bearer) { res.status(401).json({ error: "Connect the extension to your Margo account first." }); return; }
+  const [token] = await db.select({ id: extensionTokensTable.id, userId: extensionTokensTable.userId }).from(extensionTokensTable).where(and(
+    eq(extensionTokensTable.tokenHash, createHash("sha256").update(bearer).digest("hex")), gt(extensionTokensTable.expiresAt, new Date()),
+  )).limit(1);
+  if (!token) { res.status(401).json({ error: "This connection expired or was removed. Get a new code in Margo's Settings." }); return; }
+  if (!aiConfigured()) { res.status(503).json({ error: AI_OFF }); return; }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const text = (value: unknown, max: number) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  const name = text(body.name, 200);
+  const brand = text(body.brand, 120);
+  const barcode = text(body.barcode, 20).replace(/\D/g, "");
+  const retailer = text(body.retailer, 80);
+  const price = Number(body.price);
+  if (!name && !barcode) { res.status(400).json({ error: "I couldn't read a product on this page." }); return; }
+  try {
+    await db.update(extensionTokensTable).set({ lastUsedAt: new Date() }).where(eq(extensionTokensTable.id, token.id));
+    let product: Parameters<typeof findSwaps>[0] = { name, brand, retailer, price: price > 0 && price < 5000 ? price : null, ...(barcode.length >= 8 ? { barcode } : {}) };
+    if (!name && barcode) {
+      const found = (await lookupBarcode(barcode)) ?? (await identifyBarcodeOnline(barcode));
+      if (!found) { res.status(404).json({ error: "I couldn't identify this product." }); return; }
+      product = { ...found, retailer, price: product.price };
+    }
+    const result = await findSwaps(product, token.userId);
+    if (!result) { res.status(503).json({ error: "You've hit today's swap search limit, or swap search is busy. Try again later." }); return; }
+    if (result.status === "error") { res.status(502).json({ error: "The AI couldn't answer just now. Try again in a minute." }); return; }
+    if (result.status === "ready" && result.suggestions.length) await rememberForUser(token.userId, result.id, "search");
+    res.json(serialize(result));
+  } catch (error) {
+    req.log.error({ err: error }, "Extension swap search failed");
+    res.status(502).json({ error: isMissingTable(error) ? TABLES_MISSING : "Swap search had a hiccup. Try again." });
+  }
 });
 
 export default router;
