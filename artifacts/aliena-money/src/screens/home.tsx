@@ -30,9 +30,9 @@ const todayKey = () => `margo-today-${dayKey(new Date())}`;
 const readDismissed = (): string[] => { try { return JSON.parse(window.localStorage.getItem(todayKey()) || '[]'); } catch { return []; } };
 const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(todayKey(), JSON.stringify(keys)); } catch { /* fine without storage */ } };
 
-/** Darker as a budget fills up; burgundy once it's over. */
+/** Army green that only gets darker as a budget fills up. It never turns red. */
 function bubbleShade(used: number): [string, string] {
-  if (used > 1) return ['#5A0F1A', '#FFFFFF'];
+  if (used > 1) return ['#33360F', '#FFFFFF'];
   // Army green: light with lots of room, deeper as the budget gets used up.
   if (used >= 0.85) return ['#4F5320', '#FFFFFF'];
   if (used >= 0.6) return ['#7F8644', '#FFFFFF'];
@@ -239,7 +239,7 @@ export function HomePage() {
             const used = row.target > 0 ? row.used / row.target : 0;
             const [bg, color] = bubbleShade(used);
             // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
-            const size = Math.round(74 + 76 * Math.min(1, Math.max(0, used)));
+            const size = Math.round(88 + 64 * Math.min(1, Math.max(0, used)));
             const on = sel?.name === row.name;
             return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''}`} style={{ width: size, height: size, background: bg, color }} aria-pressed={on}
               aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} onClick={() => setSelected(row.name)} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
@@ -255,7 +255,7 @@ export function HomePage() {
             : <span className="m-muted small">No purchases here yet this {period}.</span>}
         </div>}
         <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide key' : 'What do the sizes and colors mean?'}</button>
-        {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#5A0F1A' }} />Burgundy: over</span></div>}
+        {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#33360F' }} />Biggest and darkest: over</span></div>}
       </div>}
     </section>
 
