@@ -16,6 +16,10 @@ export type EngineSuggestion = {
   url: string;
   /** Product photo on a plain white background (from an affiliate catalog). */
   imageUrl?: string | null;
+  /** What kind of link this is: the exact Amazon page, the exact page at another store, or a store search. */
+  linkKind?: "amazon-page" | "store-page" | "search";
+  /** The second-pass AI check's one-line note on whether this is a true match. */
+  check?: string;
   upVotes: number;
   downVotes: number;
 };

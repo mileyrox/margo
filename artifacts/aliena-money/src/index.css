@@ -804,3 +804,20 @@ a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4
 .m-agree-check a { color: var(--m-navy); font-weight: 700; }
 .m-agree .m-btn:disabled { opacity: .45; }
 .m-code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; resize: none; }
+
+/* Swap test bench */
+.m-test-input { font-size: 14px; line-height: 1.5; resize: vertical; }
+.m-test-fresh { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.m-test-fresh input { width: 20px; height: 20px; accent-color: var(--m-navy); }
+.m-row-2 { display: flex; gap: 10px; flex-wrap: wrap; }
+.m-row-2 > * { flex: 1; }
+.m-test-score { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.m-test-score div { background: var(--m-navy); color: #fff; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.m-test-score strong { font-family: var(--m-serif); font-size: 26px; font-weight: 600; }
+.m-test-score span { font-size: 12px; color: #D5DBEE; }
+.m-test-row { display: flex; flex-direction: column; gap: 10px; }
+.m-test-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.m-test-tag { font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: var(--m-cream-2); color: var(--m-navy); }
+.m-test-tag.ok { background: #DFE3C8; color: #33360F; }
+.m-test-tag.warn { background: #F1D9D9; color: var(--m-burgundy); }
+.m-test-url { font-size: 11px; color: var(--m-ink-2); word-break: break-all; }

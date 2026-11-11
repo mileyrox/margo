@@ -136,6 +136,39 @@ router.get("/admin/swap-engine-status", async (req, res): Promise<void> => {
   res.json({ ok: tablesOk && checks.every((check) => check.ok || check.name === "Affiliate links"), checks });
 });
 
+const isAdmin = (req: Request) => {
+  const allowed = (process.env.SWAP_CATALOG_ADMIN_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
+  return Boolean(req.identityEmail && allowed.includes(req.identityEmail.toLowerCase()));
+};
+
+/** Swap test bench (admin only): runs one product fresh, skipping saved answers and the daily limit, and reports how it went. */
+router.post("/admin/swap-test", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  if (!isAdmin(req)) { res.status(403).json({ error: "Admin only" }); return; }
+  if (!aiConfigured()) { res.status(503).json({ error: AI_OFF }); return; }
+  const body = (req.body ?? {}) as { query?: unknown; fresh?: unknown };
+  const raw = typeof body.query === "string" ? body.query.trim().slice(0, 200) : "";
+  if (!raw) { res.status(400).json({ error: "Type a product." }); return; }
+  // "$12.99" at the end of a line is the price paid; a line of only digits is a barcode.
+  const priceMatch = raw.match(/\$\s*(\d+(?:\.\d{1,2})?)\s*$/);
+  const query = priceMatch ? raw.slice(0, priceMatch.index).trim() : raw;
+  const started = Date.now();
+  try {
+    let product: Parameters<typeof findSwaps>[0] = { name: query, price: priceMatch ? Number(priceMatch[1]) : null };
+    if (/^\d{8,14}$/.test(query)) {
+      const found = (await lookupBarcode(query)) ?? (await identifyBarcodeOnline(query));
+      if (!found) { res.json({ query: raw, ms: Date.now() - started, error: "Barcode not found anywhere" }); return; }
+      product = { ...found, price: product.price };
+    }
+    const result = await findSwaps(product, req.dbUser.id, { fresh: body.fresh !== false, skipLimit: true });
+    if (!result) { res.json({ query: raw, ms: Date.now() - started, error: "No answer (busy or limit)" }); return; }
+    res.json({ query: raw, ms: Date.now() - started, lookup: serialize(result), product: { name: product.name, brand: product.brand || "" } });
+  } catch (error) {
+    req.log.error({ err: error }, "Swap test failed");
+    res.json({ query: raw, ms: Date.now() - started, error: isMissingTable(error) ? TABLES_MISSING : "Error: " + String((error as Error).message).slice(0, 160) });
+  }
+});
+
 /** Recent engine results for the admin to spot-check. */
 router.get("/admin/swap-lookups", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;

@@ -8,6 +8,7 @@ export type EngineSuggestion = {
   index: number; name: string; brand: string; retailer: string; matchType: 'Dupe' | 'Cheaper option'; sizeText: string;
   typicalPrice: number | null; whySimilar: string[]; shortReason?: string; differences: string; confidence: 'high' | 'medium' | 'low'; url: string;
   imageUrl?: string | null; upVotes: number; downVotes: number;
+  linkKind?: 'amazon-page' | 'store-page' | 'search'; check?: string;
 };
 export type EngineLookup = {
   id: string; productName: string; brand: string; category: string; sizeText: string; retailer: string; price: number | null; imageUrl?: string | null; source?: 'receipt' | 'barcode' | 'search';

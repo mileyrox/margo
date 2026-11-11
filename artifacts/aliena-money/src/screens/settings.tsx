@@ -327,6 +327,7 @@ export function SettingsPage() {
 
     {adminCatalog.data && <section className="m-group">
       <h2>Admin</h2>
+      <Link href="/admin/swap-test" className="m-card m-line"><span><strong>Swap test bench</strong><small className="m-muted block">Run a list of products and grade the swaps</small></span><ChevronRight aria-hidden="true" /></Link>
       <Link href="/admin/swaps" className="m-card m-line"><span><strong>Swap catalog</strong><small className="m-muted block">{adminCatalog.data.length ? `${adminCatalog.data.filter(isLive).length} of ${adminCatalog.data.length} swaps showing to users` : 'Import your swaps CSV to get started'}</small></span><ChevronRight aria-hidden="true" /></Link>
       <div className="m-card m-stack" data-testid="swap-engine-status">
         <div className="m-line"><strong>Swap engine</strong><button className="m-link-button small-link" onClick={() => void engineStatus.refetch()} disabled={engineStatus.isFetching}>{engineStatus.isFetching ? 'Checking…' : 'Check again'}</button></div>

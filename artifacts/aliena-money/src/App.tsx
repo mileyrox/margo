@@ -18,6 +18,7 @@ import { OnboardingPage } from '@/screens/onboarding';
 import { AvatarPage } from '@/screens/avatar';
 import { WelcomePage } from '@/screens/welcome';
 import { RecapPage } from '@/screens/recap';
+import { SwapTestPage } from '@/screens/swap-test';
 import { AGREEMENT_VERSION, AgreementPage } from '@/screens/agreement';
 import { DisclosuresPage, PrivacyPage, TermsPage } from '@/screens/legal';
 
@@ -65,6 +66,7 @@ function AuthenticatedRoutes() {
     <Route path="/swaps" component={SwapsPage} />
     <Route path="/swaps/:id">{(params) => <SwapDetailPage id={decodeURIComponent(params.id)} />}</Route>
     <Route path="/admin/swaps" component={AdminSwapsPage} />
+    <Route path="/admin/swap-test" component={SwapTestPage} />
     <Route path="/earn-save" component={MoneyAppsPage} />
     <Route path="/onboarding" component={OnboardingPage} />
     <Route path="/receipts" component={ReceiptPage} />

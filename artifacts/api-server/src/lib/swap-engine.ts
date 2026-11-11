@@ -189,7 +189,8 @@ Rules:
 - Only suggest real products that exist and are widely sold. Nearly every name-brand product has a store-brand or cheaper equivalent, so give one whenever you reasonably can. Return none only when the product is already a store brand or already the cheapest of its kind.
 - Prefer, in order: the same store's own brand, then another store's own brand, then a cheaper name brand known as a dupe.
 - Store brands: ${storeBrands}
-- Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz).
+- Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz). Same form: stick for stick, spray for spray, pods for pods, liquid for liquid. Same scent or flavor family when it matters (for example unscented for unscented).
+- It must be cheaper per unit, not just a smaller package.
 - "matchType": "Dupe" only when key ingredients or specs closely match a well-known product. Otherwise "Cheaper option".
 - "whySimilar": 2 or 3 short, specific, checkable facts (form, size, key ingredients, specs). No marketing words, no claims that it is made by the same company, no "identical".
 - "shortReason": 2 to 4 lowercase words for a shelf label, like "same 6 rolls" or "similar formula". Never "same formula" unless the maker says so.
@@ -295,6 +296,52 @@ function photoPage(value: unknown, cited: string[] | null): string {
   } catch { return ""; }
 }
 
+const isProductPath = (link: string) => { try { const u = new URL(link); return /\/(dp|gp\/product|p|ip|product|products|prd)\/|\/A-\d+|\/pdp\/|\.html?$/i.test(u.pathname) && !/\/(blog|blogs|story|stories|article|articles|news|best-|list)/i.test(u.pathname); } catch { return false; } };
+const storeName = (link: string, fallback: string) => {
+  const host = (() => { try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+  const known: Record<string, string> = { "target.com": "Target", "walmart.com": "Walmart", "ulta.com": "Ulta", "cvs.com": "CVS", "walgreens.com": "Walgreens", "costco.com": "Costco", "kroger.com": "Kroger", "sephora.com": "Sephora", "samsclub.com": "Sam's Club" };
+  return known[host] || fallback || host;
+};
+
+/** Link order: the exact Amazon page, then the exact page at another store, then an Amazon search for it. */
+export function chooseLink(productUrl: string, photoPageUrl: string, item: { name: string; brand: string; sizeText: string; retailer: string }) {
+  const host = (link: string) => { try { return new URL(link).hostname; } catch { return ""; } };
+  const amazonPage = productUrl && /(^|\.)amazon\./i.test(host(productUrl)) ? productUrl : "";
+  const storePage = !amazonPage ? (productUrl || (photoPageUrl && isProductPath(photoPageUrl) ? photoPageUrl : "")) : "";
+  const link = amazonPage || storePage;
+  return {
+    retailer: amazonPage ? "Amazon" : storePage ? storeName(storePage, item.retailer) : "Amazon",
+    url: link ? affiliate(link) : affiliate(`https://www.amazon.com/s?k=${encodeURIComponent([item.brand, item.name, item.sizeText].filter(Boolean).join(" "))}`),
+    linkKind: (amazonPage ? "amazon-page" : storePage ? "store-page" : "search") as NonNullable<EngineSuggestion["linkKind"]>,
+  };
+}
+
+/** A quick second opinion from the AI (no web search): is this swap really the same kind of product, and cheaper? */
+export async function checkMatch(product: ProductInput, swap: { name: string; brand: string; sizeText: string; typicalPrice: number | null; whySimilar: string[]; matchType: string }, originalSize: string): Promise<{ ok: boolean; note: string } | null> {
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (!apiKey || !baseUrl || process.env.SWAP_CHECK === "off") return null;
+  const prompt = `You check product swaps for a budgeting app. Be strict: a shopper should be able to buy the swap instead and be happy.
+
+Original: ${product.brand ? `${product.brand} ` : ""}${product.name}${originalSize ? ` (${originalSize})` : ""}${product.price ? `, paid $${product.price.toFixed(2)}` : ""}
+Swap: ${swap.brand ? `${swap.brand} ` : ""}${swap.name}${swap.sizeText ? ` (${swap.sizeText})` : ""}${swap.typicalPrice != null ? `, about $${swap.typicalPrice.toFixed(2)}` : ""}
+Claimed: ${swap.whySimilar.join("; ")}
+
+Reject if ANY is true: a different kind of product; a different form (for example stick vs spray, liquid vs pods, wipes vs spray); a size more than about 40% smaller or bigger without saying so; a different scent or flavor family that matters for this product; not actually cheaper per unit; for medicine or supplements, a different active ingredient or strength; a product you don't believe exists.
+Reply with JSON only: {"ok": true|false, "note": "under 12 words, plain"}`;
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({ model: process.env.SWAP_CHECK_MODEL || process.env.SWAP_AI_MODEL || "gpt-5.6-terra", max_completion_tokens: 2000, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+  });
+  if (!response.ok) return null;
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const raw = JSON.parse(payload.choices?.[0]?.message?.content || "{}") as { ok?: unknown; note?: unknown };
+  if (typeof raw.ok !== "boolean") return null;
+  return { ok: raw.ok, note: clean(String(raw.note || ""), 120) };
+}
+
 function parseAnswer(content: string, product: ProductInput, cited: string[] | null) {
   const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
   const raw = JSON.parse(json || "{}") as Record<string, unknown>;
@@ -319,6 +366,7 @@ function parseAnswer(content: string, product: ProductInput, cited: string[] | n
       confidence: (["high", "medium", "low"].includes(String(item.confidence)) ? item.confidence : "low") as EngineSuggestion["confidence"],
       productUrl: checkedProductUrl(item.productUrl, cited),
       photoPageUrl: photoPage(item.photoPageUrl, cited),
+      check: undefined as string | undefined,
     })).filter((item) => item.name && item.whySimilar.length
       && item.confidence !== "low"
       && !(originalPrice && item.typicalPrice && item.typicalPrice >= originalPrice)),
@@ -354,7 +402,10 @@ async function backfillPhotos(row: SwapLookup, knownImage: string | null) {
   } catch { /* photos are a nice-to-have */ }
 }
 
-export async function findSwaps(input: ProductInput, userId: string | null): Promise<SwapLookup | null> {
+/** Options for testing: skip saved answers and the daily limit. */
+export type FindOptions = { fresh?: boolean; skipLimit?: boolean };
+
+export async function findSwaps(input: ProductInput, userId: string | null, options: FindOptions = {}): Promise<SwapLookup | null> {
   const name = clean(input.name, 200);
   if (name.length < 3) return null;
   const brand = clean(input.brand, 120);
@@ -363,31 +414,38 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
   const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
   const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
-  if (existing && (fresh || existing.source === "admin")) {
+  if (existing && !options.fresh && (fresh || existing.source === "admin")) {
     // Saved before photos existed: look for them quietly, so they show up next time.
     if (existing.status === "ready" && (!existing.imageUrl || !existing.suggestions[0]?.imageUrl) && !photoTried.has(key)) { photoTried.add(key); void backfillPhotos(existing, input.imageUrl ?? null); }
     return existing;
   }
   if (inflight.has(key)) return inflight.get(key)!;
-  if (!(await underDailyLimit(userId))) return existing ?? null;
+  if (!options.skipLimit && !(await underDailyLimit(userId))) return existing ?? null;
 
   const job = (async () => {
     let status: SwapLookup["status"] = "ready";
     let result: Awaited<ReturnType<typeof askAi>> = null;
     try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
+    // A second look: drop a swap that isn't truly the same kind of product, or isn't cheaper.
+    if (result?.suggestions?.[0]) {
+      const verdict = await checkMatch({ ...input, name, brand }, result.suggestions[0], result.sizeText).catch(() => null);
+      if (verdict && !verdict.ok) { console.warn("[swap-engine] check rejected", name, "->", result.suggestions[0].name, verdict.note); result.suggestions = []; }
+      else if (verdict) result.suggestions[0] = { ...result.suggestions[0], check: verdict.note };
+    }
     const firstPage = result?.suggestions?.[0]?.productUrl || "";
     const swapPhotoPage = result?.suggestions?.[0]?.photoPageUrl || "";
-    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl: _photoPage, ...item }) => ({
-      ...item,
-      // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
-      typicalPrice: item.typicalPrice,
-      retailer: /amazon\./i.test(productUrl) ? "Amazon" : item.retailer,
-      // The exact product page when web search found one, otherwise that store's search for it.
-      url: productUrl ? affiliate(productUrl) : storeLink(item.retailer, item.name, item.brand),
-      upVotes: 0,
-      downVotes: 0,
-    }));
+    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl, ...item }) => {
+      const chosen = chooseLink(productUrl, photoPageUrl || "", item);
+      return {
+        ...item,
+        // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
+        typicalPrice: item.typicalPrice,
+        ...chosen,
+        upVotes: 0,
+        downVotes: 0,
+      };
+    });
     if (status === "ready" && !suggestions.length) status = "none";
     // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
     if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (swapPhotoPage ? await pagePhoto(swapPhotoPage) : null) ?? (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
