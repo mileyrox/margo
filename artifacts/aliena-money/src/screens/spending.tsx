@@ -112,8 +112,9 @@ export function SpendingPage() {
     <IncomeReviewCards items={pendingIncome} taxRate={taxRate} />
 
     <div className="m-tiles two">
-      <div className="m-tile" data-testid="total-expense"><span>Money out</span><strong>{money(totalOf('expense'))}</strong></div>
-      <div className="m-tile" data-testid="total-income"><span>Money in</span><strong>{money(totalOf('income'))}</strong></div>
+      {(['expense', 'income'] as const).map((value) => <button key={value} type="button" className={`m-tile center ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(filter === value ? 'all' : value)} data-testid={`total-${value}`}>
+        <span>{value === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(totalOf(value))}</strong><small>{filter === value ? 'Showing these · tap for all' : 'Tap to see'}</small>
+      </button>)}
     </div>
 
     <div className="m-chips" role="group" aria-label="Filter spending">

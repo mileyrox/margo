@@ -17,6 +17,7 @@ import { PlaidOAuthPage, SettingsPage } from '@/screens/settings';
 import { OnboardingPage } from '@/screens/onboarding';
 import { AvatarPage } from '@/screens/avatar';
 import { WelcomePage } from '@/screens/welcome';
+import { RecapPage } from '@/screens/recap';
 import { DisclosuresPage, PrivacyPage, TermsPage } from '@/screens/legal';
 
 const publicPages: Record<string, ComponentType> = { '/privacy': PrivacyPage, '/terms': TermsPage, '/disclosures': DisclosuresPage };
@@ -63,6 +64,7 @@ function AuthenticatedRoutes() {
     <Route path="/earn-save" component={MoneyAppsPage} />
     <Route path="/onboarding" component={OnboardingPage} />
     <Route path="/receipts" component={ReceiptPage} />
+    <Route path="/recap" component={RecapPage} />
     <Route path="/avatar" component={AvatarPage} />
     <Route path="/profile" component={SettingsPage} />
     <Route path="/settings" component={SettingsPage} />

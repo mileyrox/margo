@@ -21,6 +21,11 @@ type TodayCard = {
   done?: string;
 };
 
+/** Monday of last week, as YYYY-MM-DD. */
+const lastWeekStart = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7); return dayKey(d); };
+const weekSeen = (key: string) => { try { return window.localStorage.getItem(`margo-${key}`) === '1'; } catch { return false; } };
+const dismissWeek = (key: string) => { try { window.localStorage.setItem(`margo-${key}`, '1'); } catch { /* fine without storage */ } };
+
 const todayKey = () => `margo-today-${dayKey(new Date())}`;
 const readDismissed = (): string[] => { try { return JSON.parse(window.localStorage.getItem(todayKey()) || '[]'); } catch { return []; } };
 const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(todayKey(), JSON.stringify(keys)); } catch { /* fine without storage */ } };
@@ -28,10 +33,11 @@ const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(t
 /** Darker as a budget fills up; burgundy once it's over. */
 function bubbleShade(used: number): [string, string] {
   if (used > 1) return ['#5A0F1A', '#FFFFFF'];
-  if (used >= 0.85) return ['#0B1F4B', '#FFFFFF'];
-  if (used >= 0.6) return ['#7F93C9', '#0B1F4B'];
-  if (used >= 0.35) return ['#B9C6E6', '#0B1F4B'];
-  return ['#DDE4F4', '#0B1F4B'];
+  // Army green: light with lots of room, deeper as the budget gets used up.
+  if (used >= 0.85) return ['#4F5320', '#FFFFFF'];
+  if (used >= 0.6) return ['#7F8644', '#FFFFFF'];
+  if (used >= 0.35) return ['#B4BB85', '#0B1F4B'];
+  return ['#DFE3C8', '#0B1F4B'];
 }
 
 export function HomePage() {
@@ -116,6 +122,12 @@ export function HomePage() {
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
   });
+  // Once a week: an invitation to the weekly recap.
+  cards.push({
+    key: `recap-${lastWeekStart()}`, tag: 'Your week in money', title: 'Your weekly recap is ready',
+    body: 'See where your money went last week: your top category, your top spot and your biggest purchase.',
+    yes: { label: 'See my week', run: () => { dismissWeek(`recap-${lastWeekStart()}`); setLocation('/recap?week=last'); } }, no: { label: 'Later', run: () => dismissWeek(`recap-${lastWeekStart()}`) },
+  });
   const swap = mySwaps.data?.find((lookup) => lookup.suggestions[0] && !dismissed.includes(`swap-${lookup.id}`));
   if (swap) {
     const best = swap.suggestions[0];
@@ -136,7 +148,7 @@ export function HomePage() {
       yes: { label: over ? 'Adjust budgets' : 'Got it', run: () => { if (over) setLocation('/settings'); } }, no: { label: 'Not now', run: () => undefined },
     });
   }
-  const queue = cards.filter((card) => !dismissed.includes(card.key));
+  const queue = cards.filter((card) => !dismissed.includes(card.key) && !(card.key.startsWith('recap-') && weekSeen(card.key)));
   const current = confirmation || queue[0];
   const act = async (card: TodayCard, choice: 'yes' | 'no' | 'done') => {
     setError('');
@@ -178,6 +190,7 @@ export function HomePage() {
           <span>of {money(budget)}</span>
         </div>
       </div>
+      <Link className="m-recap-link" href="/recap">See your week in money<ChevronRight aria-hidden="true" /></Link>
       {savingsGoal > 0 && <div className="m-ring-goal">
         <div className="m-line"><span>Savings goal</span><span><strong>{money(savedSoFar)}</strong> of {money(savingsGoal)}</span></div>
         <div className="m-bar on-navy"><i style={{ width: `${Math.min(100, savedSoFar / savingsGoal * 100)}%` }} /></div>

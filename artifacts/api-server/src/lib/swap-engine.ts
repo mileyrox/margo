@@ -9,7 +9,7 @@ import { and, eq, gt, inArray, sql } from "drizzle-orm";
  * 4. Cache the result by product so every later user gets it instantly.
  */
 
-export type ProductInput = { name: string; brand?: string | null; category?: string | null; retailer?: string | null; price?: number | null; barcode?: string | null };
+export type ProductInput = { name: string; brand?: string | null; category?: string | null; retailer?: string | null; price?: number | null; barcode?: string | null; imageUrl?: string | null };
 
 const CACHE_DAYS = 30;
 const DAILY_NEW_LOOKUPS_PER_USER = 40;
@@ -24,17 +24,65 @@ export function productKey(name: string, brand?: string | null) {
 
 /* ---------------- Barcodes (free, no key) ---------------- */
 
+const httpsImage = (value: unknown): string | null => typeof value === "string" && /^https:\/\/[^\s"']+$/.test(value) ? value.slice(0, 500) : null;
+
+/** Finds a product photo in the open product databases by name. Best effort: returns null when there's no clear match. */
+export async function findProductImage(name: string, brand: string): Promise<string | null> {
+  const terms = `${brand} ${name}`.replace(/[^\p{L}\p{N} ]+/gu, " ").replace(/\s+/g, " ").trim().split(" ").slice(0, 6).join(" ");
+  if (terms.length < 3) return null;
+  const firstWord = (brand || name).toLowerCase().split(/\s+/)[0] || "";
+  for (const host of ["world.openfoodfacts.org", "world.openbeautyfacts.org"]) {
+    try {
+      const response = await fetch(`https://${host}/cgi/search.pl?search_terms=${encodeURIComponent(terms)}&search_simple=1&action=process&json=1&page_size=5&fields=product_name,brands,image_front_small_url`, {
+        headers: { "User-Agent": "Margo/0.1 (budgeting app)" }, signal: AbortSignal.timeout(6000),
+      });
+      if (!response.ok) continue;
+      const body = await response.json() as { products?: Array<{ product_name?: string; brands?: string; image_front_small_url?: string }> };
+      // Only trust a photo when the brand matches, so the picture is never of a different product.
+      const match = body.products?.find((item) => item.image_front_small_url && firstWord && `${item.brands} ${item.product_name}`.toLowerCase().includes(firstWord));
+      const image = httpsImage(match?.image_front_small_url);
+      if (image) return image;
+    } catch { /* try the next database */ }
+  }
+  return null;
+}
+
+/** When no product database knows a barcode, asks the AI to look the number up on the web. */
+export async function identifyBarcodeOnline(barcode: string): Promise<ProductInput | null> {
+  const code = barcode.replace(/\D/g, "");
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (!apiKey || !baseUrl || code.length < 8 || code.length > 14 || process.env.SWAP_WEB_SEARCH === "off") return null;
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/responses`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({
+        model: process.env.SWAP_AI_MODEL || "gpt-5.6-terra", tools: [{ type: "web_search" }], reasoning: { effort: "low" }, max_output_tokens: 4000,
+        input: `Search the web for the retail product with UPC/EAN barcode ${code} (try "UPC ${code}" and "${code}"). Reply with JSON only: {"name": product name with size, "brand": brand, "category": short category}. Only answer if search results clearly show this exact barcode number with a product; otherwise reply {}. Never guess.`,
+      }),
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as { output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }> };
+    const text = (payload.output ?? []).filter((item) => item.type === "message").flatMap((item) => item.content ?? []).map((part) => part.text ?? "").join("");
+    const raw = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1) || "{}") as Record<string, unknown>;
+    const name = clean(String(raw.name ?? ""), 200);
+    return name.length >= 3 ? { name, brand: clean(String(raw.brand ?? ""), 120), category: clean(String(raw.category ?? ""), 80), barcode: code } : null;
+  } catch { return null; }
+}
+
 export async function lookupBarcode(barcode: string): Promise<ProductInput | null> {
   const code = barcode.replace(/\D/g, "");
   if (code.length < 8 || code.length > 14) return null;
   for (const host of ["world.openfoodfacts.org", "world.openbeautyfacts.org"]) {
     try {
-      const response = await fetch(`https://${host}/api/v2/product/${code}.json?fields=product_name,brands,quantity,categories`, {
+      const response = await fetch(`https://${host}/api/v2/product/${code}.json?fields=product_name,brands,quantity,categories,image_front_small_url,image_front_url`, {
         headers: { "User-Agent": "Margo/0.1 (budgeting app)" },
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) continue;
-      const body = await response.json() as { status?: number; product?: { product_name?: string; brands?: string; quantity?: string; categories?: string } };
+      const body = await response.json() as { status?: number; product?: { product_name?: string; brands?: string; quantity?: string; categories?: string; image_front_small_url?: string; image_front_url?: string } };
       const product = body.product;
       if (body.status !== 1 || !product?.product_name) continue;
       const size = product.quantity ? `, ${product.quantity}` : "";
@@ -43,6 +91,7 @@ export async function lookupBarcode(barcode: string): Promise<ProductInput | nul
         brand: (product.brands || "").split(",")[0]?.trim() || "",
         category: (product.categories || "").split(",").pop()?.trim() || (host.includes("beauty") ? "Personal care" : "Groceries"),
         barcode: code,
+        imageUrl: httpsImage(product.image_front_small_url || product.image_front_url),
       };
     } catch { /* try the next database */ }
   }
@@ -50,9 +99,9 @@ export async function lookupBarcode(barcode: string): Promise<ProductInput | nul
   try {
     const response = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${code}`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) });
     if (response.ok) {
-      const body = await response.json() as { items?: Array<{ title?: string; brand?: string; category?: string; size?: string }> };
+      const body = await response.json() as { items?: Array<{ title?: string; brand?: string; category?: string; size?: string; images?: string[] }> };
       const item = body.items?.[0];
-      if (item?.title) return { name: item.title, brand: item.brand || "", category: (item.category || "").split(">").pop()?.trim() || "", barcode: code };
+      if (item?.title) return { name: item.title, brand: item.brand || "", category: (item.category || "").split(">").pop()?.trim() || "", barcode: code, imageUrl: httpsImage(item.images?.find((link) => /^https:/.test(link))) };
     }
   } catch { /* not found anywhere */ }
   return null;
@@ -113,7 +162,7 @@ Price paid: ${product.price ? `$${product.price.toFixed(2)}` : "unknown"}
 
 Suggest the ONE best cheaper option that a normal shopper can buy in the US today. Return at most one suggestion.
 Rules:
-- Only suggest real products you are confident exist and are widely sold. If you are not confident, return fewer or none.
+- Only suggest real products that exist and are widely sold. Nearly every name-brand product has a store-brand or cheaper equivalent, so give one whenever you reasonably can. Return none only when the product is already a store brand or already the cheapest of its kind.
 - Prefer, in order: the same store's own brand, then another store's own brand, then a cheaper name brand known as a dupe.
 - Store brands: ${storeBrands}
 - Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz).
@@ -283,6 +332,9 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
       downVotes: 0,
     }));
     if (status === "ready" && !suggestions.length) status = "none";
+    // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
+    if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
+    const imageUrl = input.imageUrl || existing?.imageUrl || await findProductImage(name, brand).catch(() => null);
     const values = {
       productKey: key, productName: name, brand,
       category: clean(result?.category || input.category, 80),
@@ -290,7 +342,7 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
       barcode: input.barcode ? clean(input.barcode, 40) : null,
       retailer: clean(input.retailer, 80),
       typicalPrice: input.price ? input.price.toFixed(2) : result?.typicalPrice ? result.typicalPrice.toFixed(2) : null,
-      status, suggestions, source: "ai", createdBy: userId,
+      status, suggestions, imageUrl, source: "ai", createdBy: userId,
     };
     const [saved] = await db.insert(swapLookupsTable).values(values)
       .onConflictDoUpdate({ target: swapLookupsTable.productKey, set: { ...values, createdBy: existing?.createdBy ?? userId, updatedAt: new Date() } })
