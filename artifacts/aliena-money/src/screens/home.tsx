@@ -103,6 +103,17 @@ export function HomePage() {
     return { name: item.category, target, used, items, monthly: Number(item.monthlyTarget || 0) };
   }), [categories, expenses, scale]);
 
+  /* ---------- This week so far ---------- */
+  const weekSoFar = useMemo(() => {
+    const monday = new Date(); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const start = dayKey(monday);
+    const spent = (transactions.data || []).filter((item) => item.type === 'expense' && item.date.slice(0, 10) >= start);
+    const byCategory = new Map<string, number>();
+    spent.forEach((item) => byCategory.set(item.category || 'Other', (byCategory.get(item.category || 'Other') || 0) + Number(item.amount)));
+    const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+    return { total: spent.reduce((sum, item) => sum + Number(item.amount), 0), top };
+  }, [transactions.data]);
+
   /* ---------- For you today ---------- */
   const dismiss = (key: string) => { const next = [...dismissed, key]; setDismissed(next); writeDismissed(next); };
   const refreshMoney = () => Promise.all([
@@ -202,12 +213,21 @@ export function HomePage() {
           <span>of {money(budget)}</span>
         </div>
       </div>
-      <Link className="m-recap-link" href="/recap?view=full">See your week in money<ChevronRight aria-hidden="true" /></Link>
       {savingsGoal > 0 && <div className="m-ring-goal">
         <div className="m-line"><span>Savings goal</span><span><strong>{money(savedSoFar)}</strong> of {money(savingsGoal)}</span></div>
         <div className="m-bar on-navy"><i style={{ width: `${Math.min(100, savedSoFar / savingsGoal * 100)}%` }} /></div>
       </div>}
     </section>
+
+    {/* Always here: spending so far this week, opening the recap */}
+    <Link className="m-week-card" href="/recap?view=full" data-testid="link-week-recap">
+      <span className="m-week-text">
+        <small>Spending so far this week</small>
+        <strong>{money(weekSoFar.total)}</strong>
+        <span>{weekSoFar.top ? `Mostly ${weekSoFar.top}` : 'Nothing spent yet this week'}</span>
+      </span>
+      <span className="m-week-go">See recap<ChevronRight aria-hidden="true" /></span>
+    </Link>
 
     <section className="m-section">
       <div className="m-section-head"><h2>For you today</h2><span>{current ? `${Math.min(cards.length, dismissed.filter((key) => cards.some((card) => card.key === key)).length + 1)} of ${cards.length}` : ''}</span></div>

@@ -18,8 +18,8 @@ function rangeFor(period: Period, last: boolean): [Range, Range | null] {
   const now = new Date();
   const none = { label: '', phrase: '', compare: '' };
   if (period === 'week') {
-    if (!last) return [{ start: shift(-6), end: shift(0), label: 'The past 7 days', phrase: 'This week', compare: 'the week before' }, { start: shift(-13), end: shift(-7), ...none }];
     const sinceMonday = (now.getDay() + 6) % 7;
+    if (!last) return [{ start: shift(-sinceMonday), end: shift(0), label: 'This week so far', phrase: 'So far this week', compare: '' }, null];
     const start = shift(-sinceMonday - 7), end = shift(-sinceMonday - 1);
     return [{ start, end, label: `${shortDate(start)} to ${shortDate(end)}`, phrase: 'Last week', compare: 'the week before' }, { start: shift(-sinceMonday - 14), end: shift(-sinceMonday - 8), ...none }];
   }
@@ -45,9 +45,13 @@ const Hand = ({ x, y }: { x: number; y: number }) => <circle cx={x} cy={y} r="8"
 /** Margo the mascot (a coin with bangs, glasses and eyelashes, on a little body), acting out each slide. */
 function MargoMascot({ pose }: { pose: 'receipt' | 'bags' | 'pin' }) {
   return <svg className="m-mascot" viewBox="0 0 240 262" role="img" aria-label={pose === 'receipt' ? 'Margo reading a long receipt' : pose === 'bags' ? 'Margo carrying shopping bags' : 'Margo pointing at a map pin'}>
-    <Limb d="M108 196L106 240" /><Limb d="M132 196L134 240" />
-    <ellipse cx="101" cy="246" rx="13" ry="7" fill={INK} /><ellipse cx="139" cy="246" rx="13" ry="7" fill={INK} />
-    <path d="M96 122Q120 112 144 122L156 196Q120 208 84 196Z" fill="#F9EEEE" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+    <Limb d="M108 200L106 240" /><Limb d="M132 200L134 240" />
+    <ellipse cx="101" cy="246" rx="13" ry="7" fill="#5A0F1A" stroke={INK} strokeWidth="2.4" /><ellipse cx="139" cy="246" rx="13" ry="7" fill="#5A0F1A" stroke={INK} strokeWidth="2.4" />
+    {/* Navy blazer with a white collar, gold buttons and a burgundy skirt */}
+    <path d="M94 122Q120 112 146 122L152 190H88Z" fill="#0B1F4B" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+    <path d="M108 118L120 142L132 118" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+    <path d="M88 190h64l4 12H84z" fill="#5A0F1A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+    <circle cx="120" cy="158" r="2.6" fill="#E8C56B" /><circle cx="120" cy="172" r="2.6" fill="#E8C56B" />
     {pose === 'receipt' && <>
       <Limb d="M94 136Q72 150 84 170" /><Hand x={86} y={171} />
       <path d="M170 34h46v96l-7.6-6-7.7 6-7.7-6-7.7 6-7.7-6-7.6 6z" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
@@ -119,7 +123,7 @@ export function RecapPage() {
   if (!stats) return <div className="m-page m-stack">
     <div className="m-title"><div><h1>{title}</h1></div></div>
     {toggle}
-    <div className="m-card m-stack"><strong>Nothing to recap yet</strong><span className="m-muted">No spending shows up for {range.label.toLowerCase()}. Connect a bank or add a purchase and your recap fills in.</span><Link className="m-btn navy" href="/transactions">Go to Spending</Link></div>
+    <div className="m-card m-stack"><strong>Nothing to recap yet</strong><span className="m-muted">No spending shows up for {range.label.toLowerCase()}. Connect a bank or add a purchase and your recap fills in.</span>{!last && <button type="button" className="m-btn navy" onClick={() => { setLast(true); setIndex(0); }}>See last {period}</button>}<Link className="m-btn outline" href="/transactions">Go to Spending</Link></div>
   </div>;
 
   const changeLine = stats.change == null || !range.compare ? '' : stats.change === 0 ? `About the same as ${range.compare}.` : `${Math.abs(stats.change)}% ${stats.change > 0 ? 'more' : 'less'} than ${range.compare}.`;
