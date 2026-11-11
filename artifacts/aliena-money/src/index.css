@@ -769,10 +769,8 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-recap-big.mid { font-size: 56px; letter-spacing: -1.5px; line-height: 1; }
 .m-recap-big.long { font-size: 42px; letter-spacing: -1px; line-height: 1.05; }
 .m-recap-line { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.35; }
-.m-guide { flex: 1; min-height: 230px; position: relative; }
-.m-guide-coin { position: absolute; right: 4px; top: 58px; width: 168px; height: 168px; }
-.m-guide-coin svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.m-guide-arm { position: absolute; right: 132px; top: 4px; width: 150px; height: 120px; transform: scaleX(-1); }
+.m-guide { flex: 1; min-height: 240px; display: flex; align-items: flex-end; justify-content: center; }
+.m-mascot { width: 250px; max-width: 78%; height: auto; max-height: 100%; }
 .m-recap-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .m-recap-step { min-width: 52px; height: 52px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--fg); background: transparent; color: var(--fg); display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 15px; font-weight: 700; }
 .m-recap-step svg { width: 18px; height: 18px; }

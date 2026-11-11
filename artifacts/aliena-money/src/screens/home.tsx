@@ -122,11 +122,23 @@ export function HomePage() {
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
   });
-  // Once a week: an invitation to the weekly recap.
+  // Once a week, and around the end of each month: an invitation to the recap.
+  const nowDate = new Date();
+  const monthEnd = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+  const recapMonth = nowDate.getDate() <= 5 ? new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1) : nowDate.getDate() >= monthEnd - 1 ? nowDate : null;
+  if (recapMonth) {
+    const key = `recap-month-${dayKey(recapMonth).slice(0, 7)}`;
+    const name = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(recapMonth);
+    cards.push({
+      key, tag: 'Your month in money', title: `Your ${name} recap is ready`,
+      body: `See where your money went in ${name}: your top category, your top spot and how it compares.`,
+      yes: { label: `See ${name}`, run: () => { dismissWeek(key); setLocation(`/recap?period=month${recapMonth === nowDate ? '' : '&last=1'}`); } }, no: { label: 'Later', run: () => dismissWeek(key) },
+    });
+  }
   cards.push({
     key: `recap-${lastWeekStart()}`, tag: 'Your week in money', title: 'Your weekly recap is ready',
     body: 'See where your money went last week: your top category, your top spot and your biggest purchase.',
-    yes: { label: 'See my week', run: () => { dismissWeek(`recap-${lastWeekStart()}`); setLocation('/recap?week=last'); } }, no: { label: 'Later', run: () => dismissWeek(`recap-${lastWeekStart()}`) },
+    yes: { label: 'See my week', run: () => { dismissWeek(`recap-${lastWeekStart()}`); setLocation('/recap?period=week&last=1'); } }, no: { label: 'Later', run: () => dismissWeek(`recap-${lastWeekStart()}`) },
   });
   const swap = mySwaps.data?.find((lookup) => lookup.suggestions[0] && !dismissed.includes(`swap-${lookup.id}`));
   if (swap) {
