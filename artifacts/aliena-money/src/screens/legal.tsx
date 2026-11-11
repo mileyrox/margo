@@ -4,17 +4,17 @@ import { useAuth } from '@clerk/react';
 import { Seal } from '@/components/margo/art';
 
 /**
- * Fill these in once the company is formed. Every legal page reads from here.
+ * Every legal page reads from here. Add the mailing address once there is one, and update the state and venue if the company is formed elsewhere.
  * Keep the drafts in the "Margo Legal Launch Kit" doc in sync, and have a lawyer review before launch.
  */
 export const company = {
-  legalName: '[Company legal name]',
-  state: '[State]',
-  venue: '[County, State]',
-  address: '[Mailing address]',
+  legalName: 'Margo Money',
+  state: 'Georgia',
+  venue: 'Fulton County, Georgia',
+  address: '',
   privacyEmail: 'miley@margomoney.co',
   supportEmail: 'miley@margomoney.co',
-  effectiveDate: '[Effective date]',
+  effectiveDate: 'November 10, 2026',
   backupDays: 30,
 };
 
@@ -33,7 +33,7 @@ function LegalPage({ title, children }: { title: string; children: ReactNode }) 
   </main>;
 }
 
-const Contact = () => <p>{company.legalName}, {company.address}, <a href={`mailto:${company.privacyEmail}`}>{company.privacyEmail}</a></p>;
+const Contact = () => <p>{company.legalName}{company.address ? `, ${company.address}` : ''}, <a href={`mailto:${company.privacyEmail}`}>{company.privacyEmail}</a></p>;
 
 export function PrivacyPage() {
   return <LegalPage title="Privacy Policy">
@@ -159,7 +159,7 @@ export function TermsPage() {
     <p>We may update these terms. If a change is important, we will tell you in the app or by email before it takes effect. Using Margo after that means you accept the new terms.</p>
 
     <h2>13. Contact</h2>
-    <p>{company.legalName}, {company.address}, <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a></p>
+    <p>{company.legalName}{company.address ? `, ${company.address}` : ''}, <a href={`mailto:${company.supportEmail}`}>{company.supportEmail}</a></p>
   </LegalPage>;
 }
 

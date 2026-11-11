@@ -733,3 +733,73 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-today-card,
 .m-bubble-detail { border-radius: 8px; }
 .m-picker img { border-radius: 6px; }
+
+/* Spending: tappable Money out / Money in */
+.m-tile.center { align-items: center; text-align: center; cursor: pointer; font: inherit; padding: 14px 12px; }
+.m-tile.center strong { font-size: 26px; }
+.m-tile.center.on { background: var(--m-navy); border-color: var(--m-navy); color: #fff; }
+.m-tile.center.on span, .m-tile.center.on small { color: #D5DBEE; }
+
+/* Swaps: brand names stay whole when there's no photo */
+.m-plinth-brand { overflow-wrap: normal; word-break: normal; hyphens: none; font-size: 15px; padding: 0 5px; }
+.m-plinth-brand.sm { font-size: 12.5px; }
+.m-plinth-brand.xs { font-size: 10.5px; letter-spacing: -0.2px; }
+.m-plinth-photo img { padding: 4px; }
+
+/* Spending: one thin "All" bar under the two totals */
+.m-tile.center small { display: none; }
+.m-all-bar { width: 100%; min-height: 44px; border-radius: 8px; border: 1px solid var(--m-line); background: #fff; color: var(--m-navy); font-size: 14px; font-weight: 700; }
+.m-all-bar.on { background: var(--m-navy); border-color: var(--m-navy); color: #fff; }
+
+/* Weekly recap: three slides with Margo pointing, then one full page */
+.m-recap-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 14px; font-weight: 700; color: var(--m-burgundy); text-decoration: none; }
+.m-recap-link svg { width: 16px; height: 16px; }
+.m-recap { --fg: #fff; --soft: rgba(255, 255, 255, .75); --dim: rgba(255, 255, 255, .22); min-height: calc(100dvh - 150px); padding: 16px 24px 24px; display: flex; flex-direction: column; gap: 14px; color: var(--fg); }
+.m-recap.navy { background: var(--m-navy); }
+.m-recap.burgundy { background: var(--m-burgundy); }
+.m-recap.green { background: #4F5320; }
+.m-recap-bars { display: flex; gap: 5px; }
+.m-recap-bars i { flex: 1; height: 4px; border-radius: 2px; background: var(--dim); }
+.m-recap-bars i.on { background: var(--fg); }
+.m-recap-top { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--soft); }
+.m-recap-close { width: 44px; height: 44px; margin-right: -12px; display: flex; align-items: center; justify-content: center; color: var(--fg); }
+.m-recap-body { display: flex; flex-direction: column; gap: 10px; padding-top: 28px; }
+.m-recap-kicker { margin: 0; font-size: 17px; font-weight: 700; color: var(--soft); }
+.m-recap-big { margin: 0; font-family: var(--m-serif); font-size: 76px; font-weight: 600; line-height: .95; letter-spacing: -2px; overflow-wrap: break-word; }
+.m-recap-big.mid { font-size: 56px; letter-spacing: -1.5px; line-height: 1; }
+.m-recap-big.long { font-size: 42px; letter-spacing: -1px; line-height: 1.05; }
+.m-recap-line { margin: 0; font-size: 18px; font-weight: 500; line-height: 1.35; }
+.m-guide { flex: 1; min-height: 240px; display: flex; align-items: flex-end; justify-content: center; }
+.m-mascot { width: 250px; max-width: 78%; height: auto; max-height: 100%; }
+.m-recap-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.m-recap-step { min-width: 52px; height: 52px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--fg); background: transparent; color: var(--fg); display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: 15px; font-weight: 700; }
+.m-recap-step svg { width: 18px; height: 18px; }
+.m-recap-step.done { background: var(--fg); color: var(--m-navy); flex: 1; }
+.m-recap-step:disabled { opacity: .35; }
+.m-recap-card { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; background: var(--m-navy); border-color: var(--m-navy); color: #fff; }
+.m-recap-card small { color: #D5DBEE; }
+.m-recap-total { font-family: var(--m-serif); font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -1px; }
+.m-recap-row { display: flex; flex-direction: column; gap: 6px; }
+.m-recap-row .m-bar i { background: #7F8644; }
+.m-recap-rank { display: inline-block; width: 22px; font-family: var(--m-serif); color: var(--m-burgundy); }
+
+/* Home: tap the ring to open the recap */
+a.m-ring { display: block; color: inherit; text-decoration: none; border-radius: 50%; }
+a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4px; }
+.m-ring-text em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--m-burgundy); margin-top: 4px; text-decoration: underline; text-underline-offset: 3px; }
+/* Home: the budget circles sit straight on the page, no card behind them */
+.m-bubble-area { background: transparent; border: none; box-shadow: none; padding: 0; }
+/* The mascot's navy blazer needs a light edge on the navy slide */
+.m-recap.navy .m-mascot { filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
+
+/* The sign-up agreement */
+.m-agree { max-width: 480px; margin: 0 auto; padding-top: 40px; }
+.m-agree-head { display: flex; flex-direction: column; gap: 8px; }
+.m-agree-head h1 { font-family: var(--m-serif); font-size: 32px; font-weight: 600; line-height: 1.1; }
+.m-agree-head p { font-size: 15px; color: var(--m-ink-2); }
+.m-agree-list { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 14px; font-size: 14px; line-height: 1.45; color: var(--m-ink-2); }
+.m-agree-list strong { display: block; color: var(--m-navy); font-size: 15px; }
+.m-agree-check { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.45; cursor: pointer; }
+.m-agree-check input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--m-navy); margin: 0; }
+.m-agree-check a { color: var(--m-navy); font-weight: 700; }
+.m-agree .m-btn:disabled { opacity: .45; }

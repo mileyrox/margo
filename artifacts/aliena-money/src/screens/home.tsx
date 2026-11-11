@@ -21,17 +21,23 @@ type TodayCard = {
   done?: string;
 };
 
+/** Monday of last week, as YYYY-MM-DD. */
+const lastWeekStart = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7); return dayKey(d); };
+const weekSeen = (key: string) => { try { return window.localStorage.getItem(`margo-${key}`) === '1'; } catch { return false; } };
+const dismissWeek = (key: string) => { try { window.localStorage.setItem(`margo-${key}`, '1'); } catch { /* fine without storage */ } };
+
 const todayKey = () => `margo-today-${dayKey(new Date())}`;
 const readDismissed = (): string[] => { try { return JSON.parse(window.localStorage.getItem(todayKey()) || '[]'); } catch { return []; } };
 const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(todayKey(), JSON.stringify(keys)); } catch { /* fine without storage */ } };
 
-/** Darker as a budget fills up; burgundy once it's over. */
+/** Army green that only gets darker as a budget fills up. It never turns red. */
 function bubbleShade(used: number): [string, string] {
-  if (used > 1) return ['#5A0F1A', '#FFFFFF'];
-  if (used >= 0.85) return ['#0B1F4B', '#FFFFFF'];
-  if (used >= 0.6) return ['#7F93C9', '#0B1F4B'];
-  if (used >= 0.35) return ['#B9C6E6', '#0B1F4B'];
-  return ['#DDE4F4', '#0B1F4B'];
+  if (used > 1) return ['#33360F', '#FFFFFF'];
+  // Army green: light with lots of room, deeper as the budget gets used up.
+  if (used >= 0.85) return ['#4F5320', '#FFFFFF'];
+  if (used >= 0.6) return ['#7F8644', '#FFFFFF'];
+  if (used >= 0.35) return ['#B4BB85', '#0B1F4B'];
+  return ['#DFE3C8', '#0B1F4B'];
 }
 
 export function HomePage() {
@@ -116,6 +122,24 @@ export function HomePage() {
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
   });
+  // Once a week, and around the end of each month: an invitation to the recap.
+  const nowDate = new Date();
+  const monthEnd = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+  const recapMonth = nowDate.getDate() <= 5 ? new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1) : nowDate.getDate() >= monthEnd - 1 ? nowDate : null;
+  if (recapMonth) {
+    const key = `recap-month-${dayKey(recapMonth).slice(0, 7)}`;
+    const name = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(recapMonth);
+    cards.push({
+      key, tag: 'Your month in money', title: `Your ${name} recap is ready`,
+      body: `See where your money went in ${name}: your top category, your top spot and how it compares.`,
+      yes: { label: `See ${name}`, run: () => { dismissWeek(key); setLocation(`/recap?period=month${recapMonth === nowDate ? '' : '&last=1'}`); } }, no: { label: 'Later', run: () => dismissWeek(key) },
+    });
+  }
+  cards.push({
+    key: `recap-${lastWeekStart()}`, tag: 'Your week in money', title: 'Your weekly recap is ready',
+    body: 'See where your money went last week: your top category, your top spot and your biggest purchase.',
+    yes: { label: 'See my week', run: () => { dismissWeek(`recap-${lastWeekStart()}`); setLocation('/recap?period=week&last=1'); } }, no: { label: 'Later', run: () => dismissWeek(`recap-${lastWeekStart()}`) },
+  });
   const swap = mySwaps.data?.find((lookup) => lookup.suggestions[0] && !dismissed.includes(`swap-${lookup.id}`));
   if (swap) {
     const best = swap.suggestions[0];
@@ -136,7 +160,7 @@ export function HomePage() {
       yes: { label: over ? 'Adjust budgets' : 'Got it', run: () => { if (over) setLocation('/settings'); } }, no: { label: 'Not now', run: () => undefined },
     });
   }
-  const queue = cards.filter((card) => !dismissed.includes(card.key));
+  const queue = cards.filter((card) => !dismissed.includes(card.key) && !(card.key.startsWith('recap-') && weekSeen(card.key)));
   const current = confirmation || queue[0];
   const act = async (card: TodayCard, choice: 'yes' | 'no' | 'done') => {
     setError('');
@@ -152,7 +176,6 @@ export function HomePage() {
   const r = 76;
   const circumference = 2 * Math.PI * r;
   const leftShare = budget > 0 ? left / budget : 0;
-  const maxBudget = Math.max(1, ...rows.map((row) => row.monthly));
   const sel = rows.find((row) => row.name === selected) || rows[0];
   const loading = plan.isLoading || transactions.isLoading;
 
@@ -167,7 +190,7 @@ export function HomePage() {
       <div className="m-segment on-navy" role="group" aria-label="Budget period">
         {(['week', 'month'] as const).map((value) => <button type="button" key={value} className={period === value ? 'on' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} data-testid={`button-period-${value}`}>{value === 'month' ? 'Month' : 'Week'}</button>)}
       </div>
-      <div className="m-ring">
+      <Link className="m-ring" href={`/recap?view=full&period=${period}`} aria-label={`${loading ? '' : money(left)} left ${period === 'month' ? `in ${monthName}` : 'this week'}. Open your recap.`} data-testid="link-ring-recap">
         <svg width="180" height="180" viewBox="0 0 180 180" aria-hidden="true">
           <circle cx="90" cy="90" r={r} className="m-ring-track" />
           <circle cx="90" cy="90" r={r} className="m-ring-fill" strokeDasharray={`${(circumference * leftShare).toFixed(1)} ${circumference.toFixed(1)}`} />
@@ -176,8 +199,9 @@ export function HomePage() {
           <span>Left {period === 'month' ? `in ${monthName}` : 'this week'}</span>
           <strong data-testid="text-left-to-spend">{loading ? '…' : money(left)}</strong>
           <span>of {money(budget)}</span>
+          <em>See recap</em>
         </div>
-      </div>
+      </Link>
       {savingsGoal > 0 && <div className="m-ring-goal">
         <div className="m-line"><span>Savings goal</span><span><strong>{money(savedSoFar)}</strong> of {money(savingsGoal)}</span></div>
         <div className="m-bar on-navy"><i style={{ width: `${Math.min(100, savedSoFar / savingsGoal * 100)}%` }} /></div>
@@ -209,12 +233,13 @@ export function HomePage() {
 
     <section className="m-section">
       <h2 className="m-left-title">You have <span>{money(left)}</span> left to spend</h2>
-      {!categories.length ? <Link href="/settings" className="m-card m-tip">Set your category budgets<ChevronRight aria-hidden="true" /></Link> : <div className="m-card m-stack">
+      {!categories.length ? <Link href="/settings" className="m-card m-tip">Set your category budgets<ChevronRight aria-hidden="true" /></Link> : <div className="m-bubble-area m-stack">
         <div className="m-bubbles">
           {rows.map((row) => {
             const used = row.target > 0 ? row.used / row.target : 0;
             const [bg, color] = bubbleShade(used);
-            const size = Math.round(70 + 80 * row.monthly / maxBudget);
+            // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
+            const size = Math.round(88 + 64 * Math.min(1, Math.max(0, used)));
             const on = sel?.name === row.name;
             return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''}`} style={{ width: size, height: size, background: bg, color }} aria-pressed={on}
               aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} onClick={() => setSelected(row.name)} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
@@ -229,8 +254,8 @@ export function HomePage() {
           {sel.items.length ? sel.items.slice(0, 3).map((tx) => <div className="m-line" key={tx.id}><span>{tx.label} <span className="m-muted">· {shortDate(tx.date)}</span></span><strong>{money(tx.amount)}</strong></div>)
             : <span className="m-muted small">No purchases here yet this {period}.</span>}
         </div>}
-        <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide colors' : 'What do the colors mean?'}</button>
-        {showKey && <div className="m-key"><span><i style={{ background: '#E3E7F0' }} />Plenty left</span><span><i style={{ background: '#3D4E78' }} />Getting close</span><span><i style={{ background: '#5A0F1A' }} />Over</span></div>}
+        <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide key' : 'What do the sizes and colors mean?'}</button>
+        {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#33360F' }} />Biggest and darkest: over</span></div>}
       </div>}
     </section>
 

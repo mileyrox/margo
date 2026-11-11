@@ -112,12 +112,13 @@ export function SpendingPage() {
     <IncomeReviewCards items={pendingIncome} taxRate={taxRate} />
 
     <div className="m-tiles two">
-      <div className="m-tile" data-testid="total-expense"><span>Money out</span><strong>{money(totalOf('expense'))}</strong></div>
-      <div className="m-tile" data-testid="total-income"><span>Money in</span><strong>{money(totalOf('income'))}</strong></div>
+      {(['expense', 'income'] as const).map((value) => <button key={value} type="button" className={`m-tile center ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} data-testid={`total-${value}`}>
+        <span>{value === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(totalOf(value))}</strong>
+      </button>)}
     </div>
 
     <div className="m-chips" role="group" aria-label="Filter spending">
-      {(['all', 'expense', 'income'] as const).map((value) => <button key={value} className={`m-chip ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} data-testid={`button-filter-${value}`}>{value === 'all' ? 'All' : value === 'expense' ? 'Money out' : 'Money in'}</button>)}
+      <button type="button" className={`m-all-bar ${filter === 'all' ? 'on' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All</button>
     </div>
 
     {query.isLoading ? <div className="m-card"><Skeleton /></div>

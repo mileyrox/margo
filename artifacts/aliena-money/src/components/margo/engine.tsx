@@ -53,8 +53,12 @@ export function SwapSearch() {
 /** The real product photo, or the brand name on a white tile when there's no photo. */
 function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; brand: string; label: string; swap?: boolean }) {
   const [failed, setFailed] = useState(false);
+  // Without a photo: the brand in whole words (never cut mid-word), smaller when it's long.
+  const words = brand.trim().split(/\s+/).slice(0, 3).join(' ');
+  const longest = Math.max(...words.split(' ').map((word) => word.length));
+  const size = longest > 11 ? 'xs' : longest > 8 || words.length > 16 ? 'sm' : '';
   return <span className={`m-plinth-photo ${swap ? 'swap' : ''}`}>
-    {imageUrl && !failed ? <img src={imageUrl} alt={label} loading="lazy" onError={() => setFailed(true)} /> : <span className="m-plinth-brand" role="img" aria-label={label}>{brand}</span>}
+    {imageUrl && !failed ? <img src={imageUrl} alt={label} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className={`m-plinth-brand ${size}`} role="img" aria-label={label}>{words}</span>}
   </span>;
 }
 

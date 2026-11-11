@@ -1,7 +1,7 @@
 import { db, swapLookupsTable, userSwapsTable, type SwapLookup } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { findSwaps, lookupBarcode, rememberForUser, voteOnSuggestion } from "../lib/swap-engine";
+import { findSwaps, identifyBarcodeOnline, lookupBarcode, rememberForUser, voteOnSuggestion } from "../lib/swap-engine";
 
 const router: IRouter = Router();
 
@@ -50,8 +50,8 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
     if (barcode) {
       const [known] = await db.select().from(swapLookupsTable).where(eq(swapLookupsTable.barcode, barcode.replace(/\D/g, ""))).limit(1);
       if (known?.status === "ready" && known.suggestions.length) { await rememberForUser(req.dbUser.id, known.id, "barcode"); res.json(serialize(known)); return; }
-      const found = known ? { name: known.productName, brand: known.brand, category: known.category, barcode: known.barcode ?? barcode } : await lookupBarcode(barcode);
-      if (!found) { res.status(404).json({ error: "I couldn't find that barcode yet. Try typing the product name instead." }); return; }
+      const found = known ? { name: known.productName, brand: known.brand, category: known.category, barcode: known.barcode ?? barcode, imageUrl: known.imageUrl } : (await lookupBarcode(barcode)) ?? (await identifyBarcodeOnline(barcode));
+      if (!found) { res.status(404).json({ error: "I couldn't find that barcode in any product database. Type the product name and I'll find a swap." }); return; }
       product = { ...found, retailer, price: price > 0 ? price : null } as typeof product & { barcode: string };
     }
     const result = await findSwaps(product!, req.dbUser.id);
