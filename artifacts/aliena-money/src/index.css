@@ -783,13 +783,11 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-recap-row .m-bar i { background: #7F8644; }
 .m-recap-rank { display: inline-block; width: 22px; font-family: var(--m-serif); color: var(--m-burgundy); }
 
-/* Home: the standing "so far this week" card that opens the recap */
-.m-week-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: #fff; border: 1px solid var(--m-line); border-radius: 8px; box-shadow: 0 14px 26px -20px rgba(11, 31, 75, .35); color: var(--m-navy); text-decoration: none; }
-.m-week-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.m-week-text small { font-size: 13px; font-weight: 700; color: var(--m-ink-2); }
-.m-week-text strong { font-family: var(--m-serif); font-size: 30px; font-weight: 600; line-height: 1.1; }
-.m-week-text span { font-size: 14px; color: var(--m-ink-2); }
-.m-week-go { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; font-size: 14px; font-weight: 700; color: var(--m-burgundy); }
-.m-week-go svg { width: 16px; height: 16px; }
+/* Home: tap the ring to open the recap */
+a.m-ring { display: block; color: inherit; text-decoration: none; border-radius: 50%; }
+a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4px; }
+.m-ring-text em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--m-burgundy); margin-top: 4px; text-decoration: underline; text-underline-offset: 3px; }
+/* Home: the budget circles sit straight on the page, no card behind them */
+.m-bubble-area { background: transparent; border: none; box-shadow: none; padding: 0; }
 /* The mascot's navy blazer needs a light edge on the navy slide */
 .m-recap.navy .m-mascot { filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, .9)); }
