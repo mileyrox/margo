@@ -44,7 +44,31 @@ export async function findProductImage(name: string, brand: string): Promise<str
       if (image) return image;
     } catch { /* try the next database */ }
   }
+  // Everyday US products (cleaners, paper goods, beauty) that the open databases don't have photos for.
+  try {
+    const response = await fetch(`https://api.upcitemdb.com/prod/trial/search?s=${encodeURIComponent(terms)}&match_mode=1&type=product`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(6000) });
+    if (response.ok) {
+      const body = await response.json() as { items?: Array<{ title?: string; brand?: string; images?: string[] }> };
+      const match = body.items?.find((item) => firstWord && `${item.brand} ${item.title}`.toLowerCase().includes(firstWord) && item.images?.some((link) => /^https:/.test(link)));
+      const image = httpsImage(match?.images?.find((link) => /^https:/.test(link)));
+      if (image) return image;
+    }
+  } catch { /* no photo */ }
   return null;
+}
+
+/** Reads the main photo from a store's product page (the image the store itself shares for link previews). Not used for Amazon, which only allows photos from its own API. */
+export async function pagePhoto(productUrl: string): Promise<string | null> {
+  try {
+    const url = new URL(productUrl);
+    if (url.protocol !== "https:" || /(^|\.)amazon\./i.test(url.hostname)) return null;
+    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; MargoBot/0.1; link preview)", Accept: "text/html" }, signal: AbortSignal.timeout(7000), redirect: "follow" });
+    if (!response.ok || !/text\/html/i.test(response.headers.get("content-type") || "")) return null;
+    const html = (await response.text()).slice(0, 400_000);
+    const tag = html.match(/<meta[^>]+(?:property|name)=["']og:image(?::secure_url)?["'][^>]*>/i)?.[0] || "";
+    const link = tag.match(/content=["']([^"']+)["']/i)?.[1]?.replace(/&amp;/g, "&");
+    return httpsImage(link ? new URL(link, url).toString() : null);
+  } catch { return null; }
 }
 
 /** When no product database knows a barcode, asks the AI to look the number up on the web. */
@@ -303,6 +327,19 @@ async function underDailyLimit(userId: string | null) {
 }
 
 /** Returns the cached lookup for a product, creating it with the AI when needed. */
+const photoTried = new Set<string>();
+/** Adds missing photos to a saved swap without asking the AI again. */
+async function backfillPhotos(row: SwapLookup, knownImage: string | null) {
+  try {
+    const imageUrl = row.imageUrl || knownImage || await findProductImage(row.productName, row.brand);
+    const first = row.suggestions[0];
+    const swapImage = first && !first.imageUrl ? (await pagePhoto(first.url)) ?? await findProductImage(first.name, first.brand) : first?.imageUrl ?? null;
+    if (imageUrl === row.imageUrl && swapImage === (first?.imageUrl ?? null)) return;
+    const suggestions = row.suggestions.map((item, index) => index === 0 ? { ...item, imageUrl: swapImage } : item);
+    await db.update(swapLookupsTable).set({ imageUrl, suggestions }).where(eq(swapLookupsTable.id, row.id));
+  } catch { /* photos are a nice-to-have */ }
+}
+
 export async function findSwaps(input: ProductInput, userId: string | null): Promise<SwapLookup | null> {
   const name = clean(input.name, 200);
   if (name.length < 3) return null;
@@ -312,7 +349,11 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
   const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
   const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
-  if (existing && (fresh || existing.source === "admin")) return existing;
+  if (existing && (fresh || existing.source === "admin")) {
+    // Saved before photos existed: look for them quietly, so they show up next time.
+    if (existing.status === "ready" && (!existing.imageUrl || !existing.suggestions[0]?.imageUrl) && !photoTried.has(key)) { photoTried.add(key); void backfillPhotos(existing, input.imageUrl ?? null); }
+    return existing;
+  }
   if (inflight.has(key)) return inflight.get(key)!;
   if (!(await underDailyLimit(userId))) return existing ?? null;
 
@@ -321,6 +362,7 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
     let result: Awaited<ReturnType<typeof askAi>> = null;
     try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
+    const firstPage = result?.suggestions?.[0]?.productUrl || "";
     const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, ...item }) => ({
       ...item,
       // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
@@ -333,7 +375,7 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
     }));
     if (status === "ready" && !suggestions.length) status = "none";
     // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
-    if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
+    if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
     const imageUrl = input.imageUrl || existing?.imageUrl || await findProductImage(name, brand).catch(() => null);
     const values = {
       productKey: key, productName: name, brand,

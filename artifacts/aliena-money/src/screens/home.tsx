@@ -176,7 +176,6 @@ export function HomePage() {
   const r = 76;
   const circumference = 2 * Math.PI * r;
   const leftShare = budget > 0 ? left / budget : 0;
-  const maxBudget = Math.max(1, ...rows.map((row) => row.monthly));
   const sel = rows.find((row) => row.name === selected) || rows[0];
   const loading = plan.isLoading || transactions.isLoading;
 
@@ -239,7 +238,8 @@ export function HomePage() {
           {rows.map((row) => {
             const used = row.target > 0 ? row.used / row.target : 0;
             const [bg, color] = bubbleShade(used);
-            const size = Math.round(70 + 80 * row.monthly / maxBudget);
+            // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
+            const size = Math.round(74 + 76 * Math.min(1, Math.max(0, used)));
             const on = sel?.name === row.name;
             return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''}`} style={{ width: size, height: size, background: bg, color }} aria-pressed={on}
               aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} onClick={() => setSelected(row.name)} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
@@ -254,8 +254,8 @@ export function HomePage() {
           {sel.items.length ? sel.items.slice(0, 3).map((tx) => <div className="m-line" key={tx.id}><span>{tx.label} <span className="m-muted">· {shortDate(tx.date)}</span></span><strong>{money(tx.amount)}</strong></div>)
             : <span className="m-muted small">No purchases here yet this {period}.</span>}
         </div>}
-        <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide colors' : 'What do the colors mean?'}</button>
-        {showKey && <div className="m-key"><span><i style={{ background: '#E3E7F0' }} />Plenty left</span><span><i style={{ background: '#3D4E78' }} />Getting close</span><span><i style={{ background: '#5A0F1A' }} />Over</span></div>}
+        <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide key' : 'What do the sizes and colors mean?'}</button>
+        {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#5A0F1A' }} />Burgundy: over</span></div>}
       </div>}
     </section>
 
