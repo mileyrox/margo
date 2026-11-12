@@ -59,7 +59,7 @@ function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; bra
   const longest = Math.max(...words.split(' ').map((word) => word.length));
   const size = longest > 11 ? 'xs' : longest > 8 || words.length > 16 ? 'sm' : '';
   return <span className={`m-plinth-photo ${swap ? 'swap' : ''}`}>
-    {imageUrl && !failed ? <img src={imageUrl} alt={label} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className={`m-plinth-brand ${size}`} role="img" aria-label={label}>{words}</span>}
+    {imageUrl && !failed ? <img src={imageUrl} alt={label} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className={`m-plinth-brand ${size}`} role="img" aria-label={label}><i aria-hidden="true">{(words[0] || '?').toUpperCase()}</i><b>{words}</b></span>}
   </span>;
 }
 

@@ -54,7 +54,7 @@ export function MoneyAppsPage() {
         <div><small className="m-muted">Good to know</small><strong>{app.note}</strong></div>
       </div>
       {app.helped && <div className="m-quote"><small>How it helped me</small><span>{app.helped}</span></div>}
-      <a className="m-btn navy" href={app.url} target="_blank" rel="noreferrer sponsored">{app.tag === 'Earn' ? 'Try it' : 'Check it out'}<ArrowUpRight aria-hidden="true" /></a>
+      <a className="m-btn outline m-try" href={app.url} target="_blank" rel="noreferrer sponsored">{app.tag === 'Earn' ? 'Try it' : 'Check it out'}<ArrowUpRight aria-hidden="true" /></a>
     </article>)}
     <p className="m-fine">Some links are referral or affiliate links, so I may earn a bonus if you sign up. I only list apps I've used myself. Pay and availability vary by location.</p>
   </div>;

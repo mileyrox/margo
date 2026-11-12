@@ -114,7 +114,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
   const button = <button className={`m-btn ${compact ? 'navy' : 'outline'}`} onClick={() => void connect()} disabled={busy || Boolean(linkToken && !ready)}>{busy ? 'Connecting…' : banks.data?.length ? 'Add another bank or card' : 'Connect my bank'}</button>;
   if (compact) return <div className="m-stack">{button}{message && <small className="m-muted" role="status">{message}</small>}</div>;
   return <div className="m-stack">
-    {banks.isLoading ? <Skeleton lines={1} /> : banks.isError ? <ErrorState error={banks.error} retry={() => banks.refetch()} /> : banks.data?.map((bank) => <div className="m-line" key={bank.id}>
+    {banks.isLoading ? <Skeleton lines={1} /> : banks.isError ? <ErrorState error={banks.error} retry={() => banks.refetch()} /> : banks.data?.map((bank) => <div className="m-line m-bank-row" key={bank.id}>
       <span><strong>{bank.institutionName || 'Connected bank'}</strong><small className="m-muted block">{bank.lastSyncAt ? `Updated ${dateLabel(bank.lastSyncAt)}` : 'Connected, not updated yet'}</small></span>
       <span className="m-actions"><button className="m-link-button bold" disabled={syncing === bank.id} onClick={() => void sync(bank.id)}>{syncing === bank.id ? 'Updating…' : 'Refresh'}</button><button className="m-link-button" onClick={() => void disconnect(bank.id)}>Disconnect</button></span>
     </div>)}

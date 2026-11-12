@@ -290,7 +290,7 @@ export function TransactionRows({ items, onDelete, showDate = true, contextNotes
     <span className="m-tx-copy">
       <strong>{item.label}</strong>
       <small>{item.type === 'income' && item.incomeReviewStatus === 'pending' ? 'Income · not your usual paycheck' : item.category}{showDate ? ` · ${shortDate(item.date)}` : item.source ? ` · ${item.source}` : ''}</small>
-      {contextNotes[item.id] && <small className="m-tx-note">{contextNotes[item.id]}</small>}
+      {contextNotes[item.id] && <small className={`m-tx-note ${/found/.test(contextNotes[item.id]) ? "" : "quiet"}`}>{contextNotes[item.id]}</small>}
     </span>
     <strong className={`m-tx-amount ${item.type}`}>{item.type === 'income' ? '+' : '−'}{money(item.amount)}</strong>
     {onDelete && <button className="m-icon-button" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.label}`} data-testid={`button-delete-transaction-${item.id}`}><Trash2 aria-hidden="true" /></button>}

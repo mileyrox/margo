@@ -1,7 +1,7 @@
+import { MargoMascot } from '@/components/margo/mascot';
 import { Link } from 'wouter';
 import { useLocation } from 'wouter';
 import { ArrowLeftRight, BarChart3, PiggyBank } from 'lucide-react';
-import { Seal } from '@/components/margo/art';
 
 export function WelcomePage() {
   const [, navigate] = useLocation();
@@ -11,7 +11,7 @@ export function WelcomePage() {
     { icon: PiggyBank, text: 'Know what to set aside from side gigs' },
   ];
   return <main className="m-welcome">
-    <div className="m-welcome-brand"><Seal size={72} /><span>Margo</span></div>
+    <div className="m-welcome-brand"><MargoMascot pose="wave" className="m-welcome-mascot" label="Margo waving hello" /><span>Margo</span></div>
     <h1>Keep what you love. Spend less on it.</h1>
     <div className="m-welcome-list">{benefits.map(({ icon: Icon, text }) => <div key={text}><span><Icon aria-hidden="true" /></span><p>{text}</p></div>)}</div>
     <div className="m-welcome-actions">

@@ -57,7 +57,7 @@ export function SpendingPage() {
       const count = receipt
         ? (comparisons.data || []).filter((comparison) => names.has(comparison.productName.trim().toLowerCase())).length
         : comparisons.data?.filter((comparison) => comparison.category.toLowerCase() === item.category.toLowerCase()).length || 0;
-      return [[item.id, `Receipt scanned · ${count} ${count === 1 ? 'swap' : 'swaps'} found`]];
+      return [[item.id, count ? `Receipt scanned · ${count} ${count === 1 ? 'swap' : 'swaps'} found` : 'Receipt scanned']];
     }
     return [];
   }));

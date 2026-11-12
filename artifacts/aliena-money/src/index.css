@@ -821,3 +821,46 @@ a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4
 .m-test-tag.ok { background: #DFE3C8; color: #33360F; }
 .m-test-tag.warn { background: #F1D9D9; color: var(--m-burgundy); }
 .m-test-url { font-size: 11px; color: var(--m-ink-2); word-break: break-all; }
+
+/* ---------- Polish pass: less "template", more finished ---------- */
+/* Photo fallback: a monogram tile instead of a plain text box */
+.m-plinth-brand { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 100%; background: linear-gradient(160deg, #FFFFFF 0%, var(--m-cream) 100%); }
+.m-plinth-brand i { width: 40px; height: 40px; border-radius: 50%; background: var(--m-navy); color: #fff; font-family: var(--m-serif); font-style: normal; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.m-plinth-photo.swap .m-plinth-brand i { background: var(--m-burgundy); }
+.m-plinth-brand b { font-family: var(--m-serif); font-weight: 600; font-size: 12px; line-height: 1.15; padding: 0 6px; color: var(--m-navy); overflow-wrap: normal; word-break: keep-all; }
+/* Money apps: quieter buttons so the page isn't a wall of navy */
+.m-btn.m-try { align-self: flex-start; min-height: 40px; font-size: 14px; }
+/* Settings bank rows: name left, actions right, on one line */
+.m-bank-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.m-bank-row > span:first-child { min-width: 0; }
+.m-bank-row .m-actions { display: flex; flex-shrink: 0; gap: 2px; }
+.m-bank-row .m-link-button { min-height: 36px; padding: 0 10px; border-radius: 8px; }
+/* Text buttons: no underlines, a soft pill on hover */
+.m-link-button { text-decoration: none; font-weight: 600; border-radius: 8px; transition: background-color .15s; }
+.m-link-button:hover { background: var(--m-cream-2); }
+.m-link-button.danger { padding: 0 10px; }
+/* Delete icon: small and quiet until you reach for it */
+.m-tx-row .m-icon-button, .m-icon-button[data-testid^="button-delete"] { width: 32px; height: 32px; opacity: .45; }
+.m-icon-button[data-testid^="button-delete"] svg { width: 15px; height: 15px; }
+.m-icon-button[data-testid^="button-delete"]:hover, .m-icon-button[data-testid^="button-delete"]:focus-visible { opacity: 1; }
+/* Receipt note only turns burgundy when it found something */
+.m-tx-note { font-weight: 600; }
+/* Welcome: Margo waves, headline wraps evenly */
+.m-welcome-mascot { width: 150px; height: auto; }
+.m-welcome h1, .m-empty h2, .m-recap h2 { text-wrap: balance; }
+/* Empty states: Margo instead of a question mark */
+.m-empty-mascot { width: 104px; height: auto; margin-bottom: 2px; }
+/* Small moments of fun */
+.m-btn, .m-tile, .m-link-button, .m-ring { transition: transform .12s ease, background-color .15s, box-shadow .15s; }
+.m-btn:active, .m-tile:active, .m-ring:active { transform: scale(.97); }
+@keyframes m-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+.m-bubble-area > * { animation: m-pop .45s cubic-bezier(.2,.9,.3,1.2) both; }
+.m-bubble-area > *:nth-child(2) { animation-delay: .05s; } .m-bubble-area > *:nth-child(3) { animation-delay: .1s; }
+.m-bubble-area > *:nth-child(4) { animation-delay: .15s; } .m-bubble-area > *:nth-child(5) { animation-delay: .2s; }
+@keyframes m-wave { 0%, 60%, 100% { transform: rotate(0); } 20% { transform: rotate(-4deg); } 40% { transform: rotate(4deg); } }
+.m-welcome-mascot { transform-origin: 50% 90%; animation: m-wave 2.4s ease-in-out 0.4s 2; }
+@media (prefers-reduced-motion: reduce) {
+  .m-bubble-area > *, .m-welcome-mascot { animation: none; }
+  .m-btn:active, .m-tile:active, .m-ring:active { transform: none; }
+}
+.m-tx-note.quiet { color: var(--m-ink-2) !important; font-weight: 500; }
