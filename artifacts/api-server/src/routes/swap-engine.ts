@@ -134,8 +134,7 @@ router.get("/admin/swap-engine-status", async (req, res): Promise<void> => {
   checks.push(process.env.SERPER_API_KEY
     ? { name: "Photos and Amazon links (Serper)", ok: true, detail: "On" }
     : { name: "Photos and Amazon links (Serper)", ok: false, detail: "Not set. Add SERPER_API_KEY in Replit Secrets for real photos, prices and exact Amazon links." });
-  const links = process.env.SKIMLINKS_PUBLISHER_ID ? "Skimlinks" : process.env.SOVRN_API_KEY ? "Sovrn" : "";
-  checks.push({ name: "Affiliate links", ok: Boolean(links || process.env.AMAZON_ASSOCIATE_TAG), detail: [links && `${links} on`, process.env.AMAZON_ASSOCIATE_TAG ? "Amazon tag on" : ""].filter(Boolean).join(", ") || "Not set yet. Links still work, they just don't earn commission." });
+  checks.push({ name: "Affiliate links", ok: true, detail: `Amazon tag ${process.env.AMAZON_ASSOCIATE_TAG || "margo0ba-20"}, Skimlinks on for other stores` });
   res.json({ ok: tablesOk && checks.every((check) => check.ok || check.name === "Affiliate links" || check.name.startsWith("Photos")), checks });
 });
 

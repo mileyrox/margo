@@ -146,11 +146,15 @@ const searchUrls: Array<[RegExp, (q: string) => string]> = [
   [/old navy/i, (q) => `https://oldnavy.gap.com/browse/search.do?searchText=${q}`],
 ];
 
+/** Miley's IDs. These are public (they show up in every link), so they live here; a Replit Secret overrides them. */
+const AMAZON_TAG = process.env.AMAZON_ASSOCIATE_TAG || "margo0ba-20";
+const SKIMLINKS_ID = process.env.SKIMLINKS_PUBLISHER_ID || "312805X1801438";
+
 export function storeLink(retailer: string, productName: string, brand: string) {
   const q = encodeURIComponent(`${brand} ${productName}`.trim());
   const match = searchUrls.find(([pattern]) => pattern.test(retailer));
   // No exact page: send people to Amazon's search for it (earns on the Amazon tag), unless the store has its own search.
-  if (!match || process.env.AMAZON_ASSOCIATE_TAG) return affiliate(`https://www.amazon.com/s?k=${q}`);
+  if (!match || AMAZON_TAG) return affiliate(`https://www.amazon.com/s?k=${q}`);
   return affiliate(match[1](q));
 }
 
@@ -160,11 +164,12 @@ export function affiliate(link: string): string {
   try {
     const parsed = new URL(link);
     if (/(^|\.)amazon\.com$/i.test(parsed.hostname)) {
-      if (process.env.AMAZON_ASSOCIATE_TAG) parsed.searchParams.set("tag", process.env.AMAZON_ASSOCIATE_TAG);
+      if (AMAZON_TAG) parsed.searchParams.set("tag", AMAZON_TAG);
       return parsed.toString();
     }
   } catch { return link; }
-  if (process.env.SKIMLINKS_PUBLISHER_ID) url = `https://go.skimresources.com/?id=${encodeURIComponent(process.env.SKIMLINKS_PUBLISHER_ID)}&url=${encodeURIComponent(url)}`;
+  if (/(^|\.)skimresources\.com$|(^|\.)viglink\.com$/i.test(new URL(link).hostname)) return link; // already wrapped
+  if (SKIMLINKS_ID) url = `https://go.skimresources.com/?id=${encodeURIComponent(SKIMLINKS_ID)}&xs=1&url=${encodeURIComponent(url)}`;
   else if (process.env.SOVRN_API_KEY) url = `https://redirect.viglink.com?key=${encodeURIComponent(process.env.SOVRN_API_KEY)}&u=${encodeURIComponent(url)}`;
   return url;
 }

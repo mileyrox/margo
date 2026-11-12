@@ -72,6 +72,7 @@ export function PrivacyPage() {
       <li><strong>Clerk</strong>, which runs sign-in and keeps your account secure.</li>
       <li><strong>Hosting, database and storage providers</strong> that run Margo for us.</li>
       <li><strong>Product databases and web search</strong> (such as Open Food Facts, Open Beauty Facts and UPCitemdb) to identify products and find photos. We send only a product name or barcode, never who you are or anything about your money.</li>
+      <li><strong>Skimlinks</strong>, an affiliate network. When you tap a link to a store other than Amazon, it passes through Skimlinks first so the store knows Margo sent you. Skimlinks sees that click (like your device and IP address), not your name or your money. See <a href="https://skimlinks.com/privacy-policies/" target="_blank" rel="noreferrer">Skimlinks' privacy policy</a>.</li>
       <li><strong>AI service providers</strong> that read receipt images, search the web for swaps and help write swap explanations (currently OpenAI, through our hosting provider Replit). We send only what the task needs and do not allow them to use it to train their models where we can control that setting.</li>
       <li><strong>Authorities</strong>, if the law requires it or to protect someone's safety or rights.</li>
       <li><strong>A buyer or successor</strong>, if Margo is merged or sold. They must follow this policy.</li>
@@ -175,6 +176,7 @@ export function DisclosuresPage() {
       <li><strong>We mark paid links.</strong> Any link that may earn us money is labeled in the app.</li>
       <li><strong>Money apps are ones we've used.</strong> Every app on the Money apps page has been used by Margo's founder. Some links there are referral links that pay us a bonus.</li>
       <li><strong>Amazon.</strong> As an Amazon Associate I earn from qualifying purchases.</li>
+      <li><strong>Other stores.</strong> Links to stores like Target, Walmart and Ulta go through Skimlinks, an affiliate network, which may pay Margo a commission.</li>
     </ul>
     <h2>Where swap information comes from</h2>
     <p>Margo suggests swaps by comparing product facts like type, size and key ingredients, using AI and public product data. "Dupe" means two products share key features, not that they are identical or made by the same company. Brand names are used only to identify products and belong to their owners. Barcode product details come from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>.</p>
