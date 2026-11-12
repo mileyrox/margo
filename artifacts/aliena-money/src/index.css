@@ -940,3 +940,9 @@ body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
 .m-bub { display: block; }
 .m-bub > * + * { margin-top: 12px; }
 .m-say > .m-face { margin-bottom: 2px; }
+/* Home-screen app */
+.m-header { background: rgba(251, 246, 245, .94); }
+.m-share-icon { display: inline-block; vertical-align: -3px; color: #0A84FF; margin: 0 2px; }
+.m-card > .m-say .m-bub { box-shadow: none; }
+.m-bub .m-today-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.m-bub .m-today-actions .m-btn { width: auto; flex: 0 0 auto; min-height: 40px; padding: 0 16px; font-size: 14px; }

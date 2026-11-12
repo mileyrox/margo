@@ -1,3 +1,4 @@
+import { InstallTip } from '@/components/margo/install-tip';
 import { MargoFace, MargoSays } from '@/components/margo/characters';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
@@ -203,6 +204,8 @@ export function HomePage() {
         <Link href={`/recap?view=full&period=${period}`} className="m-hero2-link" data-testid="link-ring-recap">Recap</Link>
       </div>
     </section>
+
+    <InstallTip />
 
     <section className="m-section">
       <div className="m-section-head"><h2>For you today</h2><span>{current ? `${Math.min(cards.length, dismissed.filter((key) => cards.some((card) => card.key === key)).length + 1)} of ${cards.length}` : ''}</span></div>

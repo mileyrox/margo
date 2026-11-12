@@ -1,3 +1,4 @@
+import { InstallTip } from '@/components/margo/install-tip';
 import { MARGO_KINDS, MargoFace, MargoSays, useMargoKind } from '@/components/margo/characters';
 import { useProfileAnswers } from '@/lib/profile';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -365,6 +366,11 @@ export function SettingsPage() {
     <section className="m-group">
       <h2>Banks</h2>
       <div className="m-card"><BankConnect /></div>
+    </section>
+
+    <section className="m-group">
+      <h2>Margo on your phone</h2>
+      <div className="m-card"><InstallTip always /></div>
     </section>
 
     <section className="m-group">
