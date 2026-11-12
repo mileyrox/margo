@@ -1,8 +1,7 @@
-import { useProfileAnswers } from '@/lib/profile';
 import type { ReactNode } from 'react';
 
 /*
- * Margo, in six characters people can choose from in Settings. The coin is the default.
+ * Margo's drawings. The app uses the real-person Margo; the other five are kept for later.
  * The drawings are fixed strings made by Margo (no user text goes in them).
  */
 export type MargoKind = 'coin' | 'person' | 'magpie' | 'tag' | 'purse' | 'mono';
@@ -27,10 +26,9 @@ const ART: Record<MargoKind, string> = {
 
 export const isMargoKind = (value: unknown): value is MargoKind => typeof value === 'string' && value in ART;
 
-/** The character this person picked, or the coin. */
+/** Margo is the real person everywhere (Miley's pick, Nov 2026). The other drawings stay here in case that changes. */
 export function useMargoKind(): MargoKind {
-  const { answers } = useProfileAnswers();
-  return isMargoKind(answers.margo) ? answers.margo : 'coin';
+  return 'person';
 }
 
 export function MargoArt({ kind, size = 48, label = 'Margo', className }: { kind: MargoKind; size?: number; label?: string; className?: string }) {

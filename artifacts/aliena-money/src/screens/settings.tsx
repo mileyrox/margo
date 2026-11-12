@@ -1,6 +1,4 @@
 import { InstallTip } from '@/components/margo/install-tip';
-import { MARGO_KINDS, MargoFace, MargoSays, useMargoKind } from '@/components/margo/characters';
-import { useProfileAnswers } from '@/lib/profile';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -210,8 +208,6 @@ function ExtensionConnect() {
 }
 
 export function SettingsPage() {
-  const margoKind = useMargoKind();
-  const { patch } = useProfileAnswers();
   const qc = useQueryClient();
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -313,17 +309,6 @@ export function SettingsPage() {
       {look ? <CoinAvatar look={look} size={56} /> : <span className="m-profile-initial">{(user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'M').toUpperCase()}</span>}
       <span><strong>{name}</strong><small className="m-muted">{user?.primaryEmailAddress?.emailAddress || 'Private to you'}</small></span>
       <Link href="/avatar" className="m-link">{look ? 'Edit avatar' : 'Make your avatar'}</Link>
-    </section>
-    <section className="m-group">
-      <h2>Your Margo</h2>
-      <div className="m-card m-stack">
-        <MargoSays size={40}>Pick how I look. I'll show up like this all over the app.</MargoSays>
-        <div className="m-margo-pick" role="radiogroup" aria-label="Choose your Margo">
-          {MARGO_KINDS.map((item) => <button type="button" key={item.kind} role="radio" aria-checked={margoKind === item.kind} className={margoKind === item.kind ? 'on' : ''} onClick={() => void patch({ margo: item.kind })}>
-            <MargoFace kind={item.kind} size={56} label="" /><span>{item.name}</span>
-          </button>)}
-        </div>
-      </div>
     </section>
     {error && <div className="m-error" role="alert">{error}</div>}
     {message && <div className="m-success" role="status">{message}</div>}
