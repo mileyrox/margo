@@ -41,7 +41,7 @@ textarea:focus, .btn:focus-visible, .link:focus-visible { outline: 2px solid var
 :root { --page: #FBF6F5; --olive: #4F5320; }
 body { background: var(--page); font-feature-settings: "tnum" 1, "lnum" 1; }
 .top { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); background: #fff; }
-.top img { border-radius: 50%; }
+.top img { border-radius: 8px; }
 .brand { color: var(--navy); font-size: 19px; }
 main { padding: 14px 16px 16px; }
 .card { border-radius: 16px; padding: 16px; box-shadow: 0 6px 20px rgba(11, 31, 75, .06); }
