@@ -1,4 +1,5 @@
 import { MargoMascot } from '@/components/margo/mascot';
+import { MargoSays } from '@/components/margo/characters';
 import { Link } from 'wouter';
 import { useLocation } from 'wouter';
 import { ArrowLeftRight, BarChart3, PiggyBank } from 'lucide-react';
@@ -11,8 +12,9 @@ export function WelcomePage() {
     { icon: PiggyBank, text: 'Know what to set aside from side gigs' },
   ];
   return <main className="m-welcome">
-    <div className="m-welcome-brand"><MargoMascot pose="wave" className="m-welcome-mascot" label="Margo waving hello" /><span>Margo</span></div>
+    <div className="m-welcome-hero"><MargoMascot className="m-welcome-mascot" label="Margo" /></div>
     <h1>Keep what you love. Spend less on it.</h1>
+    <MargoSays size={40} className="m-welcome-say">Hi, I'm Margo! I find cheaper versions of things you already buy, and show you where your money goes.</MargoSays>
     <div className="m-welcome-list">{benefits.map(({ icon: Icon, text }) => <div key={text}><span><Icon aria-hidden="true" /></span><p>{text}</p></div>)}</div>
     <div className="m-welcome-actions">
       <button className="m-btn burgundy pill big" onClick={() => navigate('/sign-up')} data-testid="button-get-started">Get started</button>

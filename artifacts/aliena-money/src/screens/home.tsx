@@ -1,3 +1,4 @@
+import { MargoFace, MargoSays } from '@/components/margo/characters';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -171,10 +172,10 @@ export function HomePage() {
     } catch (reason) { setError(messageOf(reason)); }
   };
 
-  /* ---------- Ring ---------- */
-  const r = 76;
-  const circumference = 2 * Math.PI * r;
-  const leftShare = budget > 0 ? left / budget : 0;
+  /* ---------- Hero ---------- */
+  const spentShare = budget > 0 ? Math.min(1, Math.max(0, (budget - left) / budget)) : 0;
+  const periodEnd = period === 'month' ? new Date(now.getFullYear(), now.getMonth() + 1, 0) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + (7 - ((now.getDay() + 6) % 7)) - 1);
+  const daysLeft = Math.max(1, Math.round((periodEnd.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000) + 1);
   const sel = rows.find((row) => row.name === selected) || rows[0];
   const loading = plan.isLoading || transactions.isLoading;
 
@@ -185,49 +186,41 @@ export function HomePage() {
 
     {(plan.isError || transactions.isError) && <ErrorState error={plan.error || transactions.error} retry={() => { void Promise.all([plan.refetch(), transactions.refetch()]); }} />}
 
-    <section className="m-ring-card" aria-label="Left to spend">
-      <div className="m-segment on-navy" role="group" aria-label="Budget period">
-        {(['week', 'month'] as const).map((value) => <button type="button" key={value} className={period === value ? 'on' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} data-testid={`button-period-${value}`}>{value === 'month' ? 'Month' : 'Week'}</button>)}
-      </div>
-      <Link className="m-ring" href={`/recap?view=full&period=${period}`} aria-label={`${loading ? '' : money(left)} left ${period === 'month' ? `in ${monthName}` : 'this week'}. Open your recap.`} data-testid="link-ring-recap">
-        <svg width="180" height="180" viewBox="0 0 180 180" aria-hidden="true">
-          <circle cx="90" cy="90" r={r} className="m-ring-track" />
-          <circle cx="90" cy="90" r={r} className="m-ring-fill" strokeDasharray={`${(circumference * leftShare).toFixed(1)} ${circumference.toFixed(1)}`} />
-        </svg>
-        <div className="m-ring-text">
-          <span>Left {period === 'month' ? `in ${monthName}` : 'this week'}</span>
-          <strong data-testid="text-left-to-spend">{loading ? '…' : money(left)}</strong>
-          <span>of {money(budget)}</span>
-          <em>See recap</em>
+    <section className="m-hero2" aria-label="Left to spend">
+      <div className="m-hero2-top">
+        <div className="m-segment on-navy" role="group" aria-label="Budget period">
+          {(['week', 'month'] as const).map((value) => <button type="button" key={value} className={period === value ? 'on' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} data-testid={`button-period-${value}`}>{value === 'month' ? 'Month' : 'Week'}</button>)}
         </div>
-      </Link>
-      {savingsGoal > 0 && <div className="m-ring-goal">
-        <div className="m-line"><span>Savings goal</span><span><strong>{money(savedSoFar)}</strong> of {money(savingsGoal)}</span></div>
-        <div className="m-bar on-navy"><i style={{ width: `${Math.min(100, savedSoFar / savingsGoal * 100)}%` }} /></div>
-      </div>}
+        <MargoFace size={52} label="" />
+      </div>
+      <span className="m-hero2-label">Left to spend {period === 'month' ? `in ${monthName}` : 'this week'}</span>
+      <strong className="m-hero2-amount" data-testid="text-left-to-spend">{loading ? '…' : money(left)}</strong>
+      <span className="m-hero2-label">of {money(budget)}, with {daysLeft} {daysLeft === 1 ? 'day' : 'days'} to go</span>
+      <div className="m-hero2-bar" role="img" aria-label={`${Math.round(spentShare * 100)}% of your budget spent`}><i style={{ width: `${Math.round(spentShare * 100)}%` }} /></div>
+      <div className="m-hero2-stats">
+        <span>Spent <b>{money(Math.max(0, budget - left))}</b></span>
+        {savingsGoal > 0 && <span>Saved <b>{money(savedSoFar)} of {money(savingsGoal)}</b></span>}
+        <Link href={`/recap?view=full&period=${period}`} className="m-hero2-link" data-testid="link-ring-recap">Recap</Link>
+      </div>
     </section>
 
     <section className="m-section">
       <div className="m-section-head"><h2>For you today</h2><span>{current ? `${Math.min(cards.length, dismissed.filter((key) => cards.some((card) => card.key === key)).length + 1)} of ${cards.length}` : ''}</span></div>
-      {cards.length > 1 && <div className="m-dots" aria-hidden="true">{cards.map((card, index) => <i key={card.key} className={dismissed.includes(card.key) ? 'done' : card.key === current?.key ? 'now' : ''} data-i={index} />)}</div>}
-      {current ? <div className="m-today">
-        <div className="m-today-back" aria-hidden="true" />
-        <article className="m-today-card" aria-live="polite">
+      {current ? <MargoSays className="m-today-say">
+        <div aria-live="polite" className="m-stack tight">
           <span className="m-today-tag">{current.tag}</span>
-          <h3>{current.title}</h3>
-          <p>{current.body}</p>
-          {error && <div className="m-error" role="alert">{error}</div>}
-          {current.done ? <button className="m-btn navy" onClick={() => void act(current, 'done')}>{current.done}</button>
-            : <div className="m-today-actions">
-              {current.yes && <button className="m-btn navy" disabled={review.isPending} onClick={() => void act(current, 'yes')}>{current.yes.label}</button>}
-              {current.no && <button className="m-btn outline" disabled={review.isPending} onClick={() => void act(current, 'no')}>{current.no.label}</button>}
-            </div>}
-        </article>
-      </div> : <div className="m-card m-caught-up">
-        <strong>All caught up</strong>
-        <span className="m-muted">Scan a receipt and I'll look for swaps.</span>
-        <Link href="/receipts?scan=receipt" className="m-link">Scan a receipt</Link>
-      </div>}
+          <strong className="m-today-title">{current.title}</strong>
+          <span>{current.body}</span>
+        </div>
+        {error && <div className="m-error" role="alert">{error}</div>}
+        {current.done ? <button className="m-btn navy" onClick={() => void act(current, 'done')}>{current.done}</button>
+          : <div className="m-today-actions">
+            {current.yes && <button className="m-btn navy" disabled={review.isPending} onClick={() => void act(current, 'yes')}>{current.yes.label}</button>}
+            {current.no && <button className="m-btn outline" disabled={review.isPending} onClick={() => void act(current, 'no')}>{current.no.label}</button>}
+          </div>}
+      </MargoSays> : <MargoSays>
+        <strong>You're all caught up.</strong> Scan a receipt and I'll look for cheaper swaps. <Link href="/receipts?scan=receipt" className="m-link">Scan a receipt</Link>
+      </MargoSays>}
     </section>
 
     <section className="m-section">

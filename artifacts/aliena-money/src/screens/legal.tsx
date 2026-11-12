@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@clerk/react';
-import { Seal } from '@/components/margo/art';
+import { MargoFace } from '@/components/margo/characters';
 
 /**
  * Every legal page reads from here. Add the mailing address once there is one, and update the state and venue if the company is formed elsewhere.
@@ -21,7 +21,7 @@ export const company = {
 function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   const { isSignedIn } = useAuth();
   return <main className="m-legal">
-    <Link href={isSignedIn ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><Seal size={28} /><span>Margo</span></Link>
+    <Link href={isSignedIn ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><MargoFace size={30} label="" /><span>Margo</span></Link>
     <article>
       <h1>{title}</h1>
       <p className="m-muted">Effective {company.effectiveDate}</p>

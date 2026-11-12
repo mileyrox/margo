@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetSwapProfileQueryKey, useUpdateSwapProfile } from '@workspace/api-client-react';
 import type { SwapProfile } from '@workspace/api-client-react';
-import { Seal } from '@/components/margo/art';
+import { MargoFace } from '@/components/margo/characters';
 import { messageOf } from '@/lib/format';
 
 /** Bump this when the agreement text changes, so everyone is asked again. */
@@ -22,7 +22,7 @@ export function AgreementPage({ profile }: { profile: SwapProfile }) {
     } catch (reason) { setError(messageOf(reason)); }
   };
   return <main className="m-page m-stack m-agree">
-    <div className="m-agree-head"><Seal size={44} /><h1>Before you start</h1><p>Margo is new and still being tested. Here is what you are agreeing to, in plain words.</p></div>
+    <div className="m-agree-head"><MargoFace size={56} label="" /><h1>Before you start</h1><p>Margo is new and still being tested. Here is what you are agreeing to, in plain words.</p></div>
     <ul className="m-card m-agree-list">
       <li><strong>Margo is in early testing.</strong> Things may break or change, and numbers like budgets, tax set-asides and savings are estimates.</li>
       <li><strong>It is not financial, tax or legal advice.</strong> Margo gives general information and suggestions. You make your own money decisions.</li>

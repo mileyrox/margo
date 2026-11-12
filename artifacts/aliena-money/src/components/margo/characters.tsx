@@ -1,0 +1,51 @@
+import { useProfileAnswers } from '@/lib/profile';
+import type { ReactNode } from 'react';
+
+/*
+ * Margo, in six characters people can choose from in Settings. The coin is the default.
+ * The drawings are fixed strings made by Margo (no user text goes in them).
+ */
+export type MargoKind = 'coin' | 'person' | 'magpie' | 'tag' | 'purse' | 'mono';
+
+export const MARGO_KINDS: Array<{ kind: MargoKind; name: string; tint: string }> = [
+  { kind: 'coin', name: "The coin", tint: '#F7EBCB' },
+  { kind: 'person', name: "Margo, a person", tint: '#FBE7EA' },
+  { kind: 'magpie', name: "The magpie", tint: '#E7ECF7' },
+  { kind: 'tag', name: "The price tag", tint: '#FBE7EA' },
+  { kind: 'purse', name: "The handbag", tint: '#F3E3E5' },
+  { kind: 'mono', name: "The m", tint: '#E7ECF7' },
+];
+
+const ART: Record<MargoKind, string> = {
+  coin: "<circle cx=\"80\" cy=\"82\" r=\"62\" fill=\"#C99A32\"/><circle cx=\"80\" cy=\"80\" r=\"62\" fill=\"#E8C56B\"/><circle cx=\"80\" cy=\"80\" r=\"52\" fill=\"none\" stroke=\"#C99A32\" stroke-width=\"2.4\" stroke-dasharray=\"3 5\"/><ellipse cx=\"60\" cy=\"96\" rx=\"8\" ry=\"5\" fill=\"#EE9FA9\" opacity=\".55\"/><ellipse cx=\"100\" cy=\"96\" rx=\"8\" ry=\"5\" fill=\"#EE9FA9\" opacity=\".55\"/><circle cx=\"63\" cy=\"78\" r=\"4\" fill=\"#0B1F4B\"/><circle cx=\"97\" cy=\"78\" r=\"4\" fill=\"#0B1F4B\"/><circle cx=\"63\" cy=\"78\" r=\"12\" fill=\"none\" stroke=\"#0B1F4B\" stroke-width=\"3\"/><circle cx=\"97\" cy=\"78\" r=\"12\" fill=\"none\" stroke=\"#0B1F4B\" stroke-width=\"3\"/><path d=\"M75 78h10\" stroke=\"#0B1F4B\" stroke-width=\"3\"/><path d=\"M68 100q12 10 24 0\" fill=\"none\" stroke=\"#5A0F1A\" stroke-width=\"3.4\" stroke-linecap=\"round\"/><path d=\"M48 40q10-12 26-14\" fill=\"none\" stroke=\"#FBE6A6\" stroke-width=\"5\" stroke-linecap=\"round\"/>",
+  person: "<path d=\"M30 160Q34 118 80 112Q126 118 130 160Z\" fill=\"#0B1F4B\"/><path d=\"M66 112L80 136L94 112Z\" fill=\"#fff\"/><path d=\"M58 112L80 140L70 146ZM102 112L80 140L90 146Z\" fill=\"#1C3270\"/><path d=\"M36 104Q30 40 80 32Q130 40 124 104Q112 110 104 100V70H56V100Q48 110 36 104Z\" fill=\"#0B1F4B\"/><rect x=\"72\" y=\"92\" width=\"16\" height=\"22\" rx=\"6\" fill=\"#F3CBAE\"/><ellipse cx=\"80\" cy=\"74\" rx=\"27\" ry=\"31\" fill=\"#F3CBAE\"/><path d=\"M52 66Q54 38 80 38Q106 38 108 66Q96 56 80 52Q64 56 52 66Z\" fill=\"#0B1F4B\"/><ellipse cx=\"66\" cy=\"86\" rx=\"6\" ry=\"4\" fill=\"#EE9FA9\" opacity=\".6\"/><ellipse cx=\"94\" cy=\"86\" rx=\"6\" ry=\"4\" fill=\"#EE9FA9\" opacity=\".6\"/><circle cx=\"69\" cy=\"76\" r=\"2.6\" fill=\"#0B1F4B\"/><circle cx=\"91\" cy=\"76\" r=\"2.6\" fill=\"#0B1F4B\"/><circle cx=\"69\" cy=\"76\" r=\"8.5\" fill=\"none\" stroke=\"#0B1F4B\" stroke-width=\"2\"/><circle cx=\"91\" cy=\"76\" r=\"8.5\" fill=\"none\" stroke=\"#0B1F4B\" stroke-width=\"2\"/><path d=\"M77.5 76h5\" stroke=\"#0B1F4B\" stroke-width=\"2\"/><path d=\"M72 92q8 7 16 0\" fill=\"none\" stroke=\"#5A0F1A\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"80\" cy=\"150\" r=\"2.4\" fill=\"#E8C56B\"/>",
+  magpie: "<path d=\"M104 112L150 138L144 146L98 124Z\" fill=\"#0B1F4B\"/><path d=\"M110 116L148 136\" stroke=\"#3B5BA9\" stroke-width=\"3\"/><ellipse cx=\"80\" cy=\"104\" rx=\"40\" ry=\"38\" fill=\"#0B1F4B\"/><ellipse cx=\"74\" cy=\"114\" rx=\"24\" ry=\"26\" fill=\"#fff\"/><path d=\"M96 92Q122 98 116 126Q102 110 92 104Z\" fill=\"#2A4C9A\"/><circle cx=\"72\" cy=\"58\" r=\"30\" fill=\"#0B1F4B\"/><path d=\"M44 60L28 66L44 70Z\" fill=\"#E8C56B\"/><circle cx=\"64\" cy=\"54\" r=\"10\" fill=\"#fff\"/><circle cx=\"62\" cy=\"54\" r=\"4.5\" fill=\"#0B1F4B\"/><circle cx=\"63.5\" cy=\"52.5\" r=\"1.4\" fill=\"#fff\"/><circle cx=\"64\" cy=\"54\" r=\"12.5\" fill=\"none\" stroke=\"#E8C56B\" stroke-width=\"2.4\"/><path d=\"M66 140v12M86 140v12M60 152h12M80 152h12\" stroke=\"#C99A32\" stroke-width=\"3\" stroke-linecap=\"round\"/><circle cx=\"112\" cy=\"58\" r=\"9\" fill=\"#E8C56B\"/><circle cx=\"112\" cy=\"58\" r=\"6\" fill=\"none\" stroke=\"#C99A32\" stroke-width=\"1.6\"/>",
+  tag: "<path d=\"M30 52Q30 40 42 36L92 22Q104 19 112 28L140 60Q146 68 140 76L94 132Q86 140 76 136L38 118Q30 114 30 104Z\" fill=\"#F2C9CE\" transform=\"rotate(-8 85 80)\"/><circle cx=\"52\" cy=\"56\" r=\"7\" fill=\"#FBF6F5\" transform=\"rotate(-8 85 80)\"/><path d=\"M50 54Q30 30 18 34\" fill=\"none\" stroke=\"#0B1F4B\" stroke-width=\"2.4\" stroke-linecap=\"round\"/><circle cx=\"80\" cy=\"82\" r=\"3.6\" fill=\"#0B1F4B\"/><circle cx=\"104\" cy=\"78\" r=\"3.6\" fill=\"#0B1F4B\"/><path d=\"M84 98q10 8 20 -2\" fill=\"none\" stroke=\"#5A0F1A\" stroke-width=\"3\" stroke-linecap=\"round\"/><ellipse cx=\"74\" cy=\"94\" rx=\"6\" ry=\"4\" fill=\"#EE9FA9\" opacity=\".7\"/><ellipse cx=\"112\" cy=\"90\" rx=\"6\" ry=\"4\" fill=\"#EE9FA9\" opacity=\".7\"/><text x=\"96\" y=\"124\" text-anchor=\"middle\" font-family=\"Fraunces,Georgia,serif\" font-size=\"17\" font-weight=\"600\" fill=\"#5A0F1A\" transform=\"rotate(-8 96 124)\">-$4</text>",
+  purse: "<path d=\"M54 58Q54 26 80 26Q106 26 106 58\" fill=\"none\" stroke=\"#C99A32\" stroke-width=\"7\" stroke-linecap=\"round\"/><path d=\"M30 66Q30 56 42 56H118Q130 56 130 66L136 134Q136 146 124 146H36Q24 146 24 134Z\" fill=\"#5A0F1A\"/><path d=\"M26 82H134\" stroke=\"#76202D\" stroke-width=\"3\"/><rect x=\"70\" y=\"74\" width=\"20\" height=\"16\" rx=\"4\" fill=\"#E8C56B\"/><circle cx=\"64\" cy=\"108\" r=\"4\" fill=\"#fff\"/><circle cx=\"96\" cy=\"108\" r=\"4\" fill=\"#fff\"/><path d=\"M70 122q10 8 20 0\" fill=\"none\" stroke=\"#fff\" stroke-width=\"3\" stroke-linecap=\"round\"/><path d=\"M54 98l-4-4M57 96l-1-5M106 98l4-4M103 96l1-5\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\"/>",
+  mono: "<rect x=\"20\" y=\"20\" width=\"120\" height=\"120\" rx=\"36\" fill=\"#0B1F4B\"/><text x=\"80\" y=\"122\" text-anchor=\"middle\" font-family=\"Fraunces,Georgia,serif\" font-size=\"104\" font-weight=\"600\" fill=\"#fff\">m</text><circle cx=\"58\" cy=\"58\" r=\"11\" fill=\"#fff\"/><circle cx=\"102\" cy=\"58\" r=\"11\" fill=\"#fff\"/><circle cx=\"60\" cy=\"59\" r=\"5\" fill=\"#0B1F4B\"/><circle cx=\"104\" cy=\"59\" r=\"5\" fill=\"#0B1F4B\"/><circle cx=\"58\" cy=\"58\" r=\"14\" fill=\"none\" stroke=\"#E8C56B\" stroke-width=\"3\"/><circle cx=\"102\" cy=\"58\" r=\"14\" fill=\"none\" stroke=\"#E8C56B\" stroke-width=\"3\"/><path d=\"M72 58h16\" stroke=\"#E8C56B\" stroke-width=\"3\"/>",
+};
+
+export const isMargoKind = (value: unknown): value is MargoKind => typeof value === 'string' && value in ART;
+
+/** The character this person picked, or the coin. */
+export function useMargoKind(): MargoKind {
+  const { answers } = useProfileAnswers();
+  return isMargoKind(answers.margo) ? answers.margo : 'coin';
+}
+
+export function MargoArt({ kind, size = 48, label = 'Margo', className }: { kind: MargoKind; size?: number; label?: string; className?: string }) {
+  return <svg className={className} width={size} height={size} viewBox="0 0 160 160" role={label ? 'img' : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : true} dangerouslySetInnerHTML={{ __html: ART[kind] }} />;
+}
+
+/** Margo in a soft tinted circle, sized for the app. */
+export function MargoFace({ size = 44, kind: forced, label = 'Margo' }: { size?: number; kind?: MargoKind; label?: string }) {
+  const chosen = useMargoKind();
+  const kind = forced || chosen;
+  const tint = MARGO_KINDS.find((item) => item.kind === kind)?.tint || '#FBE7EA';
+  return <span className="m-face" style={{ width: size, height: size, background: tint }}><MargoArt kind={kind} size={Math.round(size * 0.86)} label={label} /></span>;
+}
+
+/** Anything Margo says goes in a speech bubble next to her. */
+export function MargoSays({ children, size = 44, className = '' }: { children: ReactNode; size?: number; className?: string }) {
+  return <div className={`m-say ${className}`}><MargoFace size={size} label="Margo says" /><div className="m-bub">{children}</div></div>;
+}

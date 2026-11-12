@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useGetTransactions } from '@workspace/api-client-react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
-import { MargoMascot } from '@/components/margo/mascot';
+import { MargoFace } from '@/components/margo/characters';
 import { fetchMySwaps } from '@/components/margo/engine';
 import { dayKey, money, shortDate } from '@/lib/format';
 
@@ -92,9 +92,9 @@ export function RecapPage() {
 
   if (view === 'slides') {
     const slides = [
-      { tone: 'navy', pose: 'receipt' as const, kicker: `${range.phrase} you spent`, big: money(stats.total), line: `across ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}. ${changeLine}` },
-      { tone: 'green', pose: 'bags' as const, kicker: 'Most of it went to', big: topCategory.name, line: `${money(topCategory.total)}, which is ${Math.round(topCategory.total / stats.total * 100)}% of what you spent.` },
-      { tone: 'burgundy', pose: 'pin' as const, kicker: 'Your top spot was', big: topPlace.name, line: `${money(topPlace.total)} over ${topPlace.count} ${topPlace.count === 1 ? 'visit' : 'visits'}.` },
+      { tone: 'navy', pose: 'receipt' as const, kicker: `${range.phrase} you spent`, big: money(stats.total), line: `across ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}. ${changeLine}`, says: `Here's your ${range.phrase.toLowerCase().includes('month') ? 'month' : range.phrase.toLowerCase().includes('year') ? 'year' : 'week'} in money.` },
+      { tone: 'green', pose: 'bags' as const, kicker: 'Most of it went to', big: topCategory.name, line: `${money(topCategory.total)}, which is ${Math.round(topCategory.total / stats.total * 100)}% of what you spent.`, says: `${topCategory.name} was the big one.` },
+      { tone: 'burgundy', pose: 'pin' as const, kicker: 'Your top spot was', big: topPlace.name, line: `${money(topPlace.total)} over ${topPlace.count} ${topPlace.count === 1 ? 'visit' : 'visits'}.`, says: topPlace.count > 2 ? `You and ${topPlace.name} are close.` : 'Your favorite spot.' },
     ];
     const slide = slides[Math.min(index, slides.length - 1)];
     const last = index >= slides.length - 1;
@@ -106,7 +106,7 @@ export function RecapPage() {
         <p className={`m-recap-big ${slide.big.length > 13 ? 'long' : slide.big.length > 7 ? 'mid' : ''}`}>{slide.big}</p>
         <p className="m-recap-line">{slide.line}</p>
       </div>
-      <div className="m-guide"><MargoMascot pose={slide.pose} /></div>
+      <div className="m-guide m-say"><MargoFace size={76} label="Margo says" /><div className="m-bub">{slide.says}</div></div>
       <div className="m-recap-nav">
         <button type="button" className="m-recap-step" onClick={() => setIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Back"><ChevronLeft aria-hidden="true" /></button>
         {last
