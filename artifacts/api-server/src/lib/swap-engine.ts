@@ -303,6 +303,52 @@ const storeName = (link: string, fallback: string) => {
   return known[host] || fallback || host;
 };
 
+/* ---------------- Serper: Google Shopping and Google search (photos, prices, exact Amazon pages) ---------------- */
+
+type ShoppingHit = { title?: string; source?: string; link?: string; price?: string; imageUrl?: string };
+type OrganicHit = { title?: string; link?: string };
+
+async function serper<T>(kind: "shopping" | "search", q: string): Promise<T | null> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key || q.trim().length < 3) return null;
+  try {
+    const response = await fetch(`https://google.serper.dev/${kind}`, {
+      method: "POST",
+      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(9000),
+      body: JSON.stringify({ q: q.slice(0, 200), gl: "us", hl: "en", num: 10 }),
+    });
+    return response.ok ? await response.json() as T : null;
+  } catch { return null; }
+}
+
+const firstWord = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/)[0] || "";
+const dollars = (value?: string) => { const n = Number(String(value || "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
+
+/** Google Shopping: the product's photo, a current price and where it's sold. Only trusts a hit whose title has the brand. */
+export async function shoppingMatch(name: string, brand: string, size = ""): Promise<{ imageUrl: string | null; price: number | null; link: string | null; source: string } | null> {
+  const body = await serper<{ shopping?: ShoppingHit[] }>("shopping", [brand, name, size].filter(Boolean).join(" "));
+  const word = firstWord(brand || name);
+  const hits = (body?.shopping ?? []).filter((hit) => hit.title && (!word || `${hit.title} ${hit.source}`.toLowerCase().includes(word)));
+  // Prefer the big stores people trust.
+  const rank = (hit: ShoppingHit) => /target|walmart|amazon|ulta|cvs|walgreens|kroger|costco|sephora/i.test(hit.source || "") ? 0 : 1;
+  const hit = hits.sort((a, b) => rank(a) - rank(b))[0];
+  if (!hit) return null;
+  const link = hit.link && /^https:/.test(hit.link) && !/(^|\.)google\./i.test(new URL(hit.link).hostname) ? hit.link : null;
+  return { imageUrl: httpsImage(hit.imageUrl), price: dollars(hit.price), link, source: clean(hit.source || "", 60) };
+}
+
+/** Google search limited to Amazon: the exact Amazon product page, as a clean amazon.com/dp/ link. */
+export async function findAmazonPage(name: string, brand: string, size = ""): Promise<string | null> {
+  const body = await serper<{ organic?: OrganicHit[] }>("search", `site:amazon.com ${[brand, name, size].filter(Boolean).join(" ")}`);
+  const word = firstWord(brand || name);
+  for (const hit of body?.organic ?? []) {
+    const asin = hit.link?.match(/amazon\.com\/(?:[^?#]*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i)?.[1];
+    if (asin && (!word || (hit.title || "").toLowerCase().includes(word))) return `https://www.amazon.com/dp/${asin.toUpperCase()}`;
+  }
+  return null;
+}
+
 /** Link order: the exact Amazon page, then the exact page at another store, then an Amazon search for it. */
 export function chooseLink(productUrl: string, photoPageUrl: string, item: { name: string; brand: string; sizeText: string; retailer: string }) {
   const host = (link: string) => { try { return new URL(link).hostname; } catch { return ""; } };
@@ -393,9 +439,9 @@ const photoTried = new Set<string>();
 /** Adds missing photos to a saved swap without asking the AI again. */
 async function backfillPhotos(row: SwapLookup, knownImage: string | null) {
   try {
-    const imageUrl = row.imageUrl || knownImage || await findProductImage(row.productName, row.brand);
+    const imageUrl = row.imageUrl || knownImage || (await shoppingMatch(row.productName, row.brand))?.imageUrl || await findProductImage(row.productName, row.brand);
     const first = row.suggestions[0];
-    const swapImage = first && !first.imageUrl ? (await pagePhoto(first.url)) ?? await findProductImage(first.name, first.brand) : first?.imageUrl ?? null;
+    const swapImage = first && !first.imageUrl ? (await shoppingMatch(first.name, first.brand, first.sizeText))?.imageUrl ?? (await pagePhoto(first.url)) ?? await findProductImage(first.name, first.brand) : first?.imageUrl ?? null;
     if (imageUrl === row.imageUrl && swapImage === (first?.imageUrl ?? null)) return;
     const suggestions = row.suggestions.map((item, index) => index === 0 ? { ...item, imageUrl: swapImage } : item);
     await db.update(swapLookupsTable).set({ imageUrl, suggestions }).where(eq(swapLookupsTable.id, row.id));
@@ -447,9 +493,27 @@ export async function findSwaps(input: ProductInput, userId: string | null, opti
       };
     });
     if (status === "ready" && !suggestions.length) status = "none";
+    // With Serper: find the exact Amazon page, and a real photo and current price from Google Shopping.
+    let shoppingOriginal: Awaited<ReturnType<typeof shoppingMatch>> = null;
+    if (process.env.SERPER_API_KEY) {
+      const top = suggestions[0];
+      const [amazon, swapShop, origShop] = await Promise.all([
+        top && top.linkKind !== "amazon-page" ? findAmazonPage(top.name, top.brand, top.sizeText) : Promise.resolve(null),
+        top ? shoppingMatch(top.name, top.brand, top.sizeText) : Promise.resolve(null),
+        !input.imageUrl && !existing?.imageUrl ? shoppingMatch(name, brand) : Promise.resolve(null),
+      ]);
+      shoppingOriginal = origShop;
+      if (top && amazon) Object.assign(top, { url: affiliate(amazon), retailer: "Amazon", linkKind: "amazon-page" });
+      if (top && swapShop) {
+        if (!top.imageUrl && swapShop.imageUrl) top.imageUrl = swapShop.imageUrl;
+        // A live price, but never Amazon's own (Amazon only allows prices from its API).
+        if (top.typicalPrice == null && swapShop.price && !/amazon/i.test(swapShop.source)) top.typicalPrice = swapShop.price;
+        if (top.linkKind === "search" && swapShop.link && !/amazon\./i.test(swapShop.link)) Object.assign(top, { url: affiliate(swapShop.link), retailer: swapShop.source || top.retailer, linkKind: "store-page" });
+      }
+    }
     // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
     if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (swapPhotoPage ? await pagePhoto(swapPhotoPage) : null) ?? (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
-    const imageUrl = input.imageUrl || existing?.imageUrl || (result?.originalPageUrl ? await pagePhoto(result.originalPageUrl) : null) || await findProductImage(name, brand).catch(() => null);
+    const imageUrl = input.imageUrl || existing?.imageUrl || shoppingOriginal?.imageUrl || (result?.originalPageUrl ? await pagePhoto(result.originalPageUrl) : null) || await findProductImage(name, brand).catch(() => null);
     const values = {
       productKey: key, productName: name, brand,
       category: clean(result?.category || input.category, 80),
