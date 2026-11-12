@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { MargoMascot, type MascotPose } from '@/components/margo/mascot';
 import { Link, useLocation } from 'wouter';
 import { useUser } from '@clerk/react';
-import { BarChart3, ChevronLeft, CircleHelp, Home, LayoutGrid, Plus, ReceiptText, ScanBarcode, ShoppingBag, ArrowLeftRight } from 'lucide-react';
-import { CoinAvatar, Seal, parseLook } from './art';
+import { BarChart3, ChevronLeft, Home, LayoutGrid, Plus, ReceiptText, ScanBarcode, ShoppingBag, ArrowLeftRight } from 'lucide-react';
+import { CoinAvatar, parseLook } from './art';
+import { MargoFace } from './characters';
 import { useProfileAnswers } from '@/lib/profile';
 import { messageOf } from '@/lib/format';
 
@@ -12,7 +14,7 @@ function Header() {
   const look = parseLook(answers.avatar);
   const initial = (user?.firstName?.[0] || user?.primaryEmailAddress?.emailAddress?.[0] || 'M').toUpperCase();
   return <header className="m-header">
-    <Link href="/" className="m-brand" aria-label="Margo home"><Seal size={32} /><span>Margo</span></Link>
+    <Link href="/" className="m-brand" aria-label="Margo home"><MargoFace size={34} label="" /><span>Margo</span></Link>
     <Link href="/settings" className="m-avatar-button" aria-label="Open settings" data-testid="link-profile-avatar">
       {look ? <CoinAvatar look={look} size={44} label="Your avatar. Open settings" /> : initial}
     </Link>
@@ -95,6 +97,6 @@ export function ErrorState({ error, retry }: { error: unknown; retry: () => void
   return <div className="m-error" role="alert"><span>{messageOf(error)}</span><button className="m-btn outline small" onClick={retry}>Try again</button></div>;
 }
 
-export function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
-  return <div className="m-empty"><span className="m-empty-icon"><CircleHelp aria-hidden="true" /></span><h2>{title}</h2><p>{body}</p>{action}</div>;
+export function EmptyState({ title, body, action, pose = 'snooze' }: { title: string; body: string; action?: ReactNode; pose?: MascotPose }) {
+  return <div className="m-empty"><MargoMascot pose={pose} className="m-empty-mascot" label="" /><h2>{title}</h2><p>{body}</p>{action}</div>;
 }

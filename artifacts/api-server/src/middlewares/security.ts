@@ -23,7 +23,7 @@ function allowedOrigin(origin: string, req: Request): boolean {
 }
 
 /** The Chrome extension signs in with its own token (no cookies), so it may call this one route from anywhere. */
-const openRoutes = ["/api/extension/lookup", "/api/healthz"];
+const openRoutes = ["/api/extension/lookup", "/api/extension/swap", "/api/healthz", "/api/email/inbound"];
 
 export const corsPolicy: RequestHandler = cors((req, callback) => {
   const origin = req.headers.origin;

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
 @layer theme, base, clerk, components, utilities;
 @import 'tailwindcss';
 @import '@clerk/themes/shadcn.css';
@@ -613,6 +613,7 @@ input[type="range"] { width: 100%; accent-color: var(--m-burgundy); }
 .m-plinth-shop svg { width: 15px; height: 15px; flex-shrink: 0; }
 .m-plinth-shop:hover { background: var(--m-navy); color: #fff; }
 
+/* ---------- Blush theme ----------
    Blush page, white cards with a faint edge and soft shadow, small corners,
    the ring sits straight on the page, and "For you today" is a navy note. */
 .m-card, .m-hero, .m-sheet-option, .m-burgundy-card, .m-swap-card, .m-swapcard, .m-navy-strip, .m-navy-strip.two, .m-rows, .m-budget-card,
@@ -803,3 +804,148 @@ a.m-ring:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 4
 .m-agree-check input { width: 24px; height: 24px; flex-shrink: 0; accent-color: var(--m-navy); margin: 0; }
 .m-agree-check a { color: var(--m-navy); font-weight: 700; }
 .m-agree .m-btn:disabled { opacity: .45; }
+.m-code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; resize: none; }
+
+/* Swap test bench */
+.m-test-input { font-size: 14px; line-height: 1.5; resize: vertical; }
+.m-test-fresh { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.m-test-fresh input { width: 20px; height: 20px; accent-color: var(--m-navy); }
+.m-row-2 { display: flex; gap: 10px; flex-wrap: wrap; }
+.m-row-2 > * { flex: 1; }
+.m-test-score { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.m-test-score div { background: var(--m-navy); color: #fff; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.m-test-score strong { font-family: var(--m-serif); font-size: 26px; font-weight: 600; }
+.m-test-score span { font-size: 12px; color: #D5DBEE; }
+.m-test-row { display: flex; flex-direction: column; gap: 10px; }
+.m-test-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.m-test-tag { font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 6px; background: var(--m-cream-2); color: var(--m-navy); }
+.m-test-tag.ok { background: #DFE3C8; color: #33360F; }
+.m-test-tag.warn { background: #F1D9D9; color: var(--m-burgundy); }
+.m-test-url { font-size: 11px; color: var(--m-ink-2); word-break: break-all; }
+
+/* ---------- Polish pass: less "template", more finished ---------- */
+/* Photo fallback: a monogram tile instead of a plain text box */
+.m-plinth-brand { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 100%; background: linear-gradient(160deg, #FFFFFF 0%, var(--m-cream) 100%); }
+.m-plinth-brand i { width: 40px; height: 40px; border-radius: 50%; background: var(--m-navy); color: #fff; font-family: var(--m-serif); font-style: normal; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.m-plinth-photo.swap .m-plinth-brand i { background: var(--m-burgundy); }
+.m-plinth-brand b { font-family: var(--m-serif); font-weight: 600; font-size: 12px; line-height: 1.15; padding: 0 6px; color: var(--m-navy); overflow-wrap: normal; word-break: keep-all; }
+/* Money apps: quieter buttons so the page isn't a wall of navy */
+.m-btn.m-try { align-self: flex-start; min-height: 40px; font-size: 14px; }
+/* Settings bank rows: name left, actions right, on one line */
+.m-bank-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.m-bank-row > span:first-child { min-width: 0; }
+.m-bank-row .m-actions { display: flex; flex-shrink: 0; gap: 2px; }
+.m-bank-row .m-link-button { min-height: 36px; padding: 0 10px; border-radius: 8px; }
+/* Text buttons: no underlines, a soft pill on hover */
+.m-link-button { text-decoration: none; font-weight: 600; border-radius: 8px; transition: background-color .15s; }
+.m-link-button:hover { background: var(--m-cream-2); }
+.m-link-button.danger { padding: 0 10px; }
+/* Delete icon: small and quiet until you reach for it */
+.m-tx-row .m-icon-button, .m-icon-button[data-testid^="button-delete"] { width: 32px; height: 32px; opacity: .45; }
+.m-icon-button[data-testid^="button-delete"] svg { width: 15px; height: 15px; }
+.m-icon-button[data-testid^="button-delete"]:hover, .m-icon-button[data-testid^="button-delete"]:focus-visible { opacity: 1; }
+/* Receipt note only turns burgundy when it found something */
+.m-tx-note { font-weight: 600; }
+/* Welcome: Margo waves, headline wraps evenly */
+.m-welcome-mascot { width: 150px; height: auto; }
+.m-welcome h1, .m-empty h2, .m-recap h2 { text-wrap: balance; }
+/* Empty states: Margo instead of a question mark */
+.m-empty-mascot { width: 104px; height: auto; margin-bottom: 2px; }
+/* Small moments of fun */
+.m-btn, .m-tile, .m-link-button, .m-ring { transition: transform .12s ease, background-color .15s, box-shadow .15s; }
+.m-btn:active, .m-tile:active, .m-ring:active { transform: scale(.97); }
+@keyframes m-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+.m-bubble-area > * { animation: m-pop .45s cubic-bezier(.2,.9,.3,1.2) both; }
+.m-bubble-area > *:nth-child(2) { animation-delay: .05s; } .m-bubble-area > *:nth-child(3) { animation-delay: .1s; }
+.m-bubble-area > *:nth-child(4) { animation-delay: .15s; } .m-bubble-area > *:nth-child(5) { animation-delay: .2s; }
+@keyframes m-wave { 0%, 60%, 100% { transform: rotate(0); } 20% { transform: rotate(-4deg); } 40% { transform: rotate(4deg); } }
+.m-welcome-mascot { transform-origin: 50% 90%; animation: m-wave 2.4s ease-in-out 0.4s 2; }
+@media (prefers-reduced-motion: reduce) {
+  .m-bubble-area > *, .m-welcome-mascot { animation: none; }
+  .m-btn:active, .m-tile:active, .m-ring:active { transform: none; }
+}
+.m-tx-note.quiet { color: var(--m-ink-2) !important; font-weight: 500; }
+/* Receipts by email */
+.m-inbox-address { display: flex; align-items: center; gap: 8px; background: var(--m-cream); border: 1px solid var(--m-line); border-radius: 8px; padding: 8px 8px 8px 12px; }
+.m-inbox-address code { flex: 1; min-width: 0; font-size: 12.5px; overflow-wrap: anywhere; color: var(--m-navy); }
+.m-inbox-code { display: flex; flex-direction: column; gap: 4px; background: #EEF1E2; border-radius: 8px; padding: 10px 12px; }
+.m-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--m-ink-2); }
+.m-steps code { font-size: 12px; background: var(--m-cream); padding: 1px 4px; border-radius: 4px; }
+.m-link-button.left { align-self: flex-start; padding: 0; min-height: 36px; text-align: left; }
+.m-link-button.inline { min-height: 0; padding: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.m-stack.tight { gap: 2px; }
+
+/* =========================================================
+   New look (Nov 2026): enterprise with character.
+   Lighter blush page, white cards, one navy hero, a cleaner sans,
+   and Margo always talks in a speech bubble.
+   ========================================================= */
+:root { --m-cream: #FBF6F5; --m-line: #EFE3E1; --m-sans: 'Plus Jakarta Sans', system-ui, sans-serif; --m-ink-2: #56607E; }
+body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
+.m-card, .m-swap-card, .m-swapcard, .m-rows, .m-budget-card { border-radius: 16px; border: 1px solid var(--m-line); box-shadow: 0 2px 10px rgba(11, 31, 75, .04); }
+.m-btn { border-radius: 12px; }
+.m-btn.pill { border-radius: 14px; }
+.m-title h1, .m-h1-sm { letter-spacing: -0.01em; }
+
+/* Tab bar: a square burgundy add button that sits in the bar */
+.m-nav { padding-top: 8px; }
+.m-plus { width: 50px; height: 50px; margin-top: 0; border-radius: 16px; border: none; box-shadow: 0 4px 12px rgba(90, 15, 26, .22); }
+.m-tab.active { color: var(--m-navy); }
+
+/* Margo's face and speech bubbles */
+.m-face { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%; overflow: hidden; }
+.m-face svg { display: block; }
+.m-brand .m-face { border-radius: 50%; }
+.m-say { display: flex; align-items: flex-end; gap: 10px; }
+.m-bub { position: relative; flex: 1; min-width: 0; background: #fff; border: 1px solid var(--m-line); border-radius: 18px 18px 18px 6px; padding: 14px 16px; line-height: 1.45; box-shadow: 0 4px 14px rgba(11, 31, 75, .06); display: flex; flex-direction: column; gap: 12px; }
+.m-bub::before { content: ""; position: absolute; left: -9px; bottom: 10px; border-style: solid; border-width: 7px 9px 7px 0; border-color: transparent var(--m-line) transparent transparent; }
+.m-bub::after { content: ""; position: absolute; left: -7.5px; bottom: 11px; border-style: solid; border-width: 6px 8px 6px 0; border-color: transparent #fff transparent transparent; }
+.m-bub .m-link { font-weight: 700; }
+.m-say-num { font-family: var(--m-serif); font-size: 19px; }
+.m-today-tag { font-size: 12px; font-weight: 700; color: var(--m-burgundy); }
+.m-today-title { font-size: 16px; }
+.m-today-say .m-today-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.m-today-say .m-today-actions .m-btn { min-height: 42px; font-size: 14px; padding: 0 16px; }
+
+/* Home: one navy hero card */
+.m-hero2 { position: relative; background: var(--m-navy); color: #fff; border-radius: 22px; padding: 18px 22px 18px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 10px 28px rgba(11, 31, 75, .18); }
+.m-hero2-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.m-hero2-label { font-size: 14px; color: #C9D1EA; }
+.m-hero2-amount { font-family: var(--m-serif); font-size: 56px; font-weight: 600; line-height: 1.05; letter-spacing: -0.01em; }
+.m-hero2-bar { height: 8px; border-radius: 8px; background: rgba(255, 255, 255, .14); margin: 16px 0 14px; overflow: hidden; }
+.m-hero2-bar i { display: block; height: 100%; border-radius: 8px; background: #E8C56B; }
+.m-hero2-stats { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 14px; color: #C9D1EA; }
+.m-hero2-stats b { color: #fff; }
+.m-hero2-link { margin-left: auto; color: #E8C56B; font-weight: 700; text-decoration: none; padding: 6px 10px; margin-right: -10px; border-radius: 8px; }
+.m-hero2-link:hover, .m-hero2-link:focus-visible { background: rgba(255, 255, 255, .1); }
+
+/* Welcome */
+.m-welcome-hero { width: 210px; height: 210px; border-radius: 50%; background: #F2C9CE; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.m-welcome-hero .m-welcome-mascot { width: 160px; height: 160px; animation: none; }
+.m-welcome-say { text-align: left; }
+
+/* Recap: Margo talks on the colored slides too */
+.m-guide.m-say { align-items: flex-end; padding: 0 20px; }
+.m-guide .m-bub { color: var(--m-navy); font-weight: 600; font-size: 16px; }
+
+/* Settings: choose your Margo */
+.m-margo-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-margo-pick button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; background: #fff; border: 1.5px solid var(--m-line); border-radius: 14px; font-size: 12.5px; font-weight: 600; color: var(--m-navy); cursor: pointer; }
+.m-margo-pick button.on { border-color: var(--m-navy); box-shadow: 0 0 0 2px var(--m-navy) inset; }
+.m-margo-pick button:focus-visible { outline: 2px solid var(--m-burgundy); outline-offset: 2px; }
+
+.m-empty-mascot { width: 96px; height: 96px; }
+@media (prefers-reduced-motion: reduce) { .m-hero2 * { transition: none; } }
+/* Speech bubble content flows as normal text; separate blocks get space between them */
+.m-bub { display: block; }
+.m-bub > * + * { margin-top: 12px; }
+.m-say > .m-face { margin-bottom: 2px; }
+/* Home-screen app */
+.m-header { background: rgba(251, 246, 245, .94); }
+.m-share-icon { display: inline-block; vertical-align: -3px; color: #0A84FF; margin: 0 2px; }
+.m-card > .m-say .m-bub { box-shadow: none; }
+.m-bub .m-today-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.m-bub .m-today-actions .m-btn { width: auto; flex: 0 0 auto; min-height: 40px; padding: 0 16px; font-size: 14px; }
+/* Flat-mark Margo: full body sits on the bottom of the welcome circle */
+.m-welcome-hero { align-items: flex-end; overflow: hidden; }
+.m-welcome-hero .m-welcome-mascot { width: 180px; height: auto; }

@@ -146,11 +146,15 @@ const searchUrls: Array<[RegExp, (q: string) => string]> = [
   [/old navy/i, (q) => `https://oldnavy.gap.com/browse/search.do?searchText=${q}`],
 ];
 
+/** Miley's IDs. These are public (they show up in every link), so they live here; a Replit Secret overrides them. */
+const AMAZON_TAG = process.env.AMAZON_ASSOCIATE_TAG || "margo0ba-20";
+const SKIMLINKS_ID = process.env.SKIMLINKS_PUBLISHER_ID || "312805X1801438";
+
 export function storeLink(retailer: string, productName: string, brand: string) {
   const q = encodeURIComponent(`${brand} ${productName}`.trim());
   const match = searchUrls.find(([pattern]) => pattern.test(retailer));
   // No exact page: send people to Amazon's search for it (earns on the Amazon tag), unless the store has its own search.
-  if (!match || process.env.AMAZON_ASSOCIATE_TAG) return affiliate(`https://www.amazon.com/s?k=${q}`);
+  if (!match || AMAZON_TAG) return affiliate(`https://www.amazon.com/s?k=${q}`);
   return affiliate(match[1](q));
 }
 
@@ -160,11 +164,12 @@ export function affiliate(link: string): string {
   try {
     const parsed = new URL(link);
     if (/(^|\.)amazon\.com$/i.test(parsed.hostname)) {
-      if (process.env.AMAZON_ASSOCIATE_TAG) parsed.searchParams.set("tag", process.env.AMAZON_ASSOCIATE_TAG);
+      if (AMAZON_TAG) parsed.searchParams.set("tag", AMAZON_TAG);
       return parsed.toString();
     }
   } catch { return link; }
-  if (process.env.SKIMLINKS_PUBLISHER_ID) url = `https://go.skimresources.com/?id=${encodeURIComponent(process.env.SKIMLINKS_PUBLISHER_ID)}&url=${encodeURIComponent(url)}`;
+  if (/(^|\.)skimresources\.com$|(^|\.)viglink\.com$/i.test(new URL(link).hostname)) return link; // already wrapped
+  if (SKIMLINKS_ID) url = `https://go.skimresources.com/?id=${encodeURIComponent(SKIMLINKS_ID)}&xs=1&url=${encodeURIComponent(url)}`;
   else if (process.env.SOVRN_API_KEY) url = `https://redirect.viglink.com?key=${encodeURIComponent(process.env.SOVRN_API_KEY)}&u=${encodeURIComponent(url)}`;
   return url;
 }
@@ -189,7 +194,8 @@ Rules:
 - Only suggest real products that exist and are widely sold. Nearly every name-brand product has a store-brand or cheaper equivalent, so give one whenever you reasonably can. Return none only when the product is already a store brand or already the cheapest of its kind.
 - Prefer, in order: the same store's own brand, then another store's own brand, then a cheaper name brand known as a dupe.
 - Store brands: ${storeBrands}
-- Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz).
+- Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz). Same form: stick for stick, spray for spray, pods for pods, liquid for liquid. Same scent or flavor family when it matters (for example unscented for unscented).
+- It must be cheaper per unit, not just a smaller package.
 - "matchType": "Dupe" only when key ingredients or specs closely match a well-known product. Otherwise "Cheaper option".
 - "whySimilar": 2 or 3 short, specific, checkable facts (form, size, key ingredients, specs). No marketing words, no claims that it is made by the same company, no "identical".
 - "shortReason": 2 to 4 lowercase words for a shelf label, like "same 6 rolls" or "similar formula". Never "same formula" unless the maker says so.
@@ -295,6 +301,98 @@ function photoPage(value: unknown, cited: string[] | null): string {
   } catch { return ""; }
 }
 
+const isProductPath = (link: string) => { try { const u = new URL(link); return /\/(dp|gp\/product|p|ip|product|products|prd)\/|\/A-\d+|\/pdp\/|\.html?$/i.test(u.pathname) && !/\/(blog|blogs|story|stories|article|articles|news|best-|list)/i.test(u.pathname); } catch { return false; } };
+const storeName = (link: string, fallback: string) => {
+  const host = (() => { try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+  const known: Record<string, string> = { "target.com": "Target", "walmart.com": "Walmart", "ulta.com": "Ulta", "cvs.com": "CVS", "walgreens.com": "Walgreens", "costco.com": "Costco", "kroger.com": "Kroger", "sephora.com": "Sephora", "samsclub.com": "Sam's Club" };
+  return known[host] || fallback || host;
+};
+
+/* ---------------- Serper: Google Shopping and Google search (photos, prices, exact Amazon pages) ---------------- */
+
+type ShoppingHit = { title?: string; source?: string; link?: string; price?: string; imageUrl?: string };
+type OrganicHit = { title?: string; link?: string };
+
+async function serper<T>(kind: "shopping" | "search", q: string): Promise<T | null> {
+  const key = process.env.SERPER_API_KEY;
+  if (!key || q.trim().length < 3) return null;
+  try {
+    const response = await fetch(`https://google.serper.dev/${kind}`, {
+      method: "POST",
+      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(9000),
+      body: JSON.stringify({ q: q.slice(0, 200), gl: "us", hl: "en", num: 10 }),
+    });
+    return response.ok ? await response.json() as T : null;
+  } catch { return null; }
+}
+
+const firstWord = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/)[0] || "";
+const dollars = (value?: string) => { const n = Number(String(value || "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
+
+/** Google Shopping: the product's photo, a current price and where it's sold. Only trusts a hit whose title has the brand. */
+export async function shoppingMatch(name: string, brand: string, size = ""): Promise<{ imageUrl: string | null; price: number | null; link: string | null; source: string } | null> {
+  const body = await serper<{ shopping?: ShoppingHit[] }>("shopping", [brand, name, size].filter(Boolean).join(" "));
+  const word = firstWord(brand || name);
+  const hits = (body?.shopping ?? []).filter((hit) => hit.title && (!word || `${hit.title} ${hit.source}`.toLowerCase().includes(word)));
+  // Prefer the big stores people trust.
+  const rank = (hit: ShoppingHit) => /target|walmart|amazon|ulta|cvs|walgreens|kroger|costco|sephora/i.test(hit.source || "") ? 0 : 1;
+  const hit = hits.sort((a, b) => rank(a) - rank(b))[0];
+  if (!hit) return null;
+  const link = hit.link && /^https:/.test(hit.link) && !/(^|\.)google\./i.test(new URL(hit.link).hostname) ? hit.link : null;
+  return { imageUrl: httpsImage(hit.imageUrl), price: dollars(hit.price), link, source: clean(hit.source || "", 60) };
+}
+
+/** Google search limited to Amazon: the exact Amazon product page, as a clean amazon.com/dp/ link. */
+export async function findAmazonPage(name: string, brand: string, size = ""): Promise<string | null> {
+  const body = await serper<{ organic?: OrganicHit[] }>("search", `site:amazon.com ${[brand, name, size].filter(Boolean).join(" ")}`);
+  const word = firstWord(brand || name);
+  for (const hit of body?.organic ?? []) {
+    const asin = hit.link?.match(/amazon\.com\/(?:[^?#]*\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i)?.[1];
+    if (asin && (!word || (hit.title || "").toLowerCase().includes(word))) return `https://www.amazon.com/dp/${asin.toUpperCase()}`;
+  }
+  return null;
+}
+
+/** Link order: the exact Amazon page, then the exact page at another store, then an Amazon search for it. */
+export function chooseLink(productUrl: string, photoPageUrl: string, item: { name: string; brand: string; sizeText: string; retailer: string }) {
+  const host = (link: string) => { try { return new URL(link).hostname; } catch { return ""; } };
+  const amazonPage = productUrl && /(^|\.)amazon\./i.test(host(productUrl)) ? productUrl : "";
+  const storePage = !amazonPage ? (productUrl || (photoPageUrl && isProductPath(photoPageUrl) ? photoPageUrl : "")) : "";
+  const link = amazonPage || storePage;
+  return {
+    retailer: amazonPage ? "Amazon" : storePage ? storeName(storePage, item.retailer) : "Amazon",
+    url: link ? affiliate(link) : affiliate(`https://www.amazon.com/s?k=${encodeURIComponent([item.brand, item.name, item.sizeText].filter(Boolean).join(" "))}`),
+    linkKind: (amazonPage ? "amazon-page" : storePage ? "store-page" : "search") as NonNullable<EngineSuggestion["linkKind"]>,
+  };
+}
+
+/** A quick second opinion from the AI (no web search): is this swap really the same kind of product, and cheaper? */
+export async function checkMatch(product: ProductInput, swap: { name: string; brand: string; sizeText: string; typicalPrice: number | null; whySimilar: string[]; matchType: string }, originalSize: string): Promise<{ ok: boolean; note: string } | null> {
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  if (!apiKey || !baseUrl || process.env.SWAP_CHECK === "off") return null;
+  const prompt = `You check product swaps for a budgeting app. Be strict: a shopper should be able to buy the swap instead and be happy.
+
+Original: ${product.brand ? `${product.brand} ` : ""}${product.name}${originalSize ? ` (${originalSize})` : ""}${product.price ? `, paid $${product.price.toFixed(2)}` : ""}
+Swap: ${swap.brand ? `${swap.brand} ` : ""}${swap.name}${swap.sizeText ? ` (${swap.sizeText})` : ""}${swap.typicalPrice != null ? `, about $${swap.typicalPrice.toFixed(2)}` : ""}
+Claimed: ${swap.whySimilar.join("; ")}
+
+Reject if ANY is true: a different kind of product; a different form (for example stick vs spray, liquid vs pods, wipes vs spray); a size more than about 40% smaller or bigger without saying so; a different scent or flavor family that matters for this product; not actually cheaper per unit; for medicine or supplements, a different active ingredient or strength; a product you don't believe exists.
+Reply with JSON only: {"ok": true|false, "note": "under 12 words, plain"}`;
+  const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({ model: process.env.SWAP_CHECK_MODEL || process.env.SWAP_AI_MODEL || "gpt-5.6-terra", max_completion_tokens: 2000, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
+  });
+  if (!response.ok) return null;
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const raw = JSON.parse(payload.choices?.[0]?.message?.content || "{}") as { ok?: unknown; note?: unknown };
+  if (typeof raw.ok !== "boolean") return null;
+  return { ok: raw.ok, note: clean(String(raw.note || ""), 120) };
+}
+
 function parseAnswer(content: string, product: ProductInput, cited: string[] | null) {
   const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
   const raw = JSON.parse(json || "{}") as Record<string, unknown>;
@@ -319,6 +417,7 @@ function parseAnswer(content: string, product: ProductInput, cited: string[] | n
       confidence: (["high", "medium", "low"].includes(String(item.confidence)) ? item.confidence : "low") as EngineSuggestion["confidence"],
       productUrl: checkedProductUrl(item.productUrl, cited),
       photoPageUrl: photoPage(item.photoPageUrl, cited),
+      check: undefined as string | undefined,
     })).filter((item) => item.name && item.whySimilar.length
       && item.confidence !== "low"
       && !(originalPrice && item.typicalPrice && item.typicalPrice >= originalPrice)),
@@ -345,16 +444,19 @@ const photoTried = new Set<string>();
 /** Adds missing photos to a saved swap without asking the AI again. */
 async function backfillPhotos(row: SwapLookup, knownImage: string | null) {
   try {
-    const imageUrl = row.imageUrl || knownImage || await findProductImage(row.productName, row.brand);
+    const imageUrl = row.imageUrl || knownImage || (await shoppingMatch(row.productName, row.brand))?.imageUrl || await findProductImage(row.productName, row.brand);
     const first = row.suggestions[0];
-    const swapImage = first && !first.imageUrl ? (await pagePhoto(first.url)) ?? await findProductImage(first.name, first.brand) : first?.imageUrl ?? null;
+    const swapImage = first && !first.imageUrl ? (await shoppingMatch(first.name, first.brand, first.sizeText))?.imageUrl ?? (await pagePhoto(first.url)) ?? await findProductImage(first.name, first.brand) : first?.imageUrl ?? null;
     if (imageUrl === row.imageUrl && swapImage === (first?.imageUrl ?? null)) return;
     const suggestions = row.suggestions.map((item, index) => index === 0 ? { ...item, imageUrl: swapImage } : item);
     await db.update(swapLookupsTable).set({ imageUrl, suggestions }).where(eq(swapLookupsTable.id, row.id));
   } catch { /* photos are a nice-to-have */ }
 }
 
-export async function findSwaps(input: ProductInput, userId: string | null): Promise<SwapLookup | null> {
+/** Options for testing: skip saved answers and the daily limit. */
+export type FindOptions = { fresh?: boolean; skipLimit?: boolean };
+
+export async function findSwaps(input: ProductInput, userId: string | null, options: FindOptions = {}): Promise<SwapLookup | null> {
   const name = clean(input.name, 200);
   if (name.length < 3) return null;
   const brand = clean(input.brand, 120);
@@ -363,35 +465,60 @@ export async function findSwaps(input: ProductInput, userId: string | null): Pro
   // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
   const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
   const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
-  if (existing && (fresh || existing.source === "admin")) {
+  if (existing && !options.fresh && (fresh || existing.source === "admin")) {
     // Saved before photos existed: look for them quietly, so they show up next time.
     if (existing.status === "ready" && (!existing.imageUrl || !existing.suggestions[0]?.imageUrl) && !photoTried.has(key)) { photoTried.add(key); void backfillPhotos(existing, input.imageUrl ?? null); }
     return existing;
   }
   if (inflight.has(key)) return inflight.get(key)!;
-  if (!(await underDailyLimit(userId))) return existing ?? null;
+  if (!options.skipLimit && !(await underDailyLimit(userId))) return existing ?? null;
 
   const job = (async () => {
     let status: SwapLookup["status"] = "ready";
     let result: Awaited<ReturnType<typeof askAi>> = null;
     try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
+    // A second look: drop a swap that isn't truly the same kind of product, or isn't cheaper.
+    if (result?.suggestions?.[0]) {
+      const verdict = await checkMatch({ ...input, name, brand }, result.suggestions[0], result.sizeText).catch(() => null);
+      if (verdict && !verdict.ok) { console.warn("[swap-engine] check rejected", name, "->", result.suggestions[0].name, verdict.note); result.suggestions = []; }
+      else if (verdict) result.suggestions[0] = { ...result.suggestions[0], check: verdict.note };
+    }
     const firstPage = result?.suggestions?.[0]?.productUrl || "";
     const swapPhotoPage = result?.suggestions?.[0]?.photoPageUrl || "";
-    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl: _photoPage, ...item }) => ({
-      ...item,
-      // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
-      typicalPrice: item.typicalPrice,
-      retailer: /amazon\./i.test(productUrl) ? "Amazon" : item.retailer,
-      // The exact product page when web search found one, otherwise that store's search for it.
-      url: productUrl ? affiliate(productUrl) : storeLink(item.retailer, item.name, item.brand),
-      upVotes: 0,
-      downVotes: 0,
-    }));
+    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl, ...item }) => {
+      const chosen = chooseLink(productUrl, photoPageUrl || "", item);
+      return {
+        ...item,
+        // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
+        typicalPrice: item.typicalPrice,
+        ...chosen,
+        upVotes: 0,
+        downVotes: 0,
+      };
+    });
     if (status === "ready" && !suggestions.length) status = "none";
+    // With Serper: find the exact Amazon page, and a real photo and current price from Google Shopping.
+    let shoppingOriginal: Awaited<ReturnType<typeof shoppingMatch>> = null;
+    if (process.env.SERPER_API_KEY) {
+      const top = suggestions[0];
+      const [amazon, swapShop, origShop] = await Promise.all([
+        top && top.linkKind !== "amazon-page" ? findAmazonPage(top.name, top.brand, top.sizeText) : Promise.resolve(null),
+        top ? shoppingMatch(top.name, top.brand, top.sizeText) : Promise.resolve(null),
+        !input.imageUrl && !existing?.imageUrl ? shoppingMatch(name, brand) : Promise.resolve(null),
+      ]);
+      shoppingOriginal = origShop;
+      if (top && amazon) Object.assign(top, { url: affiliate(amazon), retailer: "Amazon", linkKind: "amazon-page" });
+      if (top && swapShop) {
+        if (!top.imageUrl && swapShop.imageUrl) top.imageUrl = swapShop.imageUrl;
+        // A live price, but never Amazon's own (Amazon only allows prices from its API).
+        if (top.typicalPrice == null && swapShop.price && !/amazon/i.test(swapShop.source)) top.typicalPrice = swapShop.price;
+        if (top.linkKind === "search" && swapShop.link && !/amazon\./i.test(swapShop.link)) Object.assign(top, { url: affiliate(swapShop.link), retailer: swapShop.source || top.retailer, linkKind: "store-page" });
+      }
+    }
     // Photos: the scanned product's own photo if we have it, and a best-effort photo for the swap.
     if (suggestions[0] && !suggestions[0].imageUrl) suggestions[0].imageUrl = (swapPhotoPage ? await pagePhoto(swapPhotoPage) : null) ?? (firstPage ? await pagePhoto(firstPage) : null) ?? await findProductImage(suggestions[0].name, suggestions[0].brand).catch(() => null);
-    const imageUrl = input.imageUrl || existing?.imageUrl || (result?.originalPageUrl ? await pagePhoto(result.originalPageUrl) : null) || await findProductImage(name, brand).catch(() => null);
+    const imageUrl = input.imageUrl || existing?.imageUrl || shoppingOriginal?.imageUrl || (result?.originalPageUrl ? await pagePhoto(result.originalPageUrl) : null) || await findProductImage(name, brand).catch(() => null);
     const values = {
       productKey: key, productName: name, brand,
       category: clean(result?.category || input.category, 80),

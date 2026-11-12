@@ -1,0 +1,22 @@
+{
+  "name": "Margo Money",
+  "short_name": "Margo",
+  "description": "Keep what you love. Spend less on it. Margo finds cheaper swaps and shows where your money goes.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF6F5",
+  "theme_color": "#FBF6F5",
+  "categories": ["finance", "shopping", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Scan a receipt", "url": "./receipts?scan=receipt", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Scan a barcode", "url": "./receipts?scan=barcode", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ]
+}

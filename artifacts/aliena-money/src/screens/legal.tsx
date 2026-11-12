@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@clerk/react';
-import { Seal } from '@/components/margo/art';
+import { MargoFace } from '@/components/margo/characters';
 
 /**
  * Every legal page reads from here. Add the mailing address once there is one, and update the state and venue if the company is formed elsewhere.
@@ -14,14 +14,14 @@ export const company = {
   address: '',
   privacyEmail: 'miley@margomoney.co',
   supportEmail: 'miley@margomoney.co',
-  effectiveDate: 'November 10, 2026',
+  effectiveDate: 'November 11, 2026',
   backupDays: 30,
 };
 
 function LegalPage({ title, children }: { title: string; children: ReactNode }) {
   const { isSignedIn } = useAuth();
   return <main className="m-legal">
-    <Link href={isSignedIn ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><Seal size={28} /><span>Margo</span></Link>
+    <Link href={isSignedIn ? '/settings' : '/'} className="m-brand" aria-label="Back to Margo"><MargoFace size={30} label="" /><span>Margo</span></Link>
     <article>
       <h1>{title}</h1>
       <p className="m-muted">Effective {company.effectiveDate}</p>
@@ -50,6 +50,10 @@ export function PrivacyPage() {
     </ul>
     <h3>Information from your bank, through Plaid</h3>
     <p>If you choose to connect a bank or card, we use Plaid Inc. ("Plaid") to do it. You sign in to your bank inside Plaid's window. Margo never sees or stores your bank username or password. With your permission, Plaid shares account names, balances and transactions (merchant, amount, date and category) with us. By connecting an account you agree to Plaid's collection and use of your information under the <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noreferrer">Plaid End User Privacy Policy</a>.</p>
+    <h3>The Margo browser extension</h3>
+    <p>If you install the Margo Chrome extension, it reads the product on the page you're viewing (its name, brand, price and barcode) only when you click the Margo icon, and sends that to Margo to find a swap. It does not read other pages, your browsing history or anything you type. It connects with its own code that you can remove anytime in Settings.</p>
+    <h3>Emails you forward to Margo</h3>
+    <p>You can forward order and receipt emails to your private Margo address, or set up a forwarding rule in your email. We only receive emails sent to that address. We read the store, date, total and items from each one, save that as a receipt, and do not keep the email itself. If an email isn't a receipt, we skip it. You can make a new address anytime in Settings, which turns off the old one.</p>
     <h3>Information collected automatically</h3>
     <p>We use a sign-in cookie to keep you logged in. Our servers keep basic logs such as request times and error details to keep the app running and secure. We do not use advertising trackers.</p>
 
@@ -67,8 +71,12 @@ export function PrivacyPage() {
     <p>We share information only as needed to run Margo:</p>
     <ul>
       <li><strong>Plaid</strong>, to connect your accounts.</li>
+      <li><strong>Clerk</strong>, which runs sign-in and keeps your account secure.</li>
       <li><strong>Hosting, database and storage providers</strong> that run Margo for us.</li>
-      <li><strong>AI service providers</strong> that read receipt images and help write swap explanations (currently OpenAI). We send only what the task needs and do not allow them to use it to train their models where we can control that setting.</li>
+      <li><strong>Product databases and web search</strong> (such as Open Food Facts, Open Beauty Facts and UPCitemdb) to identify products and find photos. We send only a product name or barcode, never who you are or anything about your money.</li>
+      <li><strong>Postmark</strong>, which receives emails you forward to your private Margo receipt address and passes them to us. Margo reads the receipt from the email and does not keep the email itself.</li>
+      <li><strong>Skimlinks</strong>, an affiliate network. When you tap a link to a store other than Amazon, it passes through Skimlinks first so the store knows Margo sent you. Skimlinks sees that click (like your device and IP address), not your name or your money. See <a href="https://skimlinks.com/privacy-policies/" target="_blank" rel="noreferrer">Skimlinks' privacy policy</a>.</li>
+      <li><strong>AI service providers</strong> that read receipt images, search the web for swaps and help write swap explanations (currently OpenAI, through our hosting provider Replit). We send only what the task needs and do not allow them to use it to train their models where we can control that setting.</li>
       <li><strong>Authorities</strong>, if the law requires it or to protect someone's safety or rights.</li>
       <li><strong>A buyer or successor</strong>, if Margo is merged or sold. They must follow this policy.</li>
     </ul>
@@ -171,6 +179,7 @@ export function DisclosuresPage() {
       <li><strong>We mark paid links.</strong> Any link that may earn us money is labeled in the app.</li>
       <li><strong>Money apps are ones we've used.</strong> Every app on the Money apps page has been used by Margo's founder. Some links there are referral links that pay us a bonus.</li>
       <li><strong>Amazon.</strong> As an Amazon Associate I earn from qualifying purchases.</li>
+      <li><strong>Other stores.</strong> Links to stores like Target, Walmart and Ulta go through Skimlinks, an affiliate network, which may pay Margo a commission.</li>
     </ul>
     <h2>Where swap information comes from</h2>
     <p>Margo suggests swaps by comparing product facts like type, size and key ingredients, using AI and public product data. "Dupe" means two products share key features, not that they are identical or made by the same company. Brand names are used only to identify products and belong to their owners. Barcode product details come from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>.</p>

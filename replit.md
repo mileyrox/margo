@@ -72,5 +72,11 @@ The app provides an overview, manual income and expense tracking, a priorities-b
 ## Swap engine
 - `artifacts/api-server/src/lib/swap-engine.ts` finds cheaper swaps for any product: receipt items (in the background after a receipt is saved), typed searches (`POST /api/swaps/find`) and barcodes (Open Food Facts and Open Beauty Facts, free).
 - Results are cached per product in the `swap_lookups` table for 30 days, so each product is looked up once. Each user can trigger at most 40 new lookups a day.
-- Store links are built automatically. Optional secrets turn them into affiliate links: `AMAZON_ASSOCIATE_TAG` (Amazon search links, no prices shown), and `SKIMLINKS_PUBLISHER_ID` or `SOVRN_API_KEY` (all other stores).
+- Store links are built automatically. Amazon links carry the tag `margo0ba-20` and other store links go through Skimlinks (publisher 312805X1801438). Both are built in; `AMAZON_ASSOCIATE_TAG` and `SKIMLINKS_PUBLISHER_ID` secrets override them.
 - People can thumbs up or down each suggestion; clearly rejected ones are hidden. Admins can review recent results at `GET /api/admin/swap-lookups`.
+
+## Receipts by email
+- Each user gets a private address `<inbound>+<token>@...` (Settings → Receipts by email). Postmark Inbound posts each email to `/api/email/inbound`; Margo reads it with AI, saves a receipt and finds swaps. The email body is not stored.
+- Secrets: `INBOUND_EMAIL_ADDRESS` (Postmark's inbound address, like `abc123@inbound.postmarkapp.com`) and `INBOUND_EMAIL_SECRET` (a long random password).
+- Postmark webhook URL: `https://<your app>/api/email/inbound?key=<INBOUND_EMAIL_SECRET>`.
+- New table `receipt_inboxes`: run `pnpm --filter @workspace/db run push` (or accept the database change when publishing).

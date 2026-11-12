@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useGetTransactions } from '@workspace/api-client-react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
-import { CoinAvatar, type AvatarLook } from '@/components/margo/art';
+import { MargoFace } from '@/components/margo/characters';
 import { fetchMySwaps } from '@/components/margo/engine';
 import { dayKey, money, shortDate } from '@/lib/format';
 
@@ -34,46 +34,6 @@ function rangeFor(period: Period, last: boolean): [Range, Range | null] {
   const year = now.getFullYear() - (last ? 1 : 0);
   return [{ start: `${year}-01-01`, end: last ? `${year}-12-31` : dayKey(now), label: last ? `${year}` : `${year} so far`, phrase: last ? `In ${year}` : 'This year', compare: last ? 'the year before' : '' },
     last ? { start: `${year - 1}-01-01`, end: `${year - 1}-12-31`, ...none } : null];
-}
-
-const margoLook: AvatarLook = { coin: 'gold', eyes: 'dots', brows: 'none', mouth: 'smile', hair: 'bangs', glasses: 'round', extra: 'none', bg: 'transparent' };
-const INK = '#111111', SKIN = '#FFF1C7';
-/** An arm or leg: a dark outline with a lighter line inside, like the coin's edge. */
-const Limb = ({ d }: { d: string }) => <><path d={d} fill="none" stroke={INK} strokeWidth="10" strokeLinecap="round" /><path d={d} fill="none" stroke={SKIN} strokeWidth="5" strokeLinecap="round" /></>;
-const Hand = ({ x, y }: { x: number; y: number }) => <circle cx={x} cy={y} r="8" fill={SKIN} stroke={INK} strokeWidth="2.6" />;
-
-/** Margo the mascot (a coin with bangs, glasses and eyelashes, on a little body), acting out each slide. */
-function MargoMascot({ pose }: { pose: 'receipt' | 'bags' | 'pin' }) {
-  return <svg className="m-mascot" viewBox="0 0 240 262" role="img" aria-label={pose === 'receipt' ? 'Margo reading a long receipt' : pose === 'bags' ? 'Margo carrying shopping bags' : 'Margo pointing at a map pin'}>
-    <Limb d="M108 200L106 240" /><Limb d="M132 200L134 240" />
-    <ellipse cx="101" cy="246" rx="13" ry="7" fill="#5A0F1A" stroke={INK} strokeWidth="2.4" /><ellipse cx="139" cy="246" rx="13" ry="7" fill="#5A0F1A" stroke={INK} strokeWidth="2.4" />
-    {/* Navy blazer with a white collar, gold buttons and a burgundy skirt */}
-    <path d="M94 122Q120 112 146 122L152 190H88Z" fill="#0B1F4B" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-    <path d="M108 118L120 142L132 118" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-    <path d="M88 190h64l4 12H84z" fill="#5A0F1A" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-    <circle cx="120" cy="158" r="2.6" fill="#E8C56B" /><circle cx="120" cy="172" r="2.6" fill="#E8C56B" />
-    {pose === 'receipt' && <>
-      <Limb d="M94 136Q72 150 84 170" /><Hand x={86} y={171} />
-      <path d="M170 34h46v96l-7.6-6-7.7 6-7.7-6-7.7 6-7.7-6-7.6 6z" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-      <path d="M179 50h28M179 62h28M179 74h18M179 92h28" stroke={INK} strokeWidth="2.6" strokeLinecap="round" /><path d="M179 106h28" stroke="#5A0F1A" strokeWidth="4" strokeLinecap="round" />
-      <Limb d="M146 136Q166 138 174 118" /><Hand x={175} y={116} />
-    </>}
-    {pose === 'bags' && <>
-      <Limb d="M94 136Q76 156 70 180" /><Limb d="M146 136Q164 156 170 180" />
-      <path d="M48 190h44l-4 46H52z" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" /><path d="M60 190q10-18 20 0" fill="none" stroke={INK} strokeWidth="3" />
-      <path d="M148 190h44l-4 46h-36z" fill="#F2C9CE" stroke={INK} strokeWidth="3" strokeLinejoin="round" /><path d="M160 190q10-18 20 0" fill="none" stroke={INK} strokeWidth="3" />
-      <Hand x={70} y={182} /><Hand x={170} y={182} />
-    </>}
-    {pose === 'pin' && <>
-      <Limb d="M94 136Q78 156 82 176" /><Hand x={82} y={178} />
-      <path d="M204 22c-15 0-26 11-26 25 0 19 26 43 26 43s26-24 26-43c0-14-11-25-26-25z" fill="#FFFFFF" stroke={INK} strokeWidth="3" strokeLinejoin="round" /><circle cx="204" cy="47" r="9" fill="#5A0F1A" />
-      <Limb d="M146 134Q170 130 184 108" /><Hand x={186} y={105} /><Limb d="M190 100L198 92" />
-    </>}
-    <g transform="translate(50 -6)">
-      <CoinAvatar look={margoLook} size={140} label="" />
-      <svg width="140" height="140" viewBox="0 0 120 120" aria-hidden="true"><path d="M45 60.5l-3.2-3.4M48 58.6l-1.2-4.2M52 58.6l.8-4.2M75 60.5l3.2-3.4M72 58.6l1.2-4.2M68 58.6l-.8-4.2" fill="none" stroke={INK} strokeWidth="1.9" strokeLinecap="round" /></svg>
-    </g>
-  </svg>;
 }
 
 type Row = { name: string; total: number; count: number };
@@ -132,9 +92,9 @@ export function RecapPage() {
 
   if (view === 'slides') {
     const slides = [
-      { tone: 'navy', pose: 'receipt' as const, kicker: `${range.phrase} you spent`, big: money(stats.total), line: `across ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}. ${changeLine}` },
-      { tone: 'green', pose: 'bags' as const, kicker: 'Most of it went to', big: topCategory.name, line: `${money(topCategory.total)}, which is ${Math.round(topCategory.total / stats.total * 100)}% of what you spent.` },
-      { tone: 'burgundy', pose: 'pin' as const, kicker: 'Your top spot was', big: topPlace.name, line: `${money(topPlace.total)} over ${topPlace.count} ${topPlace.count === 1 ? 'visit' : 'visits'}.` },
+      { tone: 'navy', pose: 'receipt' as const, kicker: `${range.phrase} you spent`, big: money(stats.total), line: `across ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}. ${changeLine}`, says: `Here's your ${range.phrase.toLowerCase().includes('month') ? 'month' : range.phrase.toLowerCase().includes('year') ? 'year' : 'week'} in money.` },
+      { tone: 'green', pose: 'bags' as const, kicker: 'Most of it went to', big: topCategory.name, line: `${money(topCategory.total)}, which is ${Math.round(topCategory.total / stats.total * 100)}% of what you spent.`, says: `${topCategory.name} was the big one.` },
+      { tone: 'burgundy', pose: 'pin' as const, kicker: 'Your top spot was', big: topPlace.name, line: `${money(topPlace.total)} over ${topPlace.count} ${topPlace.count === 1 ? 'visit' : 'visits'}.`, says: topPlace.count > 2 ? `You and ${topPlace.name} are close.` : 'Your favorite spot.' },
     ];
     const slide = slides[Math.min(index, slides.length - 1)];
     const last = index >= slides.length - 1;
@@ -146,7 +106,7 @@ export function RecapPage() {
         <p className={`m-recap-big ${slide.big.length > 13 ? 'long' : slide.big.length > 7 ? 'mid' : ''}`}>{slide.big}</p>
         <p className="m-recap-line">{slide.line}</p>
       </div>
-      <div className="m-guide"><MargoMascot pose={slide.pose} /></div>
+      <div className="m-guide m-say"><MargoFace size={76} label="Margo says" /><div className="m-bub">{slide.says}</div></div>
       <div className="m-recap-nav">
         <button type="button" className="m-recap-step" onClick={() => setIndex(Math.max(0, index - 1))} disabled={index === 0} aria-label="Back"><ChevronLeft aria-hidden="true" /></button>
         {last

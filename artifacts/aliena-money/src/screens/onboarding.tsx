@@ -7,7 +7,7 @@ import {
 import type { BudgetPlanInput, SwapProfileInput } from '@workspace/api-client-react';
 import { ArrowLeft, Check } from 'lucide-react';
 import { ErrorState, Skeleton } from '@/components/margo/chrome';
-import { Seal } from '@/components/margo/art';
+import { MargoFace } from '@/components/margo/characters';
 import { AmountEntry } from '@/components/margo/amount-entry';
 import { monthlyEquivalent } from '@/lib/amount-period';
 import { blankProfile } from '@/lib/profile';
@@ -215,14 +215,14 @@ export function OnboardingPage() {
     <header className="m-chat-head">
       <div className="m-line">
         {index > 0 ? <button className="m-icon-button" aria-label="Go to previous onboarding step" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : <span className="m-chat-back-spacer" />}
-        <span className="m-chat-brand"><Seal size={36} /><span><strong>Margo</strong><small className="m-muted">Setting up your budget</small></span></span>
+        <span className="m-chat-brand"><MargoFace size={38} label="" /><span><strong>Margo</strong><small className="m-muted">Setting up your budget</small></span></span>
         <button className="m-link-button" onClick={restart}>Start over</button>
       </div>
       <div className="m-progress"><i style={{ width: `${progress}%` }} /></div>
     </header>
     <div className="m-chat-scroll" ref={chatRef} aria-live="polite">
       {messages.map((message, i) => message.kind === 'margo'
-        ? <div className={`m-bubble-row ${message.first ? 'first' : ''}`} key={i}><span className="m-bubble-seal">{message.first && <Seal size={28} />}</span><p className="m-bubble margo">{message.text}</p></div>
+        ? <div className={`m-bubble-row ${message.first ? 'first' : ''}`} key={i}><span className="m-bubble-seal">{message.first && <MargoFace size={30} label="" />}</span><p className="m-bubble margo">{message.text}</p></div>
         : message.kind === 'me'
           ? <div className="m-bubble-row me" key={i}><p className="m-bubble me">{message.text}</p></div>
           : <div className="m-bubble-row" key={i}><span className="m-bubble-seal" /><div className="m-budget-card">

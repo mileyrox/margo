@@ -1,6 +1,8 @@
+import { InstallTip } from '@/components/margo/install-tip';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchMySwaps } from '@/components/margo/engine';
 import { useUser, useClerk } from '@clerk/react';
 import {
   customFetch, getGetBudgetPlanQueryKey, getGetFinanceDashboardQueryKey, getGetFinanceSettingsQueryKey, getGetSwapProfileQueryKey, getGetTransactionsQueryKey,
@@ -15,7 +17,7 @@ import { CoinAvatar, parseLook } from '@/components/margo/art';
 import { blankProfile } from '@/lib/profile';
 import { fetchSwapCatalog } from '@/lib/swap-catalog';
 import { isLive } from './swaps';
-import { dateLabel, messageOf, money, parseList } from '@/lib/format';
+import { dateLabel, messageOf, money, parseList, shortDate } from '@/lib/format';
 import { spendCategories } from './spending';
 
 export const swapCategoryOptions = [['groceries', 'Groceries'], ['household', 'Household'], ['beauty', 'Personal care'], ['clothes', 'Clothing'], ['subscriptions', 'Subscriptions'], ['travel', 'Travel']] as const;
@@ -113,7 +115,7 @@ export function BankConnect({ onConnected, compact = false }: { onConnected?: ()
   const button = <button className={`m-btn ${compact ? 'navy' : 'outline'}`} onClick={() => void connect()} disabled={busy || Boolean(linkToken && !ready)}>{busy ? 'Connecting…' : banks.data?.length ? 'Add another bank or card' : 'Connect my bank'}</button>;
   if (compact) return <div className="m-stack">{button}{message && <small className="m-muted" role="status">{message}</small>}</div>;
   return <div className="m-stack">
-    {banks.isLoading ? <Skeleton lines={1} /> : banks.isError ? <ErrorState error={banks.error} retry={() => banks.refetch()} /> : banks.data?.map((bank) => <div className="m-line" key={bank.id}>
+    {banks.isLoading ? <Skeleton lines={1} /> : banks.isError ? <ErrorState error={banks.error} retry={() => banks.refetch()} /> : banks.data?.map((bank) => <div className="m-line m-bank-row" key={bank.id}>
       <span><strong>{bank.institutionName || 'Connected bank'}</strong><small className="m-muted block">{bank.lastSyncAt ? `Updated ${dateLabel(bank.lastSyncAt)}` : 'Connected, not updated yet'}</small></span>
       <span className="m-actions"><button className="m-link-button bold" disabled={syncing === bank.id} onClick={() => void sync(bank.id)}>{syncing === bank.id ? 'Updating…' : 'Refresh'}</button><button className="m-link-button" onClick={() => void disconnect(bank.id)}>Disconnect</button></span>
     </div>)}
@@ -128,6 +130,81 @@ function Row({ label, value, children, danger = false }: { label: string; value?
     <summary><span className={danger ? 'burgundy' : ''}>{label}</span><span className="m-muted">{value}<ChevronRight aria-hidden="true" /></span></summary>
     <div className="m-row-body">{children}</div>
   </details>;
+}
+
+type ExtensionToken = { id: string; label: string; createdAt: string; expiresAt: string; lastUsedAt?: string | null };
+
+/** Connects the Margo Chrome extension: makes a one-time code the person pastes into the extension. */
+type ReceiptInbox = { address: string | null; gmailCode: string | null; lastReceivedAt: string | null; lastResult: string | null };
+
+/** Receipts by email: a private address to forward order emails to. */
+function EmailReceipts() {
+  const qc = useQueryClient();
+  const inbox = useQuery({ queryKey: ['receipt-inbox'], queryFn: () => customFetch<ReceiptInbox>('/api/receipts/inbox') });
+  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState<'gmail' | 'outlook' | null>(null);
+  const address = inbox.data?.address;
+  const copy = async () => { if (!address) return; try { await navigator.clipboard.writeText(address); setCopied(true); } catch { setCopied(false); } };
+  const reset = async () => {
+    const updated = await customFetch<ReceiptInbox>('/api/receipts/inbox/reset', { method: 'POST' });
+    qc.setQueryData(['receipt-inbox'], updated); setCopied(false);
+  };
+  if (inbox.isLoading) return <Skeleton lines={2} />;
+  if (inbox.isError) return <ErrorState error={inbox.error} retry={() => inbox.refetch()} />;
+  if (!address) return <span className="m-muted small">Receipts by email are almost ready. Check back soon.</span>;
+  return <div className="m-stack">
+    <span className="m-muted small">Forward an order email (Amazon, Target, Sephora, DoorDash…) to your private Margo address. Margo reads the items, adds the receipt and looks for cheaper swaps.</span>
+    <div className="m-inbox-address"><code>{address}</code><button type="button" className="m-btn navy small" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</button></div>
+    {inbox.data?.gmailCode && <div className="m-inbox-code" role="status"><strong>Gmail confirmation code: {inbox.data.gmailCode}</strong><span className="m-muted small">Paste this in Gmail's forwarding settings to finish turning on automatic forwarding.</span></div>}
+    <div className="m-stack tight">
+      <button type="button" className="m-link-button bold left" aria-expanded={open === 'gmail'} onClick={() => setOpen(open === 'gmail' ? null : 'gmail')}>Forward receipts automatically from Gmail</button>
+      {open === 'gmail' && <ol className="m-steps">
+        <li>On a computer, open Gmail, click the gear, then <b>See all settings</b>, then <b>Forwarding and POP/IMAP</b>.</li>
+        <li>Click <b>Add a forwarding address</b> and paste your Margo address. Gmail sends a code, and it shows up right here in a minute.</li>
+        <li>Paste the code in Gmail. Don't turn on forwarding for everything.</li>
+        <li>Make a filter instead: search for <code>subject:(receipt OR order OR "your order")</code>, click <b>Create filter</b>, check <b>Forward it to</b> your Margo address.</li>
+      </ol>}
+      <button type="button" className="m-link-button bold left" aria-expanded={open === 'outlook'} onClick={() => setOpen(open === 'outlook' ? null : 'outlook')}>Forward receipts automatically from Outlook or iCloud</button>
+      {open === 'outlook' && <ol className="m-steps">
+        <li><b>Outlook:</b> Settings, then Mail, then Rules. Add a rule: subject includes "order" or "receipt", then Forward to your Margo address.</li>
+        <li><b>iCloud Mail:</b> on icloud.com, Settings, then Rules. If a message is from a store, forward to your Margo address.</li>
+      </ol>}
+    </div>
+    {inbox.data?.lastReceivedAt && <span className="m-muted small">Last email {shortDate(inbox.data.lastReceivedAt)}: {inbox.data.lastResult}</span>}
+    <span className="m-muted small">Margo only reads emails sent to this address and doesn't keep the email, just the receipt. If someone else gets your address, <button type="button" className="m-link-button inline" onClick={() => void reset()}>make a new one</button>.</span>
+  </div>;
+}
+
+function ExtensionConnect() {
+  const qc = useQueryClient();
+  const tokens = useQuery({ queryKey: ['extension-tokens'], queryFn: () => customFetch<ExtensionToken[]>('/api/extension/tokens') });
+  const [code, setCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const makeCode = async () => {
+    setError(''); setBusy(true); setCopied(false);
+    try {
+      const created = await customFetch<ExtensionToken & { token: string }>('/api/extension/tokens', { method: 'POST', body: JSON.stringify({ label: 'Chrome extension' }) });
+      // The code carries this app's address and the token, so the extension knows where to ask.
+      setCode(btoa(JSON.stringify({ u: window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, ''), t: created.token })).replace(/=+$/, ''));
+      void qc.invalidateQueries({ queryKey: ['extension-tokens'] });
+    } catch (reason) { setError(messageOf(reason)); } finally { setBusy(false); }
+  };
+  const remove = async (id: string) => {
+    try { await customFetch(`/api/extension/tokens/${encodeURIComponent(id)}`, { method: 'DELETE', responseType: 'text' }); void qc.invalidateQueries({ queryKey: ['extension-tokens'] }); } catch (reason) { setError(messageOf(reason)); }
+  };
+  const copy = async () => { try { await navigator.clipboard.writeText(code); setCopied(true); } catch { setCopied(false); } };
+  return <div className="m-stack">
+    <span className="m-muted small">On a product page, click the Margo icon in Chrome and it finds a cheaper swap. To connect it, make a code here and paste it into the extension.</span>
+    {code ? <div className="m-stack">
+      <textarea className="m-input m-code" readOnly value={code} rows={3} aria-label="Connection code" onFocus={(event) => event.currentTarget.select()} />
+      <button type="button" className="m-btn navy" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy code'}</button>
+      <span className="m-muted small">Keep this code private. It lets the extension find swaps for your account for 90 days. You can remove it anytime below.</span>
+    </div> : <button type="button" className="m-btn navy" disabled={busy} onClick={() => void makeCode()}>{busy ? 'Making a code…' : 'Get a connection code'}</button>}
+    {error && <p className="m-error" role="alert">{error}</p>}
+    {(tokens.data || []).map((token) => <div key={token.id} className="m-line"><span>{token.label} <small className="m-muted">· {token.lastUsedAt ? `used ${shortDate(token.lastUsedAt)}` : 'not used yet'}</small></span><button type="button" className="m-link-button" onClick={() => void remove(token.id)}>Remove</button></div>)}
+  </div>;
 }
 
 export function SettingsPage() {
@@ -209,8 +286,10 @@ export function SettingsPage() {
     if (rate === null) return;
     updateRate.mutate({ data: { taxReserveRate: rate } }, { onSuccess: () => { done('Tax set-aside saved.'); void qc.invalidateQueries({ queryKey: getGetFinanceSettingsQueryKey() }); void qc.invalidateQueries({ queryKey: getGetFinanceDashboardQueryKey() }); }, onError: fail });
   };
+  const mySwapsForExport = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps });
+  const plaidItemsForExport = useQuery({ queryKey: ['plaid-items'], queryFn: () => customFetch<Array<{ institutionName: string | null; createdAt?: string }>>('/api/plaid/items') });
   const exportData = () => {
-    const data = { transactions: transactions.data || [], receipts: receipts.data || [], purchaseHistory: purchaseHistory.data || [], budget: plan.data || null, shoppingPreferences: profileQuery.data || null, financeSettings: settings.data || null, dashboard: dashboard.data || null };
+    const data = { swaps: mySwapsForExport.data || [], connectedBanks: (plaidItemsForExport.data || []).map((item) => ({ institutionName: item.institutionName, connectedAt: item.createdAt })), transactions: transactions.data || [], receipts: receipts.data || [], purchaseHistory: purchaseHistory.data || [], budget: plan.data || null, shoppingPreferences: profileQuery.data || null, financeSettings: settings.data || null, dashboard: dashboard.data || null };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'margo-my-data.json'; anchor.click(); URL.revokeObjectURL(url);
   };
@@ -275,6 +354,21 @@ export function SettingsPage() {
     </section>
 
     <section className="m-group">
+      <h2>Margo on your phone</h2>
+      <div className="m-card"><InstallTip always /></div>
+    </section>
+
+    <section className="m-group">
+      <h2>Receipts by email</h2>
+      <div className="m-card"><EmailReceipts /></div>
+    </section>
+
+    <section className="m-group">
+      <h2>Chrome extension</h2>
+      <div className="m-card"><ExtensionConnect /></div>
+    </section>
+
+    <section className="m-group">
       <h2>Your data</h2>
       <div className="m-card m-rows">
         <Row label="Download my data" value="JSON"><span className="m-muted small">Everything Margo has saved for you, in one file.</span><button className="m-btn outline small" onClick={exportData}>Download</button></Row>
@@ -284,6 +378,7 @@ export function SettingsPage() {
 
     {adminCatalog.data && <section className="m-group">
       <h2>Admin</h2>
+      <Link href="/admin/swap-test" className="m-card m-line"><span><strong>Swap test bench</strong><small className="m-muted block">Run a list of products and grade the swaps</small></span><ChevronRight aria-hidden="true" /></Link>
       <Link href="/admin/swaps" className="m-card m-line"><span><strong>Swap catalog</strong><small className="m-muted block">{adminCatalog.data.length ? `${adminCatalog.data.filter(isLive).length} of ${adminCatalog.data.length} swaps showing to users` : 'Import your swaps CSV to get started'}</small></span><ChevronRight aria-hidden="true" /></Link>
       <div className="m-card m-stack" data-testid="swap-engine-status">
         <div className="m-line"><strong>Swap engine</strong><button className="m-link-button small-link" onClick={() => void engineStatus.refetch()} disabled={engineStatus.isFetching}>{engineStatus.isFetching ? 'Checking…' : 'Check again'}</button></div>

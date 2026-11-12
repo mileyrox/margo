@@ -1,3 +1,4 @@
+import { MargoSays } from '@/components/margo/characters';
 import { customFetch } from '@workspace/api-client-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
@@ -59,7 +60,10 @@ export function SwapsPage() {
     await qc.invalidateQueries({ queryKey: ['my-swaps'] });
   };
   return <div className="m-page">
-    <PageTitle title="Your swaps" subtitle={swaps.length ? `${swaps.length} ${swaps.length === 1 ? 'swap' : 'swaps'}${perShop > 0 ? ` · about ${cents(perShop)} less per trip` : ''}` : undefined} />
+    <PageTitle title="Your swaps" />
+    {swaps.length > 0 && <MargoSays>{perShop > 0
+      ? <>Make {swaps.length === 1 ? 'this swap' : `all ${swaps.length} swaps`} and you'll spend <b className="m-say-num">{cents(perShop)}</b> less every trip.</>
+      : <>Here {swaps.length === 1 ? 'is your swap' : `are your ${swaps.length} swaps`}. Tap one to shop it.</>}</MargoSays>}
     <SwapSearch />
     {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
       : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
