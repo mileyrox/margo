@@ -946,3 +946,6 @@ body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
 .m-card > .m-say .m-bub { box-shadow: none; }
 .m-bub .m-today-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .m-bub .m-today-actions .m-btn { width: auto; flex: 0 0 auto; min-height: 40px; padding: 0 16px; font-size: 14px; }
+/* Flat-mark Margo: full body sits on the bottom of the welcome circle */
+.m-welcome-hero { align-items: flex-end; overflow: hidden; }
+.m-welcome-hero .m-welcome-mascot { width: 180px; height: auto; }
