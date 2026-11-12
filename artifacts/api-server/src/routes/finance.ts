@@ -41,6 +41,7 @@ import {
   incomePayerPreferencesTable,
   productsTable,
   receiptsTable,
+  receiptInboxesTable,
   userProductPurchasesTable,
   plaidItemsTable,
   extensionTokensTable,
@@ -552,6 +553,7 @@ router.delete("/account/data", async (req, res): Promise<void> => {
   await revokeAllPlaidItems(req.dbUser.id);
   await db.transaction(async (tx) => {
     await tx.delete(userProductPurchasesTable).where(eq(userProductPurchasesTable.userId, req.dbUser.id));
+    await tx.delete(receiptInboxesTable).where(eq(receiptInboxesTable.userId, req.dbUser.id));
     await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.dbUser.id));
     await tx.delete(integrationConnectionsTable).where(eq(integrationConnectionsTable.userId, req.dbUser.id));
     await tx.delete(extensionTokensTable).where(eq(extensionTokensTable.userId, req.dbUser.id));

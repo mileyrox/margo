@@ -35,6 +35,8 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(securityHeaders);
 app.use(corsPolicy);
 app.use(blockOtherSites);
+// Emailed receipts can be large (the email service includes attachments), so that one route gets more room.
+app.use("/api/email/inbound", express.json({ limit: "30mb" }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(

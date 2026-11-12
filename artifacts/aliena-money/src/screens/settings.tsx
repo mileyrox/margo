@@ -134,6 +134,46 @@ function Row({ label, value, children, danger = false }: { label: string; value?
 type ExtensionToken = { id: string; label: string; createdAt: string; expiresAt: string; lastUsedAt?: string | null };
 
 /** Connects the Margo Chrome extension: makes a one-time code the person pastes into the extension. */
+type ReceiptInbox = { address: string | null; gmailCode: string | null; lastReceivedAt: string | null; lastResult: string | null };
+
+/** Receipts by email: a private address to forward order emails to. */
+function EmailReceipts() {
+  const qc = useQueryClient();
+  const inbox = useQuery({ queryKey: ['receipt-inbox'], queryFn: () => customFetch<ReceiptInbox>('/api/receipts/inbox') });
+  const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState<'gmail' | 'outlook' | null>(null);
+  const address = inbox.data?.address;
+  const copy = async () => { if (!address) return; try { await navigator.clipboard.writeText(address); setCopied(true); } catch { setCopied(false); } };
+  const reset = async () => {
+    const updated = await customFetch<ReceiptInbox>('/api/receipts/inbox/reset', { method: 'POST' });
+    qc.setQueryData(['receipt-inbox'], updated); setCopied(false);
+  };
+  if (inbox.isLoading) return <Skeleton lines={2} />;
+  if (inbox.isError) return <ErrorState error={inbox.error} retry={() => inbox.refetch()} />;
+  if (!address) return <span className="m-muted small">Receipts by email are almost ready. Check back soon.</span>;
+  return <div className="m-stack">
+    <span className="m-muted small">Forward an order email (Amazon, Target, Sephora, DoorDash…) to your private Margo address. Margo reads the items, adds the receipt and looks for cheaper swaps.</span>
+    <div className="m-inbox-address"><code>{address}</code><button type="button" className="m-btn navy small" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy'}</button></div>
+    {inbox.data?.gmailCode && <div className="m-inbox-code" role="status"><strong>Gmail confirmation code: {inbox.data.gmailCode}</strong><span className="m-muted small">Paste this in Gmail's forwarding settings to finish turning on automatic forwarding.</span></div>}
+    <div className="m-stack tight">
+      <button type="button" className="m-link-button bold left" aria-expanded={open === 'gmail'} onClick={() => setOpen(open === 'gmail' ? null : 'gmail')}>Forward receipts automatically from Gmail</button>
+      {open === 'gmail' && <ol className="m-steps">
+        <li>On a computer, open Gmail, click the gear, then <b>See all settings</b>, then <b>Forwarding and POP/IMAP</b>.</li>
+        <li>Click <b>Add a forwarding address</b> and paste your Margo address. Gmail sends a code, and it shows up right here in a minute.</li>
+        <li>Paste the code in Gmail. Don't turn on forwarding for everything.</li>
+        <li>Make a filter instead: search for <code>subject:(receipt OR order OR "your order")</code>, click <b>Create filter</b>, check <b>Forward it to</b> your Margo address.</li>
+      </ol>}
+      <button type="button" className="m-link-button bold left" aria-expanded={open === 'outlook'} onClick={() => setOpen(open === 'outlook' ? null : 'outlook')}>Forward receipts automatically from Outlook or iCloud</button>
+      {open === 'outlook' && <ol className="m-steps">
+        <li><b>Outlook:</b> Settings, then Mail, then Rules. Add a rule: subject includes "order" or "receipt", then Forward to your Margo address.</li>
+        <li><b>iCloud Mail:</b> on icloud.com, Settings, then Rules. If a message is from a store, forward to your Margo address.</li>
+      </ol>}
+    </div>
+    {inbox.data?.lastReceivedAt && <span className="m-muted small">Last email {shortDate(inbox.data.lastReceivedAt)}: {inbox.data.lastResult}</span>}
+    <span className="m-muted small">Margo only reads emails sent to this address and doesn't keep the email, just the receipt. If someone else gets your address, <button type="button" className="m-link-button inline" onClick={() => void reset()}>make a new one</button>.</span>
+  </div>;
+}
+
 function ExtensionConnect() {
   const qc = useQueryClient();
   const tokens = useQuery({ queryKey: ['extension-tokens'], queryFn: () => customFetch<ExtensionToken[]>('/api/extension/tokens') });
@@ -310,6 +350,11 @@ export function SettingsPage() {
     <section className="m-group">
       <h2>Banks</h2>
       <div className="m-card"><BankConnect /></div>
+    </section>
+
+    <section className="m-group">
+      <h2>Receipts by email</h2>
+      <div className="m-card"><EmailReceipts /></div>
     </section>
 
     <section className="m-group">

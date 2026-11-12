@@ -8,6 +8,7 @@ import storageRouter from "./storage";
 import plaidRouter from "./plaid";
 import swapCatalogRouter from "./swap-catalog";
 import swapEngineRouter from "./swap-engine";
+import receiptEmailRouter from "./receipt-email";
 
 const router: IRouter = Router();
 
@@ -25,5 +26,6 @@ router.use(storageRouter);
 router.use(plaidRouter);
 router.use(swapCatalogRouter);
 router.use(swapEngineRouter);
+router.use(receiptEmailRouter);
 
 export default router;
