@@ -107,13 +107,16 @@ async function readProduct() {
 }
 
 /* ---------- Finding the swap ---------- */
+/** No photo: the brand's first letter in a circle, like the Margo app. */
+const monogram = (label) => h('span', { class: 'mono', role: 'img', 'aria-label': label }, (label || '?').trim().charAt(0).toUpperCase());
+
 function photo(url, label) {
   const box = h('span', { class: 'photo' });
   if (url && /^https:/.test(url)) {
     const img = h('img', { src: url, alt: label, referrerpolicy: 'no-referrer' });
-    img.addEventListener('error', () => box.replaceChildren(h('span', {}, label)));
+    img.addEventListener('error', () => box.replaceChildren(monogram(label)));
     box.append(img);
-  } else box.append(h('span', {}, label));
+  } else box.append(monogram(label));
   return box;
 }
 

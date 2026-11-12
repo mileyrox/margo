@@ -36,3 +36,22 @@ textarea:focus, .btn:focus-visible, .link:focus-visible { outline: 2px solid var
 .row { display: flex; align-items: center; gap: 10px; }
 .fine { font-size: 11px; color: var(--ink2); }
 .pair .save { align-self: start; margin-top: 20px; }
+
+/* 1.0 look: lighter page, white cards, softer corners, no underlines */
+:root { --page: #FBF6F5; --olive: #4F5320; }
+body { background: var(--page); font-feature-settings: "tnum" 1, "lnum" 1; }
+.top { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); background: #fff; }
+.top img { border-radius: 50%; }
+.brand { color: var(--navy); font-size: 19px; }
+main { padding: 14px 16px 16px; }
+.card { border-radius: 16px; padding: 16px; box-shadow: 0 6px 20px rgba(11, 31, 75, .06); }
+.btn { border-radius: 12px; min-height: 44px; }
+.link { text-decoration: none; padding: 6px 8px; border-radius: 8px; }
+.link:hover { background: #F3EAE8; }
+.photo { border-radius: 12px; border: none; background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+.photo span { font-size: 22px; color: var(--navy); }
+textarea { border-radius: 12px; }
+.save { box-shadow: 0 0 0 4px #fff; }
+.fine { line-height: 1.45; }
+.photo .mono { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 22px; padding: 0; }
+.tile:last-child .photo .mono { background: var(--burgundy); }

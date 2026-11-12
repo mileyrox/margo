@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Margo: cheaper swaps",
   "short_name": "Margo",
-  "version": "0.1.0",
-  "description": "Click Margo on a product page to find a cheaper swap that does the same job.",
+  "version": "1.0.0",
+  "description": "Click Margo on a product page to find a cheaper version that does the same job. Only runs when you click it.",
   "action": {
     "default_title": "Find a cheaper swap with Margo",
     "default_popup": "popup.html",
