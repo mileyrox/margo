@@ -88,13 +88,15 @@ export function RecapPage() {
 
   const changeLine = stats.change == null || !range.compare ? '' : stats.change === 0 ? `About the same as ${range.compare}.` : `${Math.abs(stats.change)}% ${stats.change > 0 ? 'more' : 'less'} than ${range.compare}.`;
   const [topCategory] = stats.categories;
-  const [topPlace] = stats.places;
+  // The place you went most often (ties go to where you spent more).
+  const regulars = [...stats.places].sort((a, b) => b.count - a.count || b.total - a.total);
+  const [topPlace] = regulars;
 
   if (view === 'slides') {
     const slides = [
       { tone: 'navy', pose: 'receipt' as const, kicker: `${range.phrase} you spent`, big: money(stats.total), line: `across ${stats.count} ${stats.count === 1 ? 'purchase' : 'purchases'}. ${changeLine}`, says: `Here's your ${range.phrase.toLowerCase().includes('month') ? 'month' : range.phrase.toLowerCase().includes('year') ? 'year' : 'week'} in money.` },
       { tone: 'green', pose: 'bags' as const, kicker: 'Most of it went to', big: topCategory.name, line: `${money(topCategory.total)}, which is ${Math.round(topCategory.total / stats.total * 100)}% of what you spent.`, says: `${topCategory.name} was the big one.` },
-      { tone: 'burgundy', pose: 'pin' as const, kicker: 'Your top spot was', big: topPlace.name, line: `${money(topPlace.total)} over ${topPlace.count} ${topPlace.count === 1 ? 'visit' : 'visits'}.`, says: topPlace.count > 2 ? `You and ${topPlace.name} are close.` : 'Your favorite spot.' },
+      { tone: 'burgundy', pose: 'pin' as const, kicker: 'You went most to', big: topPlace.name, line: `${topPlace.count} ${topPlace.count === 1 ? 'time' : 'times'}, ${money(topPlace.total)} in all.`, says: topPlace.count > 2 ? `You've been here ${topPlace.count} times!` : 'Your go-to spot.' },
     ];
     const slide = slides[Math.min(index, slides.length - 1)];
     const last = index >= slides.length - 1;
@@ -132,12 +134,12 @@ export function RecapPage() {
       </div>)}
     </section>
     <section className="m-card m-stack">
-      <h2 className="m-h2">Your top spots</h2>
+      <h2 className="m-h2">Where you spent most</h2>
       {stats.places.slice(0, 5).map((row, i) => <div key={row.name} className="m-line"><span><b className="m-recap-rank">{i + 1}</b>{row.name} <small className="m-muted">· {row.count} {row.count === 1 ? 'visit' : 'visits'}</small></span><strong>{money(row.total)}</strong></div>)}
     </section>
     <section className="m-card m-stack">
-      <h2 className="m-h2">Biggest single purchase</h2>
-      <div className="m-line"><span>{stats.biggest.label} <small className="m-muted">· {shortDate(stats.biggest.date)} · {stats.biggest.category}</small></span><strong>{money(stats.biggest.amount)}</strong></div>
+      <h2 className="m-h2">Where you go most</h2>
+      {regulars.slice(0, 5).map((row, i) => <div key={row.name} className="m-line"><span><b className="m-recap-rank">{i + 1}</b>{row.name}</span><span className="m-recap-times"><strong>{row.count} {row.count === 1 ? 'time' : 'times'}</strong><small className="m-muted">{money(row.total)} total</small></span></div>)}
     </section>
     {(stats.income > 0 || stats.perTrip > 0.5) && <section className="m-card m-stack">
       {stats.income > 0 && <div className="m-line"><span>Money in</span><strong>{money(stats.income)}</strong></div>}

@@ -9,6 +9,7 @@ export type EngineSuggestion = {
   typicalPrice: number | null; whySimilar: string[]; shortReason?: string; differences: string; confidence: 'high' | 'medium' | 'low'; url: string;
   imageUrl?: string | null; upVotes: number; downVotes: number;
   linkKind?: 'amazon-page' | 'store-page' | 'search'; check?: string;
+  evidence?: { url: string; site: string; quote: string } | null; traits?: string[];
 };
 export type EngineLookup = {
   id: string; productName: string; brand: string; category: string; sizeText: string; retailer: string; price: number | null; imageUrl?: string | null; source?: 'receipt' | 'barcode' | 'search';
@@ -80,7 +81,7 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
     } catch { /* a missed vote is fine */ }
   };
   const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
-  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I didn't find a swap I'm confident in for ${data.brand ? `${data.brand} ` : ''}${fromName}. It may already be a good deal.`}</p>;
+  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a real dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet. I only show swaps that people actually call a dupe for it.`}</p>;
   const amazon = /amazon/i.test(item.retailer) || /amazon\./i.test(item.url);
   const toName = `${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
   const savings = data.price && item.typicalPrice != null ? data.price - item.typicalPrice : null;
@@ -105,10 +106,12 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
+    {item.evidence && <a className="m-proof" href={item.evidence.url} target="_blank" rel="noreferrer"><span>Called a dupe on <b>{item.evidence.site.replace(/\.com$/, '').replace(/^(.)/, (c) => c.toUpperCase())}</b></span>{item.evidence.quote && <small>{item.evidence.quote}</small>}</a>}
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
       <details>
         <summary>Why it's similar</summary>
+        {item.traits && item.traits.length > 0 && <div className="m-traits">{item.traits.map((trait) => <span key={trait}>{trait}</span>)}</div>}
         <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>
         {item.differences && <small className="m-muted">Difference: {item.differences}</small>}
       </details>

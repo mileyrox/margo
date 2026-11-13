@@ -55,3 +55,9 @@ textarea { border-radius: 12px; }
 .fine { line-height: 1.45; }
 .photo .mono { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 22px; padding: 0; }
 .tile:last-child .photo .mono { background: var(--burgundy); }
+/* White photo backgrounds blend away so products look cut out */
+.photo { background: transparent; box-shadow: none; }
+.photo img { mix-blend-mode: multiply; }
+.proof { display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border-radius: 10px; background: #EEF1E2; color: var(--navy); text-decoration: none; font-size: 13px; }
+.proof b { color: var(--olive); }
+.proof small { color: var(--ink2); font-size: 12px; }

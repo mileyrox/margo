@@ -949,3 +949,30 @@ body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
 /* Flat-mark Margo: full body sits on the bottom of the welcome circle */
 .m-welcome-hero { align-items: flex-end; overflow: hidden; }
 .m-welcome-hero .m-welcome-mascot { width: 180px; height: auto; }
+/* Welcome opens with the Margo logo (seal and wordmark) */
+.m-welcome-logo { display: block; width: 240px; height: auto; margin: 8px auto 0; }
+
+/* Really light red page (Nov 13) */
+:root { --m-cream: #FCEAEA; --m-cream-2: #F8DFDF; --m-line: #F0D9D9; }
+body { background: var(--m-cream); }
+.m-header { background: rgba(252, 234, 234, .94); }
+
+/* Spending circles you can drag */
+.m-bubbles { position: relative; }
+.m-bubble { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.m-bubble.dragging { cursor: grabbing; z-index: 5; box-shadow: 0 12px 26px rgba(11, 31, 75, .22); transition: none; }
+.m-bubble-hint { text-align: center; display: block; }
+.m-recap-times { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+
+/* Product photos: white photo backgrounds blend away, so products look cut out (free, no download) */
+.m-plinth-photo { background: transparent; border: none; box-shadow: none; }
+.m-plinth-photo img { mix-blend-mode: multiply; padding: 2px; }
+/* Where a dupe came from */
+.m-proof { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #EEF1E2; color: var(--m-navy); text-decoration: none; font-size: 13.5px; }
+.m-proof b { color: #4F5320; }
+.m-proof small { color: var(--m-ink-2); font-size: 12.5px; line-height: 1.35; }
+.m-proof:hover, .m-proof:focus-visible { background: #E4E9D2; }
+.m-traits { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.m-traits span { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--m-cream); color: var(--m-navy); }
+.m-plinth-photo { mix-blend-mode: multiply; }
+.m-plinth-photo img { mix-blend-mode: normal; }
