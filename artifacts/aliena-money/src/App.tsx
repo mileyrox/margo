@@ -1,3 +1,4 @@
+import { DebtPage } from '@/screens/debt';
 import { type ComponentType, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
@@ -71,6 +72,7 @@ function AuthenticatedRoutes() {
     <Route path="/onboarding" component={OnboardingPage} />
     <Route path="/receipts" component={ReceiptPage} />
     <Route path="/recap" component={RecapPage} />
+    <Route path="/debt" component={DebtPage} />
     <Route path="/avatar" component={AvatarPage} />
     <Route path="/profile" component={SettingsPage} />
     <Route path="/settings" component={SettingsPage} />

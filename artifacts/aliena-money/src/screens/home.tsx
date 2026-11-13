@@ -1,6 +1,11 @@
+import { isIncome, isSpending, needsALook } from '@/lib/money-kinds';
+import { SortQuestions } from '@/components/margo/sort-question';
+import { useAccounts, useDebts } from '@/lib/accounts';
+import { monthLabel, payoffPlan } from '@/lib/debt-plan';
+import { BubblePit } from '@/components/margo/bubble-pit';
 import { InstallTip } from '@/components/margo/install-tip';
 import { MargoSays } from '@/components/margo/characters';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/react';
@@ -33,45 +38,6 @@ const readDismissed = (): string[] => { try { return JSON.parse(window.localStor
 const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(todayKey(), JSON.stringify(keys)); } catch { /* fine without storage */ } };
 
 /** Army green that only gets darker as a budget fills up. It never turns red. */
-/* ---------- Spending circles you can drag around (positions are remembered on this device) ---------- */
-type Spot = { x: number; y: number };
-const SPOTS_KEY = 'margo-bubble-spots';
-function useDraggableBubbles() {
-  const [spots, setSpots] = useState<Record<string, Spot>>(() => { try { return JSON.parse(localStorage.getItem(SPOTS_KEY) || '{}') as Record<string, Spot>; } catch { return {}; } });
-  const [active, setActive] = useState<string | null>(null);
-  const start = useRef<{ name: string; px: number; py: number; x: number; y: number; moved: boolean } | null>(null);
-  const dragged = useRef(false);
-  const save = (next: Record<string, Spot>) => { try { localStorage.setItem(SPOTS_KEY, JSON.stringify(next)); } catch { /* private mode */ } };
-  const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
-  return {
-    spots, active,
-    wasDragged: () => { const value = dragged.current; dragged.current = false; return value; },
-    reset: () => { setSpots({}); save({}); },
-    handlers: (name: string) => ({
-      onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => {
-        const spot = spots[name] || { x: 0, y: 0 };
-        start.current = { name, px: event.clientX, py: event.clientY, x: spot.x, y: spot.y, moved: false };
-        dragged.current = false;
-        event.currentTarget.setPointerCapture(event.pointerId);
-      },
-      onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => {
-        const s = start.current;
-        if (!s || s.name !== name) return;
-        const dx = event.clientX - s.px, dy = event.clientY - s.py;
-        if (!s.moved && Math.hypot(dx, dy) < 6) return;
-        s.moved = true; setActive(name);
-        setSpots((prev) => ({ ...prev, [name]: { x: clamp(s.x + dx, 170), y: clamp(s.y + dy, 160) } }));
-      },
-      onPointerUp: () => {
-        const s = start.current;
-        if (s?.moved) { dragged.current = true; setSpots((prev) => { save(prev); return prev; }); }
-        start.current = null; setActive(null);
-      },
-      onPointerCancel: () => { start.current = null; setActive(null); },
-    }),
-  };
-}
-
 function bubbleShade(used: number): [string, string] {
   // A smooth army green: every percent gets its own shade, light when barely used, deepest when over. Never red.
   const t = Math.min(1, Math.max(0, used / 1.2));
@@ -93,7 +59,6 @@ export function HomePage() {
   const [, setLocation] = useLocation();
   const [period, setPeriod] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<string | null>(null);
-  const drag = useDraggableBubbles();
   const [showKey, setShowKey] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [confirmation, setConfirmation] = useState<TodayCard | null>(null);
@@ -115,7 +80,10 @@ export function HomePage() {
     return () => { cancelled = true; };
   }, [qc]);
 
-  const firstName = user?.firstName?.trim();
+  // Their first name: from sign-in, else their full name or username, else the start of their email ("miley.w@..." -> "Miley").
+  const emailName = (user?.primaryEmailAddress?.emailAddress || '').split('@')[0].split(/[._+\-0-9]/)[0];
+  const rawName = user?.firstName?.trim() || user?.fullName?.trim().split(/\s+/)[0] || user?.username?.trim() || (emailName.length >= 2 ? emailName : '');
+  const firstName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -124,15 +92,21 @@ export function HomePage() {
   const from = dayKey(period === 'month' ? monthStart : weekStart);
   const inPeriod = (date: string) => date.slice(0, 10) >= from && date.slice(0, 10) <= dayKey(now);
   const periodTx = (transactions.data || []).filter((item) => inPeriod(item.date));
-  const expenses = periodTx.filter((item) => item.type === 'expense');
+  // Only real spending: rent, card payments, savings and transfers don't eat into what's left to spend.
+  const expenses = periodTx.filter(isSpending);
   const spent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const income = periodTx.filter((item) => item.type === 'income').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const income = periodTx.filter(isIncome).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const categories = plan.data?.categories || [];
   const budget = categories.reduce((sum, item) => sum + Number(item.monthlyTarget || 0), 0) * scale;
   const left = Math.max(0, budget - spent);
-  const savingsGoal = Number(plan.data?.annualSavingsGoal || 0) / 12 * scale;
-  const savedSoFar = Math.max(0, Math.min(savingsGoal, income - spent));
   const taxRate = Number(financeSettings.data?.taxReserveRate ?? 25);
+  // Money set aside for taxes this period is added to the savings goal, and shown as "($105 for taxes)".
+  const taxThisPeriod = Math.round(periodTx.filter((item) => item.type === 'income' && item.incomeReviewStatus === 'set-aside' && item.isTaxable)
+    .reduce((sum, item) => sum + Number(item.amount || 0) * taxRate / 100, 0));
+  const savingsGoal = Number(plan.data?.annualSavingsGoal || 0) / 12 * scale + taxThisPeriod;
+  const savedSoFar = Math.max(0, Math.min(savingsGoal, income - spent));
+  // With a savings account connected, "saved" is money that actually moved into savings, not just what's left over.
+  const realSavings = useAccounts().data?.savings ?? null;
   const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now);
   const answers = profile.data?.onboardingAnswers || {};
   const debtBalance = Number(answers.debtBalance || 0);
@@ -155,10 +129,10 @@ export function HomePage() {
     const amount = Number(item.amount) * taxRate / 100;
     cards.push({
       key: `income-${item.id}`, tag: 'New income', title: `${money(item.amount)} from ${item.label}`,
-      body: `Not your usual paycheck. Many people set aside 25 to 30% of side income for taxes. Want to plan for ${money(amount)}?`,
+      body: `Not your usual paycheck. Side income usually isn't taxed when you're paid, and many people set aside around 25 to 30% (a rough guide, not tax advice). Want to plan for ${money(amount)}?`,
       yes: { label: `Plan ${money(amount)}`, run: async () => {
         await review.mutateAsync({ id: item.id, data: { decision: 'set-aside' } }); await refreshMoney();
-        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "It's in your tax set-aside now, so it won't count as money to spend. Move it to savings whenever you're ready.", done: 'Got it' });
+        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "I added it to this month's savings goal, marked for taxes. Margo doesn't move money, so move it to savings when you can and leave it there for tax time.", done: 'Got it' });
       } },
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
@@ -239,11 +213,15 @@ export function HomePage() {
       <div className="m-hero2-bar" role="img" aria-label={`${Math.round(spentShare * 100)}% of your budget spent`}><i style={{ width: `${Math.round(spentShare * 100)}%` }} /></div>
       <div className="m-hero2-stats">
         <span>Spent <b>{money(Math.max(0, budget - left))}</b></span>
-        {savingsGoal > 0 && <span>Saved <b>{money(savedSoFar)} of {money(savingsGoal)}</b></span>}
+        {realSavings && period === 'month' ? <span>Moved to savings <b>{money(Math.max(0, realSavings.changeThisMonth))}{savingsGoal > 0 ? ` of ${money(savingsGoal)}` : ''}</b>{taxThisPeriod > 0 && <> ({money(taxThisPeriod)} for taxes)</>}</span>
+          : savingsGoal > 0 && <span>Left over <b>{money(savedSoFar)} of {money(savingsGoal)}</b>{taxThisPeriod > 0 && <> ({money(taxThisPeriod)} for taxes)</>}</span>}
         <Link href={`/recap?view=full&period=${period}`} className="m-hero2-link" data-testid="link-ring-recap">Recap</Link>
       </div>
     </section>
 
+    <MoneyTiles />
+
+    <SortQuestions items={(transactions.data || []).filter(needsALook)} />
     <InstallTip />
 
     <section className="m-section">
@@ -268,56 +246,68 @@ export function HomePage() {
     <section className="m-section">
       <h2 className="m-left-title">You have <span>{money(left)}</span> left to spend</h2>
       {!categories.length ? <Link href="/settings" className="m-card m-tip">Set your category budgets<ChevronRight aria-hidden="true" /></Link> : <div className="m-bubble-area m-stack">
-        <div className="m-bubbles">
-          {rows.map((row) => {
-            const used = row.target > 0 ? row.used / row.target : 0;
-            const [bg, color] = bubbleShade(used);
-            // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
-            // Grows with every percent spent. Past the limit it keeps growing, more slowly, so no two different amounts match.
-            const pct = Math.max(0, used);
-            const size = 84 + 70 * Math.min(1, pct) + (pct > 1 ? 36 * (1 - Math.exp(-(pct - 1) * 2)) : 0);
-            const on = sel?.name === row.name;
-            const spot = drag.spots[row.name] || { x: 0, y: 0 };
-            return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''} ${drag.active === row.name ? 'dragging' : ''}`} style={{ width: size, height: size, background: bg, color, transform: `translate(${spot.x}px, ${spot.y}px)` }} aria-pressed={on}
-              aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} {...drag.handlers(row.name)} onClick={() => { if (!drag.wasDragged()) setSelected(row.name); }} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
-              <strong style={{ fontSize: size >= 120 ? 15 : size >= 95 ? 13 : 11 }}>{row.name}</strong>
-              <small>{Math.round(used * 100)}% used</small>
-            </button>;
-          })}
-        </div>
+        <BubblePit selected={sel?.name} onSelect={setSelected} items={rows.map((row) => {
+          const used = row.target > 0 ? row.used / row.target : 0;
+          const [bg, color] = bubbleShade(used);
+          // Bigger (and darker) the closer the budget is to its limit; a nearly untouched budget stays small.
+          // Grows with every percent spent. Past the limit it keeps growing, more slowly, so no two different amounts match.
+          const pct = Math.max(0, used);
+          const size = 84 + 70 * Math.min(1, pct) + (pct > 1 ? 36 * (1 - Math.exp(-(pct - 1) * 2)) : 0);
+          return {
+            key: row.name, size, style: { background: bg, color }, label: `${row.name}, ${Math.round(used * 100)}% of budget used`,
+            testId: `category-${row.name.toLowerCase().replaceAll(' ', '-')}`,
+            children: <><strong style={{ fontSize: size >= 120 ? 15 : size >= 95 ? 13 : 11 }}>{row.name}</strong><small>{Math.round(used * 100)}% used</small></>,
+          };
+        })} />
         {sel && <div className="m-bubble-detail">
           <div className="m-line"><strong>{sel.name}</strong><strong className={sel.used > sel.target ? 'burgundy' : ''}>{sel.used > sel.target ? `${money(sel.used - sel.target)} over` : `${money(sel.target - sel.used)} left`}</strong></div>
           <div className="m-bar"><i className={sel.used > sel.target ? 'over' : ''} style={{ width: `${sel.target > 0 ? Math.min(100, sel.used / sel.target * 100) : 0}%` }} /></div>
-          {sel.items.length ? sel.items.slice(0, 3).map((tx) => <div className="m-line" key={tx.id}><span>{tx.label} <span className="m-muted">· {shortDate(tx.date)}</span></span><strong>{money(tx.amount)}</strong></div>)
+          {sel.items.length > 0 && <span className="m-muted small">{sel.items.length} {sel.items.length === 1 ? 'purchase' : 'purchases'} {period === 'month' ? 'this month' : 'this week'}, newest first</span>}
+          {sel.items.length ? [...sel.items].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((tx) => <div className="m-line" key={tx.id}><span>{tx.label} <span className="m-muted">· {shortDate(tx.date)}</span></span><strong>{money(tx.amount)}</strong></div>)
             : <span className="m-muted small">No purchases here yet this {period}.</span>}
         </div>}
-        <span className="m-muted small m-bubble-hint">Drag the circles to move them around.{Object.keys(drag.spots).length > 0 && <> <button type="button" className="m-link-button inline" onClick={drag.reset}>Put them back</button></>}</span>
+        <span className="m-muted small m-bubble-hint">Tap a circle to see what you bought. Drag or flick them for fun.</span>
         <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide key' : 'What do the sizes and colors mean?'}</button>
         {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#33360F' }} />Biggest and darkest: over</span></div>}
       </div>}
     </section>
 
-    {(debtBalance > 0 || answers.hasDebt === 'Yes') && <DebtPayoffCard balance={debtBalance} monthlyPayment={Number(answers.debtPayment || 0)} startBalance={Number(answers.debtStartBalance || debtBalance)} />}
+    <DebtSummaryCard />
   </div>;
 }
 
-function DebtPayoffCard({ balance, monthlyPayment, startBalance }: { balance: number; monthlyPayment: number; startBalance: number }) {
-  const [extra, setExtra] = useState(0);
-  const now = new Date();
-  const payment = monthlyPayment + extra;
-  const date = balance > 0 && payment > 0 ? new Date(now.getFullYear(), now.getMonth() + Math.ceil(balance / payment), 1) : null;
-  const paidPct = startBalance > 0 ? Math.min(100, Math.max(4, (1 - balance / startBalance) * 100)) : 4;
+/** Home summary of the debt plan; the full plan lives on /debt. */
+function DebtSummaryCard() {
+  const { debts, answers, loading } = useDebts();
+  if (loading || !debts.length) return null;
+  const strategy = answers.debtStrategy === 'snowball' ? 'snowball' : 'avalanche';
+  const extra = Number(answers.debtExtra || 0);
+  const plan = payoffPlan(debts, extra, strategy);
+  const total = debts.reduce((sum, debt) => sum + debt.balance, 0);
+  const target = plan.firstMonth.find((row) => row.isTarget);
   return <section className="m-section" data-testid="card-debt-payoff">
     <h2>Debt payoff</h2>
-    <div className="m-card m-stack">
-      <div className="m-line"><strong>Debt</strong><span className="m-muted">{money(balance)} left</span></div>
-      <div className="m-bar"><i className="olive" style={{ width: `${paidPct}%` }} /></div>
-      <span data-testid="text-debt-free-date">{date ? <>Debt-free by <strong>{new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date)}</strong></> : !balance ? 'Add your debt balance in Settings to see a date.' : 'Add a monthly payment in Settings to see a date.'}</span>
-      <div className="m-chips" role="group" aria-label="Monthly payoff pace">
-        {[0, 50, 100].map((amount) => <button type="button" key={amount} className={`m-chip square ${extra === amount ? 'on' : ''}`} aria-pressed={extra === amount} onClick={() => setExtra(amount)} data-testid={`button-debt-extra-${amount}`}>{amount === 0 ? 'Current pace' : `+$${amount}/mo`}</button>)}
-      </div>
-      <span className="m-muted small">Try paying a little extra each month to see your new date. Estimates leave out interest.</span>
-    </div>
+    <Link href="/debt" className="m-card m-stack m-debt-summary">
+      <div className="m-line"><strong>{money(total)}</strong><span className="m-muted">{debts.length} {debts.length === 1 ? 'debt' : 'debts'}</span></div>
+      <span data-testid="text-debt-free-date">{plan.payable ? <>On track to be debt-free around <strong>{monthLabel(plan.months)}</strong>, about {money(plan.totalInterest)} in interest (estimate)</> : <strong>At this pace the debt won't go down. Let's fix the plan.</strong>}</span>
+      {target && <span className="m-muted small">This month: put the extra on {target.name}.</span>}
+      <span className="m-link">See your plan<ChevronRight aria-hidden="true" /></span>
+    </Link>
+  </section>;
+}
+
+/** Cash, savings and debt at a glance, from connected banks. */
+function MoneyTiles() {
+  const accounts = useAccounts();
+  const list = accounts.data?.accounts ?? [];
+  if (!list.length) return null;
+  const cash = list.filter((a) => a.type === 'depository' && !a.isSavings).reduce((sum, a) => sum + (a.available ?? a.current ?? 0), 0);
+  const savings = accounts.data?.savings;
+  const debt = list.filter((a) => a.isDebt).reduce((sum, a) => sum + Math.max(0, a.current ?? 0), 0);
+  return <section className="m-money-tiles" aria-label="Your money">
+    <div><small>Cash</small><strong>{money(cash)}</strong><span>checking</span></div>
+    <div><small>Savings</small><strong>{savings ? money(savings.total) : '—'}</strong><span className={savings && savings.changeThisMonth > 0 ? 'up' : ''}>{savings ? `${savings.changeThisMonth >= 0 ? '+' : '−'}${money(Math.abs(savings.changeThisMonth))} ${savings.sinceConnected ? 'since connected' : 'this month'}` : 'no savings account'}</span></div>
+    <Link href="/debt"><small>Debt</small><strong>{money(debt)}</strong><span>see plan</span></Link>
   </section>;
 }
 

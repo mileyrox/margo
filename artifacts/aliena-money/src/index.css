@@ -976,3 +976,72 @@ body { background: var(--m-cream); }
 .m-traits span { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--m-cream); color: var(--m-navy); }
 .m-plinth-photo { mix-blend-mode: multiply; }
 .m-plinth-photo img { mix-blend-mode: normal; }
+
+/* Bouncing spending bubbles */
+.m-pit { position: relative; width: 100%; overflow: visible; }
+.m-pit-bubble { position: absolute; left: 0; top: 0; transition: none !important; will-change: transform; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.m-pit-bubble:active { cursor: grabbing; }
+.m-pit-bubble.on { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--m-navy); }
+.m-pit-bubble:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 2px; }
+.m-bubble-area > .m-pit { animation: none; }
+.m-dupe-why { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; border: 1px solid var(--m-line); margin-top: 4px; }
+.m-dupe-why h3 { margin: 0; font-family: var(--m-serif); font-size: 17px; font-weight: 600; color: var(--m-navy); }
+.m-dupe-why .m-why { margin: 0; }
+.m-dupe-why .m-traits { margin: 0; }
+.m-dupe-why .m-traits span { background: #EEF1E2; color: #4F5320; }
+/* "Why is it a real dupe?" as a text conversation */
+.m-dupe-chat { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.m-chat-me { align-self: flex-end; max-width: 80%; margin: 0; background: var(--m-navy); color: #fff; font-weight: 600; font-size: 14.5px; padding: 10px 14px; border-radius: 18px 18px 6px 18px; }
+.m-chat-margo .m-bub { font-size: 14.5px; }
+.m-chat-margo .m-bub p { margin: 0; }
+.m-chat-margo .m-bub a { color: var(--m-burgundy); font-weight: 700; text-underline-offset: 2px; }
+.m-chat-margo .m-traits { margin: 0; align-items: center; }
+.m-chat-margo .m-traits span { background: #EEF1E2; color: #4F5320; }
+.m-chat-margo .m-traits .m-traits-label { background: none; padding: 0 2px 0 0; color: var(--m-ink-2); font-weight: 600; }
+.m-chat-margo .m-why { margin: 0; padding-left: 18px; color: var(--m-ink-2); }
+
+/* Swaps: keep mine vs not a match */
+.m-shelf-more { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.m-keep { min-height: 40px; font-size: 14px; padding: 0 16px; }
+.m-kept { margin-top: 8px; }
+
+/* Your money tiles */
+.m-money-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-money-tiles > * { background: #fff; border: 1px solid var(--m-line); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px; color: var(--m-navy); text-decoration: none; min-width: 0; }
+.m-money-tiles small { font-size: 12px; color: var(--m-ink-2); font-weight: 600; }
+.m-money-tiles strong { font-family: var(--m-serif); font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-money-tiles span { font-size: 11.5px; color: var(--m-ink-2); line-height: 1.25; }
+.m-money-tiles span.up { color: #4F5320; font-weight: 700; }
+.m-debt-summary { text-decoration: none; color: var(--m-navy); }
+.m-debt-summary .m-line strong { font-family: var(--m-serif); font-size: 24px; }
+
+/* Debt plan */
+.m-plan-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-plan-pick button { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px; border-radius: 14px; border: 1.5px solid var(--m-line); background: #fff; color: var(--m-navy); cursor: pointer; }
+.m-plan-pick button.on { border-color: var(--m-navy); box-shadow: inset 0 0 0 1.5px var(--m-navy); }
+.m-plan-pick small { color: var(--m-ink-2); font-size: 12.5px; line-height: 1.35; }
+.m-plan-pick span { font-size: 12.5px; font-weight: 700; color: #4F5320; margin-top: 2px; }
+.m-extra { display: flex; flex-direction: column; gap: 6px; }
+.m-extra input[type="range"] { width: 100%; accent-color: var(--m-navy); }
+.m-pay span small { display: block; color: #4F5320; font-weight: 700; font-size: 12px; }
+.m-pay.target strong { color: var(--m-burgundy); }
+.m-pay-total { border-top: 1px solid var(--m-line); padding-top: 8px; }
+.m-payoff-order { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.m-payoff-order li span { font-weight: 600; display: block; }
+.m-payoff-order li small { color: var(--m-ink-2); }
+.m-debt-row { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--m-line); }
+.m-debt-row:last-of-type { border-bottom: 0; }
+.m-debt-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.m-debt-field { display: flex; flex-direction: column; gap: 3px; }
+.m-debt-field small { font-size: 12px; color: var(--m-ink-2); display: flex; gap: 6px; align-items: center; }
+.m-debt-field em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--m-burgundy); background: #FBE7EA; padding: 1px 6px; border-radius: 999px; }
+.m-debt-field span { display: flex; align-items: center; gap: 2px; border: 1px solid var(--m-line); border-radius: 10px; padding: 0 10px; background: var(--m-cream); font-weight: 600; }
+.m-debt-field input { width: 100%; min-width: 0; border: 0; background: transparent; padding: 9px 0; font: inherit; color: var(--m-navy); }
+.m-debt-field input:focus { outline: none; }
+.m-debt-field span:focus-within { outline: 2px solid var(--m-burgundy); outline-offset: 1px; }
+.m-debt-add { padding: 12px; border-radius: 14px; background: var(--m-cream); }
+/* Margo asks what a transaction was */
+.m-sort-q p { margin: 0; }
+.m-sort-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.m-sort-choices .m-chip { font-size: 13.5px; }
+.m-moves-note { text-align: center; margin: -4px 0 0; }

@@ -49,7 +49,7 @@ export function PrivacyPage() {
       <li><strong>Preferences:</strong> your avatar, swaps you save or switch to, votes on swaps, and your tax set-aside rate.</li>
     </ul>
     <h3>Information from your bank, through Plaid</h3>
-    <p>If you choose to connect a bank or card, we use Plaid Inc. ("Plaid") to do it. You sign in to your bank inside Plaid's window. Margo never sees or stores your bank username or password. With your permission, Plaid shares account names, balances and transactions (merchant, amount, date and category) with us. By connecting an account you agree to Plaid's collection and use of your information under the <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noreferrer">Plaid End User Privacy Policy</a>.</p>
+    <p>If you choose to connect a bank or card, we use Plaid Inc. ("Plaid") to do it. You sign in to your bank inside Plaid's window. Margo never sees or stores your bank username or password. With your permission, Plaid shares account names, balances and transactions (merchant, amount, date and category) with us. We keep a daily copy of each account's balance so Margo can show money that actually moved into savings and how your debts are going down. Interest rates and minimum payments you type in are saved with your debt plan. By connecting an account you agree to Plaid's collection and use of your information under the <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noreferrer">Plaid End User Privacy Policy</a>.</p>
     <h3>The Margo browser extension</h3>
     <p>If you install the Margo Chrome extension, it reads the product on the page you're viewing (its name, brand, price and barcode) only when you click the Margo icon, and sends that to Margo to find a swap. It does not read other pages, your browsing history or anything you type. It connects with its own code that you can remove anytime in Settings.</p>
     <h3>Emails you forward to Margo</h3>
@@ -127,6 +127,8 @@ export function TermsPage() {
     <ul>
       <li><strong>Not financial, tax, legal or investment advice.</strong> Budgets, tax set-aside amounts, debt payoff dates and swap savings are estimates based on the information you and your bank provide. Check important decisions with a qualified professional.</li>
       <li><strong>Not a bank.</strong> Margo does not hold, move or transfer money, and cannot make payments for you.</li>
+      <li><strong>Not a credit counselor or tax preparer.</strong> Debt payoff plans use the balances, rates and minimums you or your bank provide, and leave out fees, new charges and rate changes. Tax set-aside amounts are a rough percentage, not a calculation of what you owe.</li>
+      <li><strong>Brands and dupes.</strong> Brand and product names belong to their owners. Margo is not affiliated with or endorsed by them. When Margo calls something a dupe, it means other people or publications have compared the two, and Margo shows where that came from. It does not mean the products are the same or made by the same company.</li>
       <li><strong>Not a guarantee.</strong> We can't promise any amount of savings, or that a tax estimate matches what you will owe.</li>
     </ul>
 

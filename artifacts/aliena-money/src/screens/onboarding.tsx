@@ -60,7 +60,7 @@ const steps: Step[] = [
   { id: 'debtBalance', type: 'amount', total: true, units: ['month'], placeholder: '3,200', show: (a) => a.hasDebt === 'Yes', say: () => ['Roughly how much is left to pay, all together? Leave out the car.'] },
   { id: 'debtPayment', type: 'amount', units: ['month'], placeholder: '360', show: (a) => a.hasDebt === 'Yes', say: () => ['And about how much do you pay toward it each month?'] },
   { id: 'budget', type: 'budget', say: () => ["Okay, here's your starting budget. I used your answers, plus typical spending for everything else."], options: ['Looks good', "I'll tweak it later"] },
-  { id: 'connect', type: 'bank', say: () => ['Last thing. Want me to connect your bank so your budget tracks itself?', 'I can see purchases. I can never move your money.'] },
+  { id: 'connect', type: 'bank', say: () => ['Last thing. Want me to connect your bank so your budget tracks itself?', "I can see purchases and balances. I can't move your money."] },
   { id: 'done', type: 'end', say: (a) => [a.connect === 'Connected' ? "Connected. I'm pulling in your recent purchases now." : 'No problem, you can connect anytime in Settings.', "You're all set. Welcome to Margo."] },
 ];
 

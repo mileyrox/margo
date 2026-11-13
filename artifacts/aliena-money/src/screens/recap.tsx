@@ -1,3 +1,4 @@
+import { isIncome, isSpending } from '@/lib/money-kinds';
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
@@ -52,10 +53,10 @@ export function RecapPage() {
 
   const stats = useMemo<Stats | null>(() => {
     const inRange = (r: Range) => (transactions.data || []).filter((item) => item.date.slice(0, 10) >= r.start && item.date.slice(0, 10) <= r.end);
-    const spent = inRange(range).filter((item) => item.type === 'expense');
+    const spent = inRange(range).filter(isSpending);
     if (!spent.length) return null;
     const total = spent.reduce((sum, item) => sum + Number(item.amount), 0);
-    const previous = !before ? 0 : inRange(before).filter((item) => item.type === 'expense').reduce((sum, item) => sum + Number(item.amount), 0);
+    const previous = !before ? 0 : inRange(before).filter(isSpending).reduce((sum, item) => sum + Number(item.amount), 0);
     const group = (key: (item: (typeof spent)[number]) => string): Row[] => {
       const map = new Map<string, Row>();
       spent.forEach((item) => { const name = key(item) || 'Other'; const row = map.get(name) || { name, total: 0, count: 0 }; row.total += Number(item.amount); row.count += 1; map.set(name, row); });
@@ -66,7 +67,7 @@ export function RecapPage() {
       total, count: spent.length, previous, change: previous > 0 ? Math.round((total - previous) / previous * 100) : null,
       categories: group((item) => item.category), places: group((item) => item.label),
       biggest: { label: top.label, amount: Number(top.amount), date: top.date, category: top.category },
-      income: inRange(range).filter((item) => item.type === 'income').reduce((sum, item) => sum + Number(item.amount), 0),
+      income: inRange(range).filter(isIncome).reduce((sum, item) => sum + Number(item.amount), 0),
       perTrip: (swaps.data || []).reduce((sum, lookup) => { const best = lookup.suggestions[0]; return sum + (lookup.price && best?.typicalPrice != null ? Math.max(0, lookup.price - best.typicalPrice) : 0); }, 0),
     };
   }, [transactions.data, swaps.data, range.start, range.end, before?.start, before?.end]);

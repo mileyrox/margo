@@ -123,7 +123,7 @@ function photo(url, label) {
 function result(data, product, conn) {
   const item = data.suggestions && data.suggestions[0];
   if (!item) {
-    return show(h('h1', {}, 'No swap this time'), h('p', { class: 'muted' }, `I couldn't find a real dupe for ${product.name} yet. I only show swaps people actually call a dupe for it.`));
+    return show(h('h1', {}, 'No swap this time'), h('p', { class: 'muted' }, `I couldn't find a swap that people call a dupe for ${product.name} yet, so I'm not suggesting one.`));
   }
   const fromPrice = product.price || data.price;
   const saved = fromPrice && item.typicalPrice != null ? fromPrice - item.typicalPrice : null;

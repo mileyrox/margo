@@ -1,6 +1,7 @@
+import { MargoSays } from '@/components/margo/characters';
 import { useState } from 'react';
 import { customFetch } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Search } from 'lucide-react';
 import { cents, messageOf, money } from '@/lib/format';
 
@@ -53,6 +54,13 @@ export function SwapSearch() {
 }
 
 /** The real product photo, or the brand name on a white tile when there's no photo. */
+/** "reddit.com" -> "Reddit", "allure.com" -> "Allure", "tiktok.com" -> "TikTok". */
+function siteName(site: string) {
+  const known: Record<string, string> = { 'reddit.com': 'Reddit', 'tiktok.com': 'TikTok', 'youtube.com': 'YouTube', 'instagram.com': 'Instagram', 'allure.com': 'Allure', 'byrdie.com': 'Byrdie', 'cosmopolitan.com': 'Cosmopolitan', 'glamour.com': 'Glamour', 'refinery29.com': 'Refinery29', 'buzzfeed.com': 'BuzzFeed', 'nytimes.com': 'Wirecutter (NYT)', 'goodhousekeeping.com': 'Good Housekeeping' };
+  const bare = site.replace(/^www\./, '').replace(/^(m|old)\./, '');
+  return known[bare] || bare.replace(/\.(com|net|org|co)$/, '').replace(/^(.)/, (c) => c.toUpperCase());
+}
+
 function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; brand: string; label: string; swap?: boolean }) {
   const [failed, setFailed] = useState(false);
   // Without a photo: the brand in whole words (never cut mid-word), smaller when it's long.
@@ -65,6 +73,22 @@ function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; bra
 }
 
 /** One swap on two display stands: what you buy on the left, the swap on the right with its price on the stand. */
+/** Things this person said they'll keep. Tapping one brings its swap back. */
+export function KeptList() {
+  const qc = useQueryClient();
+  const kept = useQuery({ queryKey: ['kept-swaps'], queryFn: () => customFetch<Array<{ id: string; productName: string; brand: string }>>('/api/swaps/kept') });
+  const [open, setOpen] = useState(false);
+  if (!kept.data?.length) return null;
+  const undo = async (id: string) => {
+    await customFetch(`/api/swaps/mine/${encodeURIComponent(id)}/keep`, { method: 'POST', body: JSON.stringify({ kept: false }) }).catch(() => undefined);
+    void qc.invalidateQueries({ queryKey: ['kept-swaps'] }); void qc.invalidateQueries({ queryKey: ['my-swaps'] });
+  };
+  return <section className="m-kept">
+    <button type="button" className="m-link-button bold left" aria-expanded={open} onClick={() => setOpen(!open)}>Things you're keeping ({kept.data.length})</button>
+    {open && <div className="m-stack tight">{kept.data.map((item) => <div className="m-line" key={item.id}><span>{item.brand ? `${item.brand} ` : ''}{item.productName}</span><button type="button" className="m-link-button small-link" onClick={() => void undo(item.id)}>Show swap again</button></div>)}</div>}
+  </section>;
+}
+
 export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRemove?: () => void }) {
   const qc = useQueryClient();
   const [data, setData] = useState(lookup);
@@ -80,8 +104,16 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       void qc.invalidateQueries({ queryKey: ['my-swaps'] });
     } catch { /* a missed vote is fine */ }
   };
+  // "I'll keep mine": the swap may be fine, they just love what they have. Hides it and stops suggesting it.
+  const keep = async () => {
+    try {
+      await customFetch(`/api/swaps/mine/${encodeURIComponent(data.id)}/keep`, { method: 'POST', body: JSON.stringify({ kept: true }) });
+      void qc.invalidateQueries({ queryKey: ['my-swaps'] });
+      void qc.invalidateQueries({ queryKey: ['kept-swaps'] });
+    } catch { /* try again later */ }
+  };
   const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
-  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a real dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet. I only show swaps that people actually call a dupe for it.`}</p>;
+  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a swap that people call a dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet, so I'm not suggesting one.`}</p>;
   const amazon = /amazon/i.test(item.retailer) || /amazon\./i.test(item.url);
   const toName = `${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
   const savings = data.price && item.typicalPrice != null ? data.price - item.typicalPrice : null;
@@ -106,16 +138,22 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
-    {item.evidence && <a className="m-proof" href={item.evidence.url} target="_blank" rel="noreferrer"><span>Called a dupe on <b>{item.evidence.site.replace(/\.com$/, '').replace(/^(.)/, (c) => c.toUpperCase())}</b></span>{item.evidence.quote && <small>{item.evidence.quote}</small>}</a>}
+    <section className="m-dupe-chat" aria-label={item.evidence ? 'Why people call it a dupe' : 'Why it could be a good swap'}>
+      <p className="m-chat-me">{item.evidence ? 'Why is it a dupe?' : 'Why is it a good swap?'}</p>
+      <MargoSays size={36} className="m-chat-margo">
+        {item.evidence
+          ? <p>I heard it on <a href={item.evidence.url} target="_blank" rel="noreferrer">{siteName(item.evidence.site)}</a>{item.evidence.quote ? <>: “{item.evidence.quote.replace(/^["“]|["”]$/g, '')}”</> : '.'}</p>
+          : <p>{item.matchType === 'Cheaper option' ? "It's the store-brand or lower-priced version of the same thing." : "It's a close match for what you buy now."}</p>}
+        {item.traits && item.traits.length > 0 && <div className="m-traits" aria-label="What both have"><span className="m-traits-label">Both are</span>{item.traits.map((trait) => <span key={trait}>✓ {trait}</span>)}</div>}
+        {item.whySimilar.length > 0 && <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>}
+        {item.differences && <p className="m-muted small">One difference: {item.differences}</p>}
+      </MargoSays>
+    </section>
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
-      <details>
-        <summary>Why it's similar</summary>
-        {item.traits && item.traits.length > 0 && <div className="m-traits">{item.traits.map((trait) => <span key={trait}>{trait}</span>)}</div>}
-        <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>
-        {item.differences && <small className="m-muted">Difference: {item.differences}</small>}
-      </details>
-      {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)}>Not a match</button> : null}
+
+      <button type="button" className="m-btn outline m-keep" onClick={() => void keep()} title="You like yours. Margo stops suggesting a swap for it.">I'll keep mine</button>
+      {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)} title="This swap is wrong. It helps Margo learn.">Not a match</button> : null}
     </div>
   </article>;
 }
