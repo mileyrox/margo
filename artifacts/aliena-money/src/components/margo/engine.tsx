@@ -1,3 +1,4 @@
+import { MargoSays } from '@/components/margo/characters';
 import { useState } from 'react';
 import { customFetch } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -113,15 +114,16 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
-    <section className="m-dupe-why" aria-label="Why this is a good swap">
-      <h3>{item.evidence ? "Why it's a real dupe" : "Why it's a good swap"}</h3>
-      {item.evidence ? <a className="m-proof" href={item.evidence.url} target="_blank" rel="noreferrer">
-        <span>Where we heard it: <b>{siteName(item.evidence.site)}</b></span>
-        {item.evidence.quote && <small>“{item.evidence.quote}”</small>}
-      </a> : item.matchType === 'Cheaper option' && <p className="m-muted small">A store-brand or lower-priced version of the same product, not a named dupe.</p>}
-      {item.traits && item.traits.length > 0 && <div className="m-traits" aria-label="What both have">{item.traits.map((trait) => <span key={trait}>✓ {trait}</span>)}</div>}
-      {item.whySimilar.length > 0 && <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>}
-      {item.differences && <small className="m-muted">The difference: {item.differences}</small>}
+    <section className="m-dupe-chat" aria-label={item.evidence ? 'Why it is a real dupe' : 'Why it is a good swap'}>
+      <p className="m-chat-me">{item.evidence ? 'Why is it a real dupe?' : 'Why is it a good swap?'}</p>
+      <MargoSays size={36} className="m-chat-margo">
+        {item.evidence
+          ? <p>I heard it on <a href={item.evidence.url} target="_blank" rel="noreferrer">{siteName(item.evidence.site)}</a>{item.evidence.quote ? <>: “{item.evidence.quote.replace(/^["“]|["”]$/g, '')}”</> : '.'}</p>
+          : <p>{item.matchType === 'Cheaper option' ? "It's the store-brand or lower-priced version of the same thing." : "It's a close match for what you buy now."}</p>}
+        {item.traits && item.traits.length > 0 && <div className="m-traits" aria-label="What both have"><span className="m-traits-label">Both are</span>{item.traits.map((trait) => <span key={trait}>✓ {trait}</span>)}</div>}
+        {item.whySimilar.length > 0 && <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>}
+        {item.differences && <p className="m-muted small">One difference: {item.differences}</p>}
+      </MargoSays>
     </section>
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">

@@ -989,3 +989,13 @@ body { background: var(--m-cream); }
 .m-dupe-why .m-why { margin: 0; }
 .m-dupe-why .m-traits { margin: 0; }
 .m-dupe-why .m-traits span { background: #EEF1E2; color: #4F5320; }
+/* "Why is it a real dupe?" as a text conversation */
+.m-dupe-chat { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.m-chat-me { align-self: flex-end; max-width: 80%; margin: 0; background: var(--m-navy); color: #fff; font-weight: 600; font-size: 14.5px; padding: 10px 14px; border-radius: 18px 18px 6px 18px; }
+.m-chat-margo .m-bub { font-size: 14.5px; }
+.m-chat-margo .m-bub p { margin: 0; }
+.m-chat-margo .m-bub a { color: var(--m-burgundy); font-weight: 700; text-underline-offset: 2px; }
+.m-chat-margo .m-traits { margin: 0; align-items: center; }
+.m-chat-margo .m-traits span { background: #EEF1E2; color: #4F5320; }
+.m-chat-margo .m-traits .m-traits-label { background: none; padding: 0 2px 0 0; color: var(--m-ink-2); font-weight: 600; }
+.m-chat-margo .m-why { margin: 0; padding-left: 18px; color: var(--m-ink-2); }
