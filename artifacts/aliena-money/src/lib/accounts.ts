@@ -14,7 +14,8 @@ export type ManualDebt = { id: string; name: string; balance: number; apr: numbe
 export const accountsKey = ['accounts'];
 
 export function useAccounts() {
-  return useQuery({ queryKey: accountsKey, queryFn: () => customFetch<AccountsResponse>('/api/accounts'), staleTime: 60_000 });
+  // Shown alongside other things, so don't hold the screen up: one quick retry, then show what we have.
+  return useQuery({ queryKey: accountsKey, queryFn: () => customFetch<AccountsResponse>('/api/accounts'), staleTime: 5 * 60_000, retry: 1, retryDelay: 800 });
 }
 
 export function useSaveAccount() {
@@ -70,6 +71,7 @@ export function useDebts() {
   const saveManual = (next: ManualDebt[]) => patch({ debts: JSON.stringify(next) });
   return {
     debts: [...bank, ...added, ...fallback], manual, saveManual, answers, patch,
-    loading: accounts.isLoading || profile.isLoading, hasBankDebts: bank.length > 0,
+    // Only wait for the profile; bank debts slide in when the bank answers.
+    loading: profile.isLoading, bankLoading: accounts.isLoading, bankError: accounts.isError, hasBankDebts: bank.length > 0,
   };
 }

@@ -12,17 +12,20 @@ const duration = (months: number) => months < 12 ? plural(months, 'month') : `${
 
 /** The debt payoff plan: every debt, a strategy, an extra amount, and exactly what to pay this month. */
 export function DebtPage() {
-  const { debts, manual, saveManual, answers, patch, loading, hasBankDebts } = useDebts();
+  const { debts, manual, saveManual, answers, patch, loading, bankLoading, bankError, hasBankDebts } = useDebts();
   const saveAccount = useSaveAccount();
   const [strategy, setStrategy] = useState<Strategy>(answers.debtStrategy === 'snowball' ? 'snowball' : 'avalanche');
   const [extra, setExtra] = useState(Number(answers.debtExtra || 0));
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
 
+  // Recalculate only when the debts themselves change, not on every redraw.
+  const debtKey = JSON.stringify(debts);
   const plans = useMemo(() => ({
     avalanche: payoffPlan(debts, extra, 'avalanche'), snowball: payoffPlan(debts, extra, 'snowball'),
     base: payoffPlan(debts, 0, strategy),
-  }), [debts, extra, strategy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [debtKey, extra, strategy]);
   const plan = plans[strategy];
   const total = debts.reduce((sum, debt) => sum + debt.balance, 0);
   const minimums = debts.reduce((sum, debt) => sum + debt.minPayment, 0);
@@ -42,8 +45,10 @@ export function DebtPage() {
 
   return <main className="m-page m-stack m-debt">
     <PageTitle title="Debt payoff" subtitle={debts.length ? `${money(total)} across ${plural(debts.length, 'debt')}` : undefined} />
+    {bankLoading && <p className="m-muted small" role="status">Checking your bank for cards and loans…</p>}
+    {bankError && <p className="m-muted small" role="status">I couldn't reach your bank just now, so this plan only uses debts you added. It'll update next time.</p>}
 
-    {!debts.length ? <MargoSays>
+    {!debts.length ? bankLoading ? <Skeleton lines={3} /> : <MargoSays>
       <strong>No debts here yet.</strong> {hasBankDebts ? '' : 'Connect your bank in Settings and I\'ll bring in your cards and loans, or add one by hand below.'}
     </MargoSays> : plan.payable ? <MargoSays>
       Paying <b>{money(minimums + extra)}</b> a month, you could be <b>debt-free around {monthLabel(plan.months)}</b> ({duration(plan.months)}) and pay about <b>{money(plan.totalInterest)}</b> in interest.
