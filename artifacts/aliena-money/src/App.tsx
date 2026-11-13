@@ -1,3 +1,4 @@
+import { Splash } from '@/components/margo/splash';
 import { DebtPage } from '@/screens/debt';
 import { type ComponentType, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,7 +9,7 @@ import { getGetBudgetPlanQueryKey, getGetSwapProfileQueryKey, useGetBudgetPlan, 
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { EmptyState, Shell, Skeleton } from '@/components/margo/chrome';
+import { EmptyState, Shell } from '@/components/margo/chrome';
 import { HomePage } from '@/screens/home';
 import { SpendingPage } from '@/screens/spending';
 import { ReceiptPage } from '@/screens/receipts';
@@ -55,9 +56,9 @@ function AuthenticatedRoutes() {
   // Legal pages are public so anyone (including Plaid and affiliate reviewers) can read them without signing in.
   const PublicPage = publicPages[path];
   if (PublicPage) return <PublicPage />;
-  if (!isLoaded) return <main className="m-loading"><Skeleton /></main>;
+  if (!isLoaded) return <Splash />;
   if (!isSignedIn) return <WelcomePage />;
-  if (plan.isLoading) return <main className="m-loading"><Skeleton /></main>;
+  if (plan.isLoading) return <Splash />;
   if (plan.isError) return <main className="m-page"><EmptyState title="We couldn't open your account" body="Your sign-in worked, but your saved plan isn't available right now." action={<div className="m-stack"><button className="m-btn navy" onClick={() => void plan.refetch()}>Try again</button><button className="m-btn outline" onClick={() => void signOut({ redirectUrl: import.meta.env.BASE_URL })}>Sign out</button></div>} /></main>;
   // Everyone agrees to the basics once (and again if the agreement changes) before using the app.
   if (profile.data && profile.data.onboardingAnswers?.agreedVersion !== AGREEMENT_VERSION) return <AgreementPage profile={profile.data} />;
