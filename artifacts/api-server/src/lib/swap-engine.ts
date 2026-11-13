@@ -514,7 +514,9 @@ export async function findSwaps(input: ProductInput, userId: string | null, opti
   // A found swap is reused for 30 days; "nothing found" is re-checked after 3 days; errors are always retried.
   const age = existing ? Date.now() - existing.updatedAt.getTime() : Infinity;
   const fresh = existing && (existing.status === "ready" ? age < CACHE_DAYS * 86_400_000 : existing.status === "none" ? age < 3 * 86_400_000 : false);
-  if (existing && !options.fresh && (fresh || existing.source === "admin")) {
+  // Swaps found before the real-dupe rules (no traits saved) are looked up again.
+  const oldRules = existing?.status === "ready" && existing.source !== "admin" && !existing.suggestions.some((item) => Array.isArray(item.traits));
+  if (existing && !options.fresh && !oldRules && (fresh || existing.source === "admin")) {
     // Saved before photos existed: look for them quietly, so they show up next time.
     if (existing.status === "ready" && (!existing.imageUrl || !existing.suggestions[0]?.imageUrl) && !photoTried.has(key)) { photoTried.add(key); void backfillPhotos(existing, input.imageUrl ?? null); }
     return existing;
