@@ -976,3 +976,16 @@ body { background: var(--m-cream); }
 .m-traits span { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--m-cream); color: var(--m-navy); }
 .m-plinth-photo { mix-blend-mode: multiply; }
 .m-plinth-photo img { mix-blend-mode: normal; }
+
+/* Bouncing spending bubbles */
+.m-pit { position: relative; width: 100%; overflow: visible; }
+.m-pit-bubble { position: absolute; left: 0; top: 0; transition: none !important; will-change: transform; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.m-pit-bubble:active { cursor: grabbing; }
+.m-pit-bubble.on { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--m-navy); }
+.m-pit-bubble:focus-visible { outline: 3px solid var(--m-burgundy); outline-offset: 2px; }
+.m-bubble-area > .m-pit { animation: none; }
+.m-dupe-why { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: #fff; border: 1px solid var(--m-line); margin-top: 4px; }
+.m-dupe-why h3 { margin: 0; font-family: var(--m-serif); font-size: 17px; font-weight: 600; color: var(--m-navy); }
+.m-dupe-why .m-why { margin: 0; }
+.m-dupe-why .m-traits { margin: 0; }
+.m-dupe-why .m-traits span { background: #EEF1E2; color: #4F5320; }

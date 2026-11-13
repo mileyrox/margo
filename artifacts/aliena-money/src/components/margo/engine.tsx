@@ -53,6 +53,13 @@ export function SwapSearch() {
 }
 
 /** The real product photo, or the brand name on a white tile when there's no photo. */
+/** "reddit.com" -> "Reddit", "allure.com" -> "Allure", "tiktok.com" -> "TikTok". */
+function siteName(site: string) {
+  const known: Record<string, string> = { 'reddit.com': 'Reddit', 'tiktok.com': 'TikTok', 'youtube.com': 'YouTube', 'instagram.com': 'Instagram', 'allure.com': 'Allure', 'byrdie.com': 'Byrdie', 'cosmopolitan.com': 'Cosmopolitan', 'glamour.com': 'Glamour', 'refinery29.com': 'Refinery29', 'buzzfeed.com': 'BuzzFeed', 'nytimes.com': 'Wirecutter (NYT)', 'goodhousekeeping.com': 'Good Housekeeping' };
+  const bare = site.replace(/^www\./, '').replace(/^(m|old)\./, '');
+  return known[bare] || bare.replace(/\.(com|net|org|co)$/, '').replace(/^(.)/, (c) => c.toUpperCase());
+}
+
 function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; brand: string; label: string; swap?: boolean }) {
   const [failed, setFailed] = useState(false);
   // Without a photo: the brand in whole words (never cut mid-word), smaller when it's long.
@@ -106,15 +113,19 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
-    {item.evidence && <a className="m-proof" href={item.evidence.url} target="_blank" rel="noreferrer"><span>Called a dupe on <b>{item.evidence.site.replace(/\.com$/, '').replace(/^(.)/, (c) => c.toUpperCase())}</b></span>{item.evidence.quote && <small>{item.evidence.quote}</small>}</a>}
+    <section className="m-dupe-why" aria-label="Why this is a good swap">
+      <h3>{item.evidence ? "Why it's a real dupe" : "Why it's a good swap"}</h3>
+      {item.evidence ? <a className="m-proof" href={item.evidence.url} target="_blank" rel="noreferrer">
+        <span>Where we heard it: <b>{siteName(item.evidence.site)}</b></span>
+        {item.evidence.quote && <small>“{item.evidence.quote}”</small>}
+      </a> : item.matchType === 'Cheaper option' && <p className="m-muted small">A store-brand or lower-priced version of the same product, not a named dupe.</p>}
+      {item.traits && item.traits.length > 0 && <div className="m-traits" aria-label="What both have">{item.traits.map((trait) => <span key={trait}>✓ {trait}</span>)}</div>}
+      {item.whySimilar.length > 0 && <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>}
+      {item.differences && <small className="m-muted">The difference: {item.differences}</small>}
+    </section>
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
-      <details>
-        <summary>Why it's similar</summary>
-        {item.traits && item.traits.length > 0 && <div className="m-traits">{item.traits.map((trait) => <span key={trait}>{trait}</span>)}</div>}
-        <ul className="m-why">{item.whySimilar.map((line) => <li key={line}>{line}</li>)}</ul>
-        {item.differences && <small className="m-muted">Difference: {item.differences}</small>}
-      </details>
+
       {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)}>Not a match</button> : null}
     </div>
   </article>;

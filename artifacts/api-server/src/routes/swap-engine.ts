@@ -79,7 +79,17 @@ router.get("/swaps/mine", async (req, res): Promise<void> => {
     .filter((row) => row.lookup.status === "ready")
     .map((row) => ({ ...serialize(row.lookup), source: row.source }))
     .filter((row) => row.suggestions.length));
+
+  // Swaps saved before the real-dupe rules have no reasons or source yet: redo a few quietly, so the next visit shows them.
+  const old = rows.filter((row) => row.lookup.status === "ready" && row.lookup.source !== "admin" && !refreshing.has(row.lookup.id)
+    && !row.lookup.suggestions.some((item) => Array.isArray(item.traits))).slice(0, 4);
+  for (const row of old) {
+    refreshing.add(row.lookup.id);
+    void findSwaps({ name: row.lookup.productName, brand: row.lookup.brand, category: row.lookup.category, retailer: row.lookup.retailer, price: row.lookup.typicalPrice ? Number(row.lookup.typicalPrice) : undefined, barcode: row.lookup.barcode ?? undefined, imageUrl: row.lookup.imageUrl }, req.dbUser.id)
+      .catch((error) => console.error("[swap-engine] refresh", (error as Error).message));
+  }
 });
+const refreshing = new Set<string>();
 
 /** Removes a swap from this person's list. */
 router.delete("/swaps/mine/:lookupId", async (req, res): Promise<void> => {
