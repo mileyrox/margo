@@ -99,11 +99,14 @@ export function HomePage() {
   const categories = plan.data?.categories || [];
   const budget = categories.reduce((sum, item) => sum + Number(item.monthlyTarget || 0), 0) * scale;
   const left = Math.max(0, budget - spent);
-  const savingsGoal = Number(plan.data?.annualSavingsGoal || 0) / 12 * scale;
+  const taxRate = Number(financeSettings.data?.taxReserveRate ?? 25);
+  // Money set aside for taxes this period is added to the savings goal, and shown as "($105 for taxes)".
+  const taxThisPeriod = Math.round(periodTx.filter((item) => item.type === 'income' && item.incomeReviewStatus === 'set-aside' && item.isTaxable)
+    .reduce((sum, item) => sum + Number(item.amount || 0) * taxRate / 100, 0));
+  const savingsGoal = Number(plan.data?.annualSavingsGoal || 0) / 12 * scale + taxThisPeriod;
   const savedSoFar = Math.max(0, Math.min(savingsGoal, income - spent));
   // With a savings account connected, "saved" is money that actually moved into savings, not just what's left over.
   const realSavings = useAccounts().data?.savings ?? null;
-  const taxRate = Number(financeSettings.data?.taxReserveRate ?? 25);
   const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now);
   const answers = profile.data?.onboardingAnswers || {};
   const debtBalance = Number(answers.debtBalance || 0);
@@ -129,7 +132,7 @@ export function HomePage() {
       body: `Not your usual paycheck. Side income usually isn't taxed when you're paid, and many people set aside around 25 to 30% (a rough guide, not tax advice). Want to plan for ${money(amount)}?`,
       yes: { label: `Plan ${money(amount)}`, run: async () => {
         await review.mutateAsync({ id: item.id, data: { decision: 'set-aside' } }); await refreshMoney();
-        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "I added it to your tax set-aside total. Margo doesn't move money, so move it to a separate savings account when you can and leave it there for tax time.", done: 'Got it' });
+        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "I added it to this month's savings goal, marked for taxes. Margo doesn't move money, so move it to savings when you can and leave it there for tax time.", done: 'Got it' });
       } },
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
@@ -210,8 +213,8 @@ export function HomePage() {
       <div className="m-hero2-bar" role="img" aria-label={`${Math.round(spentShare * 100)}% of your budget spent`}><i style={{ width: `${Math.round(spentShare * 100)}%` }} /></div>
       <div className="m-hero2-stats">
         <span>Spent <b>{money(Math.max(0, budget - left))}</b></span>
-        {realSavings && period === 'month' ? <span>Moved to savings <b>{money(Math.max(0, realSavings.changeThisMonth))}{savingsGoal > 0 ? ` of ${money(savingsGoal)}` : ''}</b></span>
-          : savingsGoal > 0 && <span>Left over <b>{money(savedSoFar)} of {money(savingsGoal)}</b></span>}
+        {realSavings && period === 'month' ? <span>Moved to savings <b>{money(Math.max(0, realSavings.changeThisMonth))}{savingsGoal > 0 ? ` of ${money(savingsGoal)}` : ''}</b>{taxThisPeriod > 0 && <> ({money(taxThisPeriod)} for taxes)</>}</span>
+          : savingsGoal > 0 && <span>Left over <b>{money(savedSoFar)} of {money(savingsGoal)}</b>{taxThisPeriod > 0 && <> ({money(taxThisPeriod)} for taxes)</>}</span>}
         <Link href={`/recap?view=full&period=${period}`} className="m-hero2-link" data-testid="link-ring-recap">Recap</Link>
       </div>
     </section>
