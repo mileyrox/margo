@@ -331,19 +331,16 @@ async function savingsProgress(accounts: Array<{ id: string; type: string; subty
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   let total = 0, start = 0, sinceConnected = false;
-  for (const account of savings) {
+  // Look up every savings account's starting balance at the same time.
+  const starts = await Promise.all(savings.map(async (account) => {
     const current = num(account.current) ?? 0;
-    total += current;
-    const [before] = await db.select().from(balanceSnapshotsTable)
-      .where(and(eq(balanceSnapshotsTable.accountId, account.id), lt(balanceSnapshotsTable.day, monthStart)))
-      .orderBy(desc(balanceSnapshotsTable.day)).limit(1);
-    if (before) { start += Number(before.current); continue; }
-    const [first] = await db.select().from(balanceSnapshotsTable)
-      .where(and(eq(balanceSnapshotsTable.accountId, account.id), gte(balanceSnapshotsTable.day, monthStart)))
-      .orderBy(asc(balanceSnapshotsTable.day)).limit(1);
-    start += first ? Number(first.current) : current;
-    sinceConnected = true;
-  }
+    const [[before], [first]] = await Promise.all([
+      db.select().from(balanceSnapshotsTable).where(and(eq(balanceSnapshotsTable.accountId, account.id), lt(balanceSnapshotsTable.day, monthStart))).orderBy(desc(balanceSnapshotsTable.day)).limit(1),
+      db.select().from(balanceSnapshotsTable).where(and(eq(balanceSnapshotsTable.accountId, account.id), gte(balanceSnapshotsTable.day, monthStart))).orderBy(asc(balanceSnapshotsTable.day)).limit(1),
+    ]);
+    return { current, start: before ? Number(before.current) : first ? Number(first.current) : current, connectedThisMonth: !before };
+  }));
+  for (const row of starts) { total += row.current; start += row.start; if (row.connectedThisMonth) sinceConnected = true; }
   return { total: Math.round(total * 100) / 100, changeThisMonth: Math.round((total - start) * 100) / 100, sinceConnected };
 }
 
