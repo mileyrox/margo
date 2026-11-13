@@ -1,3 +1,5 @@
+import { isIncome, isMoneyMove, isSpending, needsALook } from '@/lib/money-kinds';
+import { SortQuestions } from '@/components/margo/sort-question';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
@@ -81,7 +83,10 @@ export function SpendingPage() {
     if (!window.confirm('Delete this entry?')) return;
     remove.mutate({ id }, { onSuccess: () => { void refresh(); }, onError: (reason) => setError(messageOf(reason)) });
   };
-  const totalOf = (type: 'expense' | 'income') => monthRows.filter((item) => item.type === type).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  // Money out is spending only; bills, card payments, savings and transfers are shown on their own line.
+  const totalOf = (type: 'expense' | 'income') => monthRows.filter(type === 'expense' ? isSpending : isIncome).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const moves = monthRows.filter(isMoneyMove).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const questions = (query.data || []).filter(needsALook);
 
   return <div className="m-page">
     <PageTitle title="Spending" action={<button className="m-btn outline small" onClick={() => setFormOpen(true)}><Plus aria-hidden="true" />Add</button>} />
@@ -109,13 +114,15 @@ export function SpendingPage() {
       <button className="m-btn navy" disabled={create.isPending}>{create.isPending ? 'Saving…' : 'Save'}</button>
     </form>}
 
+    <SortQuestions items={questions} all />
     <IncomeReviewCards items={pendingIncome} taxRate={taxRate} />
 
     <div className="m-tiles two">
       {(['expense', 'income'] as const).map((value) => <button key={value} type="button" className={`m-tile center ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} data-testid={`total-${value}`}>
-        <span>{value === 'expense' ? 'Money out' : 'Money in'}</span><strong>{money(totalOf(value))}</strong>
+        <span>{value === 'expense' ? 'Spent' : 'Money in'}</span><strong>{money(totalOf(value))}</strong>
       </button>)}
     </div>
+    {moves > 0 && <p className="m-muted small m-moves-note">Not counted as spending: {money(moves)} in rent, bills, card and loan payments, savings and transfers.</p>}
 
     <div className="m-chips" role="group" aria-label="Filter spending">
       <button type="button" className={`m-all-bar ${filter === 'all' ? 'on' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')} data-testid="button-filter-all">All</button>

@@ -1,3 +1,5 @@
+import { isIncome, isSpending, needsALook } from '@/lib/money-kinds';
+import { SortQuestions } from '@/components/margo/sort-question';
 import { useAccounts, useDebts } from '@/lib/accounts';
 import { monthLabel, payoffPlan } from '@/lib/debt-plan';
 import { BubblePit } from '@/components/margo/bubble-pit';
@@ -90,9 +92,10 @@ export function HomePage() {
   const from = dayKey(period === 'month' ? monthStart : weekStart);
   const inPeriod = (date: string) => date.slice(0, 10) >= from && date.slice(0, 10) <= dayKey(now);
   const periodTx = (transactions.data || []).filter((item) => inPeriod(item.date));
-  const expenses = periodTx.filter((item) => item.type === 'expense');
+  // Only real spending: rent, card payments, savings and transfers don't eat into what's left to spend.
+  const expenses = periodTx.filter(isSpending);
   const spent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const income = periodTx.filter((item) => item.type === 'income').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const income = periodTx.filter(isIncome).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const categories = plan.data?.categories || [];
   const budget = categories.reduce((sum, item) => sum + Number(item.monthlyTarget || 0), 0) * scale;
   const left = Math.max(0, budget - spent);
@@ -215,6 +218,7 @@ export function HomePage() {
 
     <MoneyTiles />
 
+    <SortQuestions items={(transactions.data || []).filter(needsALook)} />
     <InstallTip />
 
     <section className="m-section">

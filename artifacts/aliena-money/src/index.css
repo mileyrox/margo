@@ -1040,3 +1040,8 @@ body { background: var(--m-cream); }
 .m-debt-field input:focus { outline: none; }
 .m-debt-field span:focus-within { outline: 2px solid var(--m-burgundy); outline-offset: 1px; }
 .m-debt-add { padding: 12px; border-radius: 14px; background: var(--m-cream); }
+/* Margo asks what a transaction was */
+.m-sort-q p { margin: 0; }
+.m-sort-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.m-sort-choices .m-chip { font-size: 13.5px; }
+.m-moves-note { text-align: center; margin: -4px 0 0; }

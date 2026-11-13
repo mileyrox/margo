@@ -2,7 +2,7 @@ import { Configuration, CountryCode, PlaidApi, PlaidEnvironments, Products } fro
 import { and, asc, eq, gte, lt, desc, inArray } from "drizzle-orm";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { balanceSnapshotsTable, bankAccountsTable, db, incomePayerPreferencesTable, plaidItemsTable, transactionsTable } from "@workspace/db";
+import { balanceSnapshotsTable, bankAccountsTable, db, incomePayerPreferencesTable, payeeRulesTable, plaidItemsTable, PLAID_SORT_VERSION, transactionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const knownGigPayers = ["instawork", "qwick", "instacart", "uber", "doordash", "paypal", "venmo", "zelle", "cash app"];
@@ -77,10 +77,48 @@ function decryptToken(value: string): string {
   throw new Error("Stored Plaid token could not be decrypted");
 }
 
+/*
+ * Sorting bank transactions. Paying a card or loan, paying rent, and moving money to savings or between your own
+ * accounts are NOT spending, and money coming back (transfers in, refunds) is NOT income.
+ * When Margo can't tell (a Zelle or Venmo to a person, a cash withdrawal, a low-confidence match), it's marked
+ * "Needs a look" and the app asks. The answer is remembered for that payee.
+ */
+export const NOT_SPENDING = ["Rent", "Utilities", "Debt payment", "Savings", "Transfer", "Needs a look"];
+const P2P = /\b(venmo|zelle|cash ?app|square cash|paypal|apple cash)\b/i;
+type PlaidTx = { amount: number; name?: string | null; merchant_name?: string | null; personal_finance_category?: { primary?: string | null; detailed?: string | null; confidence_level?: string | null } | null };
+
+export function sortTransaction(tx: PlaidTx, rules: Map<string, string>): { type: "expense" | "income"; category: string } {
+  const label = tx.merchant_name || tx.name || "";
+  const primary = (tx.personal_finance_category?.primary || "").toUpperCase();
+  const detail = (tx.personal_finance_category?.detailed || "").toUpperCase();
+  const confidence = (tx.personal_finance_category?.confidence_level || "").toUpperCase();
+  if (tx.amount < 0) {
+    // Money in. Transfers from your own accounts, card payments landing on the card, and refunds aren't income.
+    if (primary === "TRANSFER_IN" || primary === "LOAN_PAYMENTS" || /payment (thank you|received)|transfer from/i.test(label)) return { type: "income", category: "Transfer" };
+    if (primary && primary !== "INCOME" && !P2P.test(label)) return { type: "income", category: "Refund" };
+    return { type: "income", category: "Income" };
+  }
+  const rule = rules.get(normalizePayer(label));
+  if (rule) return { type: "expense", category: rule };
+  if (primary === "LOAN_PAYMENTS") return { type: "expense", category: detail.includes("MORTGAGE") ? "Rent" : "Debt payment" };
+  if (/payment thank you|autopay|card ?payment|crd ?pmt|cardmember serv|loan pmt|epay/i.test(label) && !primary) return { type: "expense", category: "Debt payment" };
+  if (primary === "TRANSFER_OUT") {
+    if (detail.includes("SAVINGS") || detail.includes("INVESTMENT") || detail.includes("RETIREMENT")) return { type: "expense", category: "Savings" };
+    if (P2P.test(label) || detail.includes("WITHDRAWAL") || detail.includes("OTHER")) return { type: "expense", category: "Needs a look" };
+    return { type: "expense", category: "Transfer" };
+  }
+  if (P2P.test(label)) return { type: "expense", category: "Needs a look" };
+  if (primary === "RENT_AND_UTILITIES") return { type: "expense", category: detail === "RENT_AND_UTILITIES_RENT" ? "Rent" : "Utilities" };
+  if (!primary && /transfer to (sav|savings)|to savings/i.test(label)) return { type: "expense", category: "Savings" };
+  if (!primary && /online transfer|xfer|transfer to/i.test(label)) return { type: "expense", category: "Transfer" };
+  if (confidence === "LOW" || confidence === "UNKNOWN" || primary === "OTHER") return { type: "expense", category: "Needs a look" };
+  return { type: "expense", category: transactionCategory(primary, detail) };
+}
+
 function transactionCategory(primary?: string | null, detailed?: string | null): string {
   const category = (primary || "").toUpperCase();
   const detail = (detailed || "").toUpperCase();
-  if (detail.includes("RENT") || category === "RENT") return "Rent";
+  if (detail === "RENT_AND_UTILITIES_RENT") return "Rent";
   if (detail.includes("UTILIT") || category === "UTILITIES") return "Utilities";
   if (detail.includes("GROCER") || category === "GROCERIES") return "Groceries";
   if (detail.includes("RESTAURANT") || detail.includes("COFFEE") || category === "FOOD_AND_DRINK") return "Dining out";
@@ -160,27 +198,32 @@ async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
   const [incomeRows, payerPreferences] = await Promise.all([
     db.select({ label: transactionsTable.label, amount: transactionsTable.amount })
       .from(transactionsTable)
-      .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, "income"), eq(transactionsTable.source, "Plaid"))),
+      .where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.type, "income"), eq(transactionsTable.source, "Plaid"), eq(transactionsTable.category, "Income"))),
     db.select().from(incomePayerPreferencesTable).where(eq(incomePayerPreferencesTable.userId, userId)),
   ]);
   const incomeHistory = incomeRows.map((row) => ({ label: row.label, amount: Number(row.amount) }));
   const preferences = new Map(payerPreferences.map((row) => [row.payerKey, row.decision]));
-  let cursor = item.cursor || undefined;
+  const rules = new Map((await db.select().from(payeeRulesTable).where(eq(payeeRulesTable.userId, userId))).map((rule) => [rule.payeeKey, rule.category]));
+  // When the sorting rules improve, go through the bank's full history once more so old transactions get re-sorted.
+  const resort = (item.sortVersion ?? 0) < PLAID_SORT_VERSION;
+  let cursor = resort ? undefined : item.cursor || undefined;
   let hasMore = true;
   let imported = 0;
   while (hasMore) {
     const page = await client.transactionsSync({ access_token: decryptToken(item.accessTokenEncrypted), cursor, count: 500 });
     const allKnownIncome = [...incomeHistory, ...page.data.added.filter((tx) => tx.amount < 0).map((tx) => ({ label: tx.merchant_name || tx.name || "Bank transaction", amount: Math.abs(tx.amount) }))];
     for (const tx of page.data.added) {
-      const expense = tx.amount > 0;
+      const sorted = sortTransaction(tx, rules);
+      const expense = sorted.type === "expense";
       const label = (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120);
-      const review = expense ? { incomePayerKey: null, incomeReviewStatus: "none" as const, isTaxable: false } : classifyIncome(label, Math.abs(tx.amount), allKnownIncome, preferences);
+      const realIncome = !expense && sorted.category === "Income";
+      const review = !realIncome ? { incomePayerKey: null, incomeReviewStatus: "none" as const, isTaxable: false } : classifyIncome(label, Math.abs(tx.amount), allKnownIncome, preferences);
       await db.insert(transactionsTable).values({
         userId: userId,
         type: expense ? "expense" : "income",
         label,
         amount: Math.abs(tx.amount),
-        category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+        category: sorted.category,
         date: tx.date,
         ...review,
         source: "Plaid",
@@ -189,18 +232,18 @@ async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
         target: [transactionsTable.userId, transactionsTable.plaidTransactionId],
         set: {
           type: expense ? "expense" : "income", label,
-          amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+          amount: Math.abs(tx.amount), category: sorted.category,
           date: tx.date, source: "Plaid", ...review,
         },
       });
       imported += 1;
-      if (!expense) incomeHistory.push({ label, amount: Math.abs(tx.amount) });
+      if (realIncome) incomeHistory.push({ label, amount: Math.abs(tx.amount) });
     }
     for (const tx of page.data.modified) {
-      const expense = tx.amount > 0;
+      const sorted = sortTransaction(tx, rules);
       await db.update(transactionsTable).set({
-        type: expense ? "expense" : "income", label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
-        amount: Math.abs(tx.amount), category: expense ? transactionCategory(tx.personal_finance_category?.primary, tx.personal_finance_category?.detailed) : "Income",
+        type: sorted.type, label: (tx.merchant_name || tx.name || "Bank transaction").slice(0, 120),
+        amount: Math.abs(tx.amount), category: sorted.category,
         date: tx.date,
       }).where(and(eq(transactionsTable.userId, userId), eq(transactionsTable.plaidTransactionId, tx.transaction_id)));
     }
@@ -210,10 +253,37 @@ async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
     cursor = page.data.next_cursor;
     hasMore = page.data.has_more;
   }
-  await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date() }).where(eq(plaidItemsTable.id, item.id));
+  await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date(), sortVersion: PLAID_SORT_VERSION }).where(eq(plaidItemsTable.id, item.id));
   await refreshAccounts(userId, item).catch(() => { /* balances are best-effort; transactions already synced */ });
   return imported;
 }
+
+/* ---------------- When Margo asks "what was this?" ---------------- */
+const SORT_CHOICES = ["Rent", "Debt payment", "Savings", "Transfer", "Groceries", "Dining out", "Shopping", "Personal care", "Beauty", "Transportation", "Subscriptions", "Utilities", "Gifts", "Other spending"];
+
+/** The person tells Margo what a transaction was. With remember, the same payee is sorted that way from now on. */
+router.post("/transactions/:id/sort", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const category = String(req.body?.category || "");
+  if (!SORT_CHOICES.includes(category)) { res.status(400).json({ error: "Pick one of the options." }); return; }
+  const [tx] = await db.select().from(transactionsTable).where(and(eq(transactionsTable.id, String(req.params.id)), eq(transactionsTable.userId, req.dbUser.id))).limit(1);
+  if (!tx) { res.status(404).json({ error: "Transaction not found" }); return; }
+  await db.update(transactionsTable).set({ category }).where(eq(transactionsTable.id, tx.id));
+  let alsoSorted = 0;
+  if (req.body?.remember !== false && tx.type === "expense") {
+    const payeeKey = normalizePayer(tx.label);
+    if (payeeKey) {
+      await db.insert(payeeRulesTable).values({ userId: req.dbUser.id, payeeKey, category })
+        .onConflictDoUpdate({ target: [payeeRulesTable.userId, payeeRulesTable.payeeKey], set: { category } });
+      // Sort the other open questions for the same payee the same way.
+      const others = await db.select({ id: transactionsTable.id, label: transactionsTable.label }).from(transactionsTable)
+        .where(and(eq(transactionsTable.userId, req.dbUser.id), eq(transactionsTable.category, "Needs a look")));
+      const same = others.filter((row) => normalizePayer(row.label) === payeeKey).map((row) => row.id);
+      if (same.length) { await db.update(transactionsTable).set({ category }).where(inArray(transactionsTable.id, same)); alsoSorted = same.length; }
+    }
+  }
+  res.json({ ok: true, category, alsoSorted });
+});
 
 /* ---------------- Balances ---------------- */
 const SAVINGS_SUBTYPES = ["savings", "money market", "cd", "cash management", "hsa"];

@@ -1,4 +1,4 @@
-import { boolean, date, index, numeric, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, numeric, pgTable, primaryKey, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 export const plaidItemsTable = pgTable("plaid_items", {
@@ -9,6 +9,8 @@ export const plaidItemsTable = pgTable("plaid_items", {
   institutionId: varchar("institution_id", { length: 120 }),
   institutionName: varchar("institution_name", { length: 160 }),
   cursor: text("cursor"),
+  /** Which version of Margo's sorting rules this bank's history was last sorted with. */
+  sortVersion: integer("sort_version").notNull().default(0),
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -44,3 +46,17 @@ export const balanceSnapshotsTable = pgTable("balance_snapshots", {
 }, (table) => [primaryKey({ columns: [table.accountId, table.day] })]);
 
 export type BankAccount = typeof bankAccountsTable.$inferSelect;
+
+/**
+ * What a person told Margo a payee is ("Zelle to Jane Doe is rent"), so the same payee is sorted the same way next time.
+ * kind: spending (with a category), rent, debt-payment, savings or transfer.
+ */
+export const payeeRulesTable = pgTable("payee_rules", {
+  userId: varchar("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  payeeKey: varchar("payee_key", { length: 120 }).notNull(),
+  category: varchar("category", { length: 60 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({ columns: [table.userId, table.payeeKey] })]);
+
+/** Bumped when the way bank transactions are sorted improves, so older history gets re-sorted once. */
+export const PLAID_SORT_VERSION = 2;

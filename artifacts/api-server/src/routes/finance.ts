@@ -42,6 +42,7 @@ import {
   productsTable,
   receiptsTable,
   receiptInboxesTable,
+  payeeRulesTable,
   userProductPurchasesTable,
   plaidItemsTable,
   extensionTokensTable,
@@ -54,10 +55,10 @@ import {
   type StoredReceiptItem,
   type Transaction as DbTransaction,
 } from "@workspace/db";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, notInArray, desc, eq, gte, lte } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { revokeAllPlaidItems } from "./plaid";
+import { NOT_SPENDING, revokeAllPlaidItems } from "./plaid";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -248,6 +249,7 @@ async function getBudgetPlanForUser(userId: string): Promise<ApiBudgetPlan> {
       .where(and(
         eq(transactionsTable.userId, userId),
         eq(transactionsTable.type, "expense"),
+        notInArray(transactionsTable.category, NOT_SPENDING),
         gte(transactionsTable.date, monthStart),
         lte(transactionsTable.date, today),
       )),
@@ -277,6 +279,7 @@ router.get("/finance/dashboard", async (req, res): Promise<void> => {
       .where(and(
         eq(transactionsTable.userId, req.dbUser.id),
         eq(transactionsTable.type, "expense"),
+        notInArray(transactionsTable.category, NOT_SPENDING),
         gte(transactionsTable.date, monthStart),
         lte(transactionsTable.date, today),
       )),
@@ -557,6 +560,7 @@ router.delete("/account/data", async (req, res): Promise<void> => {
     await tx.delete(recurringSubscriptionsTable).where(eq(recurringSubscriptionsTable.userId, req.dbUser.id));
     await tx.delete(integrationConnectionsTable).where(eq(integrationConnectionsTable.userId, req.dbUser.id));
     await tx.delete(extensionTokensTable).where(eq(extensionTokensTable.userId, req.dbUser.id));
+    await tx.delete(payeeRulesTable).where(eq(payeeRulesTable.userId, req.dbUser.id));
     await tx.delete(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
     await tx.delete(transactionsTable).where(eq(transactionsTable.userId, req.dbUser.id));
     await tx.delete(receiptsTable).where(eq(receiptsTable.userId, req.dbUser.id));
