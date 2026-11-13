@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 export type EngineSuggestion = {
   name: string;
@@ -63,6 +63,8 @@ export const userSwapsTable = pgTable("user_swaps", {
   userId: varchar("user_id").notNull(),
   lookupId: uuid("lookup_id").notNull().references(() => swapLookupsTable.id, { onDelete: "cascade" }),
   source: varchar("source", { length: 16 }).$type<"receipt" | "barcode" | "search">().notNull(),
+  /** "I'll keep mine": the person likes their product and doesn't want this swap suggested. */
+  kept: boolean("kept").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("user_swaps_user_lookup_idx").on(table.userId, table.lookupId),

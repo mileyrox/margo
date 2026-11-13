@@ -1,7 +1,7 @@
 import { MargoSays } from '@/components/margo/characters';
 import { useState } from 'react';
 import { customFetch } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpRight, Search } from 'lucide-react';
 import { cents, messageOf, money } from '@/lib/format';
 
@@ -73,6 +73,22 @@ function Photo({ imageUrl, brand, label, swap }: { imageUrl?: string | null; bra
 }
 
 /** One swap on two display stands: what you buy on the left, the swap on the right with its price on the stand. */
+/** Things this person said they'll keep. Tapping one brings its swap back. */
+export function KeptList() {
+  const qc = useQueryClient();
+  const kept = useQuery({ queryKey: ['kept-swaps'], queryFn: () => customFetch<Array<{ id: string; productName: string; brand: string }>>('/api/swaps/kept') });
+  const [open, setOpen] = useState(false);
+  if (!kept.data?.length) return null;
+  const undo = async (id: string) => {
+    await customFetch(`/api/swaps/mine/${encodeURIComponent(id)}/keep`, { method: 'POST', body: JSON.stringify({ kept: false }) }).catch(() => undefined);
+    void qc.invalidateQueries({ queryKey: ['kept-swaps'] }); void qc.invalidateQueries({ queryKey: ['my-swaps'] });
+  };
+  return <section className="m-kept">
+    <button type="button" className="m-link-button bold left" aria-expanded={open} onClick={() => setOpen(!open)}>Things you're keeping ({kept.data.length})</button>
+    {open && <div className="m-stack tight">{kept.data.map((item) => <div className="m-line" key={item.id}><span>{item.brand ? `${item.brand} ` : ''}{item.productName}</span><button type="button" className="m-link-button small-link" onClick={() => void undo(item.id)}>Show swap again</button></div>)}</div>}
+  </section>;
+}
+
 export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRemove?: () => void }) {
   const qc = useQueryClient();
   const [data, setData] = useState(lookup);
@@ -87,6 +103,14 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       if (value === -1) onRemove?.();
       void qc.invalidateQueries({ queryKey: ['my-swaps'] });
     } catch { /* a missed vote is fine */ }
+  };
+  // "I'll keep mine": the swap may be fine, they just love what they have. Hides it and stops suggesting it.
+  const keep = async () => {
+    try {
+      await customFetch(`/api/swaps/mine/${encodeURIComponent(data.id)}/keep`, { method: 'POST', body: JSON.stringify({ kept: true }) });
+      void qc.invalidateQueries({ queryKey: ['my-swaps'] });
+      void qc.invalidateQueries({ queryKey: ['kept-swaps'] });
+    } catch { /* try again later */ }
   };
   const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
   if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a real dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet. I only show swaps that people actually call a dupe for it.`}</p>;
@@ -128,7 +152,8 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
     <a className="m-plinth-shop" href={item.url} target="_blank" rel="noreferrer sponsored">Shop {toBrand} on {store}<ArrowUpRight aria-hidden="true" /></a>
     <div className="m-shelf-more">
 
-      {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)}>Not a match</button> : null}
+      <button type="button" className="m-btn outline m-keep" onClick={() => void keep()} title="You like yours. Margo stops suggesting a swap for it.">I'll keep mine</button>
+      {voted === null ? <button type="button" className="m-link-button small-link" onClick={() => void vote(-1)} title="This swap is wrong. It helps Margo learn.">Not a match</button> : null}
     </div>
   </article>;
 }

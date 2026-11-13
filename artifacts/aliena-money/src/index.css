@@ -999,3 +999,44 @@ body { background: var(--m-cream); }
 .m-chat-margo .m-traits span { background: #EEF1E2; color: #4F5320; }
 .m-chat-margo .m-traits .m-traits-label { background: none; padding: 0 2px 0 0; color: var(--m-ink-2); font-weight: 600; }
 .m-chat-margo .m-why { margin: 0; padding-left: 18px; color: var(--m-ink-2); }
+
+/* Swaps: keep mine vs not a match */
+.m-shelf-more { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.m-keep { min-height: 40px; font-size: 14px; padding: 0 16px; }
+.m-kept { margin-top: 8px; }
+
+/* Your money tiles */
+.m-money-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.m-money-tiles > * { background: #fff; border: 1px solid var(--m-line); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px; color: var(--m-navy); text-decoration: none; min-width: 0; }
+.m-money-tiles small { font-size: 12px; color: var(--m-ink-2); font-weight: 600; }
+.m-money-tiles strong { font-family: var(--m-serif); font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-money-tiles span { font-size: 11.5px; color: var(--m-ink-2); line-height: 1.25; }
+.m-money-tiles span.up { color: #4F5320; font-weight: 700; }
+.m-debt-summary { text-decoration: none; color: var(--m-navy); }
+.m-debt-summary .m-line strong { font-family: var(--m-serif); font-size: 24px; }
+
+/* Debt plan */
+.m-plan-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-plan-pick button { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px; border-radius: 14px; border: 1.5px solid var(--m-line); background: #fff; color: var(--m-navy); cursor: pointer; }
+.m-plan-pick button.on { border-color: var(--m-navy); box-shadow: inset 0 0 0 1.5px var(--m-navy); }
+.m-plan-pick small { color: var(--m-ink-2); font-size: 12.5px; line-height: 1.35; }
+.m-plan-pick span { font-size: 12.5px; font-weight: 700; color: #4F5320; margin-top: 2px; }
+.m-extra { display: flex; flex-direction: column; gap: 6px; }
+.m-extra input[type="range"] { width: 100%; accent-color: var(--m-navy); }
+.m-pay span small { display: block; color: #4F5320; font-weight: 700; font-size: 12px; }
+.m-pay.target strong { color: var(--m-burgundy); }
+.m-pay-total { border-top: 1px solid var(--m-line); padding-top: 8px; }
+.m-payoff-order { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.m-payoff-order li span { font-weight: 600; display: block; }
+.m-payoff-order li small { color: var(--m-ink-2); }
+.m-debt-row { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--m-line); }
+.m-debt-row:last-of-type { border-bottom: 0; }
+.m-debt-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.m-debt-field { display: flex; flex-direction: column; gap: 3px; }
+.m-debt-field small { font-size: 12px; color: var(--m-ink-2); display: flex; gap: 6px; align-items: center; }
+.m-debt-field em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--m-burgundy); background: #FBE7EA; padding: 1px 6px; border-radius: 999px; }
+.m-debt-field span { display: flex; align-items: center; gap: 2px; border: 1px solid var(--m-line); border-radius: 10px; padding: 0 10px; background: var(--m-cream); font-weight: 600; }
+.m-debt-field input { width: 100%; min-width: 0; border: 0; background: transparent; padding: 9px 0; font: inherit; color: var(--m-navy); }
+.m-debt-field input:focus { outline: none; }
+.m-debt-field span:focus-within { outline: 2px solid var(--m-burgundy); outline-offset: 1px; }
+.m-debt-add { padding: 12px; border-radius: 14px; background: var(--m-cream); }

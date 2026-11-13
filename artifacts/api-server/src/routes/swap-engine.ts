@@ -69,14 +69,14 @@ router.post("/swaps/find", async (req, res): Promise<void> => {
 /** Only this person's swaps: from their receipts, barcode scans and searches, newest first. */
 router.get("/swaps/mine", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
-  const rows = await db.select({ lookup: swapLookupsTable, source: userSwapsTable.source })
+  const rows = await db.select({ lookup: swapLookupsTable, source: userSwapsTable.source, kept: userSwapsTable.kept })
     .from(userSwapsTable)
     .innerJoin(swapLookupsTable, eq(userSwapsTable.lookupId, swapLookupsTable.id))
     .where(eq(userSwapsTable.userId, req.dbUser.id))
     .orderBy(desc(userSwapsTable.createdAt))
     .limit(100);
   res.json(rows
-    .filter((row) => row.lookup.status === "ready")
+    .filter((row) => row.lookup.status === "ready" && !row.kept)
     .map((row) => ({ ...serialize(row.lookup), source: row.source }))
     .filter((row) => row.suggestions.length));
 
@@ -90,6 +90,26 @@ router.get("/swaps/mine", async (req, res): Promise<void> => {
   }
 });
 const refreshing = new Set<string>();
+
+/** "I'll keep mine": hides the swap and stops suggesting it. Different from "Not a match", which says the swap itself is wrong. */
+router.post("/swaps/mine/:lookupId/keep", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const kept = req.body?.kept !== false;
+  const [row] = await db.update(userSwapsTable).set({ kept })
+    .where(and(eq(userSwapsTable.userId, req.dbUser.id), eq(userSwapsTable.lookupId, String(req.params.lookupId)))).returning();
+  if (!row) { res.status(404).json({ error: "Swap not found" }); return; }
+  res.json({ ok: true, kept });
+});
+
+/** The things this person said they'll keep, so they can change their mind. */
+router.get("/swaps/kept", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const rows = await db.select({ lookup: swapLookupsTable }).from(userSwapsTable)
+    .innerJoin(swapLookupsTable, eq(userSwapsTable.lookupId, swapLookupsTable.id))
+    .where(and(eq(userSwapsTable.userId, req.dbUser.id), eq(userSwapsTable.kept, true)))
+    .orderBy(desc(userSwapsTable.createdAt)).limit(100);
+  res.json(rows.map((row) => ({ id: row.lookup.id, productName: row.lookup.productName, brand: row.lookup.brand, imageUrl: row.lookup.imageUrl })));
+});
 
 /** Removes a swap from this person's list. */
 router.delete("/swaps/mine/:lookupId", async (req, res): Promise<void> => {

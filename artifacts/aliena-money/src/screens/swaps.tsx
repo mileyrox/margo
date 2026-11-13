@@ -9,7 +9,7 @@ import { BackLink, EmptyState, ErrorState, PageTitle, Skeleton } from '@/compone
 import { ProductArt } from '@/components/margo/art';
 import { bandFor, fetchSwapCatalog, rowArt, rowLabel, rowSavings, type SwapCatalogRow } from '@/lib/swap-catalog';
 import { useProfileAnswers } from '@/lib/profile';
-import { EngineResult, SwapSearch, fetchMySwaps } from '@/components/margo/engine';
+import { EngineResult, KeptList, SwapSearch, fetchMySwaps } from '@/components/margo/engine';
 import { cents, messageOf, money, parseList } from '@/lib/format';
 
 const productName = (brand: string, product: string) => (brand ? `${brand} ${product}` : product);
@@ -67,7 +67,7 @@ export function SwapsPage() {
     <SwapSearch />
     {mine.isLoading ? <div className="m-card"><Skeleton lines={4} /></div>
       : mine.isError ? <ErrorState error={mine.error} retry={() => mine.refetch()} />
-      : swaps.length ? <>{swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)}<SavingsReceipt swaps={swaps} total={perShop} /><p className="m-fine">Prices are typical prices from other stores. As an Amazon Associate I earn from qualifying purchases.</p></>
+      : swaps.length ? <>{swaps.map((lookup) => <EngineResult key={lookup.id} lookup={lookup} onRemove={() => void remove(lookup.id)} />)}<SavingsReceipt swaps={swaps} total={perShop} /><KeptList /><p className="m-fine">Prices are typical prices from other stores. As an Amazon Associate I earn from qualifying purchases.</p></>
       : <div className="m-card m-empty-swaps">
         <h2>Your swaps show up here</h2>
         <p className="m-muted">Scan a receipt or a barcode and I'll find a cheaper version of what you bought.</p>

@@ -1,8 +1,8 @@
 import { Configuration, CountryCode, PlaidApi, PlaidEnvironments, Products } from "plaid";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gte, lt, desc, inArray } from "drizzle-orm";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, incomePayerPreferencesTable, plaidItemsTable, transactionsTable } from "@workspace/db";
+import { balanceSnapshotsTable, bankAccountsTable, db, incomePayerPreferencesTable, plaidItemsTable, transactionsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const knownGigPayers = ["instawork", "qwick", "instacart", "uber", "doordash", "paypal", "venmo", "zelle", "cash app"];
@@ -211,8 +211,111 @@ async function syncItem(userId: string, item: PlaidItemRow): Promise<number> {
     hasMore = page.data.has_more;
   }
   await db.update(plaidItemsTable).set({ cursor: cursor || null, lastSyncAt: new Date() }).where(eq(plaidItemsTable.id, item.id));
+  await refreshAccounts(userId, item).catch(() => { /* balances are best-effort; transactions already synced */ });
   return imported;
 }
+
+/* ---------------- Balances ---------------- */
+const SAVINGS_SUBTYPES = ["savings", "money market", "cd", "cash management", "hsa"];
+const num = (value: string | null | undefined) => (value == null ? null : Number(value));
+const today = () => new Date().toISOString().slice(0, 10);
+
+/** Reads each account's latest balance from the bank (included with Transactions, no extra cost) and keeps one snapshot a day. */
+async function refreshAccounts(userId: string, item: { id: string; accessTokenEncrypted: string }) {
+  const { data } = await plaidClient().accountsGet({ access_token: decryptToken(item.accessTokenEncrypted) });
+  for (const account of data.accounts) {
+    const values = {
+      userId, plaidItemId: item.id, accountId: account.account_id,
+      name: (account.official_name || account.name || "Account").slice(0, 160), mask: account.mask?.slice(0, 8) ?? null,
+      type: String(account.type).slice(0, 24), subtype: account.subtype ? String(account.subtype).slice(0, 40) : null,
+      current: account.balances.current != null ? account.balances.current.toFixed(2) : null,
+      available: account.balances.available != null ? account.balances.available.toFixed(2) : null,
+      creditLimit: account.balances.limit != null ? account.balances.limit.toFixed(2) : null,
+      updatedAt: new Date(),
+    };
+    const [saved] = await db.insert(bankAccountsTable).values(values).onConflictDoUpdate({
+      target: bankAccountsTable.accountId,
+      set: { name: values.name, mask: values.mask, type: values.type, subtype: values.subtype, current: values.current, available: values.available, creditLimit: values.creditLimit, updatedAt: values.updatedAt },
+    }).returning();
+    if (saved && values.current != null) {
+      await db.insert(balanceSnapshotsTable).values({ accountId: saved.id, day: today(), current: values.current })
+        .onConflictDoUpdate({ target: [balanceSnapshotsTable.accountId, balanceSnapshotsTable.day], set: { current: values.current } });
+    }
+  }
+}
+
+export function isSavings(account: { type: string; subtype: string | null }) {
+  return account.type === "depository" && SAVINGS_SUBTYPES.includes((account.subtype || "").toLowerCase());
+}
+export function isDebt(account: { type: string }) {
+  return account.type === "credit" || account.type === "loan";
+}
+
+/**
+ * Real savings this month: how much the savings balances went up, compared with the last balance before the month began
+ * (or the first one we saw this month, if the bank was connected mid-month).
+ */
+async function savingsProgress(accounts: Array<{ id: string; type: string; subtype: string | null; current: string | null }>) {
+  const savings = accounts.filter(isSavings);
+  if (!savings.length) return null;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  let total = 0, start = 0, sinceConnected = false;
+  for (const account of savings) {
+    const current = num(account.current) ?? 0;
+    total += current;
+    const [before] = await db.select().from(balanceSnapshotsTable)
+      .where(and(eq(balanceSnapshotsTable.accountId, account.id), lt(balanceSnapshotsTable.day, monthStart)))
+      .orderBy(desc(balanceSnapshotsTable.day)).limit(1);
+    if (before) { start += Number(before.current); continue; }
+    const [first] = await db.select().from(balanceSnapshotsTable)
+      .where(and(eq(balanceSnapshotsTable.accountId, account.id), gte(balanceSnapshotsTable.day, monthStart)))
+      .orderBy(asc(balanceSnapshotsTable.day)).limit(1);
+    start += first ? Number(first.current) : current;
+    sinceConnected = true;
+  }
+  return { total: Math.round(total * 100) / 100, changeThisMonth: Math.round((total - start) * 100) / 100, sinceConnected };
+}
+
+router.get("/accounts", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const rows = await db.select().from(bankAccountsTable).where(eq(bankAccountsTable.userId, req.dbUser.id)).orderBy(asc(bankAccountsTable.type), asc(bankAccountsTable.name));
+  const items = rows.length ? await db.select({ id: plaidItemsTable.id, institutionName: plaidItemsTable.institutionName }).from(plaidItemsTable).where(inArray(plaidItemsTable.id, [...new Set(rows.map((row) => row.plaidItemId))])) : [];
+  const bank = new Map(items.map((item) => [item.id, item.institutionName]));
+  const visible = rows.filter((row) => !row.hidden);
+  res.json({
+    accounts: visible.map((row) => ({
+      id: row.id, name: row.name, mask: row.mask, type: row.type, subtype: row.subtype, institution: bank.get(row.plaidItemId) || null,
+      current: num(row.current), available: num(row.available), creditLimit: num(row.creditLimit),
+      apr: num(row.apr), minPayment: num(row.minPayment), isSavings: isSavings(row), isDebt: isDebt(row), updatedAt: row.updatedAt,
+    })),
+    savings: await savingsProgress(visible),
+  });
+});
+
+/** The person sets a debt's interest rate or minimum payment, or hides an account. */
+router.patch("/accounts/:id", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const body = req.body ?? {};
+  const set: Partial<typeof bankAccountsTable.$inferInsert> = {};
+  const pct = Number(body.apr), min = Number(body.minPayment);
+  if (body.apr === null) set.apr = null; else if (body.apr !== undefined) { if (!Number.isFinite(pct) || pct < 0 || pct > 99) { res.status(400).json({ error: "Interest rate should be between 0 and 99%." }); return; } set.apr = pct.toFixed(2); }
+  if (body.minPayment === null) set.minPayment = null; else if (body.minPayment !== undefined) { if (!Number.isFinite(min) || min < 0 || min > 100000) { res.status(400).json({ error: "Check the minimum payment." }); return; } set.minPayment = min.toFixed(2); }
+  if (typeof body.hidden === "boolean") set.hidden = body.hidden;
+  if (!Object.keys(set).length) { res.status(400).json({ error: "Nothing to change." }); return; }
+  const [saved] = await db.update(bankAccountsTable).set(set).where(and(eq(bankAccountsTable.id, String(req.params.id)), eq(bankAccountsTable.userId, req.dbUser.id))).returning();
+  if (!saved) { res.status(404).json({ error: "Account not found" }); return; }
+  res.json({ ok: true });
+});
+
+/** Fetches fresh balances from every connected bank. */
+router.post("/accounts/refresh", async (req, res): Promise<void> => {
+  if (!requireUser(req, res)) return;
+  const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
+  let failed = 0;
+  for (const item of items) { try { await refreshAccounts(req.dbUser.id, item); } catch { failed += 1; } }
+  res.json({ banks: items.length, failed });
+});
 
 router.post("/plaid/sync", async (req, res): Promise<void> => {
   if (!requireUser(req, res)) return;
@@ -234,7 +337,13 @@ router.post("/plaid/sync-all", async (req, res): Promise<void> => {
   const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
   let imported = 0, refreshed = 0, failed = 0;
   for (const item of items) {
-    if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore) continue;
+    if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore) {
+      // Transactions are fresh, but make sure there's a balance snapshot for today.
+      const [account] = await db.select({ id: bankAccountsTable.id }).from(bankAccountsTable).where(eq(bankAccountsTable.plaidItemId, item.id)).limit(1);
+      const [snap] = account ? await db.select().from(balanceSnapshotsTable).where(and(eq(balanceSnapshotsTable.accountId, account.id), eq(balanceSnapshotsTable.day, today()))).limit(1) : [];
+      if (!snap) await refreshAccounts(req.dbUser.id, item).catch(() => undefined);
+      continue;
+    }
     try { imported += await syncItem(req.dbUser.id, item); refreshed += 1; } catch { failed += 1; req.log.warn("Could not refresh one connected bank"); }
   }
   res.json({ banks: items.length, refreshed, failed, imported });

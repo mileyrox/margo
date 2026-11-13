@@ -1,3 +1,5 @@
+import { useAccounts, useDebts } from '@/lib/accounts';
+import { monthLabel, payoffPlan } from '@/lib/debt-plan';
 import { BubblePit } from '@/components/margo/bubble-pit';
 import { InstallTip } from '@/components/margo/install-tip';
 import { MargoSays } from '@/components/margo/characters';
@@ -96,6 +98,8 @@ export function HomePage() {
   const left = Math.max(0, budget - spent);
   const savingsGoal = Number(plan.data?.annualSavingsGoal || 0) / 12 * scale;
   const savedSoFar = Math.max(0, Math.min(savingsGoal, income - spent));
+  // With a savings account connected, "saved" is money that actually moved into savings, not just what's left over.
+  const realSavings = useAccounts().data?.savings ?? null;
   const taxRate = Number(financeSettings.data?.taxReserveRate ?? 25);
   const monthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(now);
   const answers = profile.data?.onboardingAnswers || {};
@@ -203,10 +207,13 @@ export function HomePage() {
       <div className="m-hero2-bar" role="img" aria-label={`${Math.round(spentShare * 100)}% of your budget spent`}><i style={{ width: `${Math.round(spentShare * 100)}%` }} /></div>
       <div className="m-hero2-stats">
         <span>Spent <b>{money(Math.max(0, budget - left))}</b></span>
-        {savingsGoal > 0 && <span>Saved <b>{money(savedSoFar)} of {money(savingsGoal)}</b></span>}
+        {realSavings && period === 'month' ? <span>Moved to savings <b>{money(Math.max(0, realSavings.changeThisMonth))}{savingsGoal > 0 ? ` of ${money(savingsGoal)}` : ''}</b></span>
+          : savingsGoal > 0 && <span>Left over <b>{money(savedSoFar)} of {money(savingsGoal)}</b></span>}
         <Link href={`/recap?view=full&period=${period}`} className="m-hero2-link" data-testid="link-ring-recap">Recap</Link>
       </div>
     </section>
+
+    <MoneyTiles />
 
     <InstallTip />
 
@@ -258,27 +265,42 @@ export function HomePage() {
       </div>}
     </section>
 
-    {(debtBalance > 0 || answers.hasDebt === 'Yes') && <DebtPayoffCard balance={debtBalance} monthlyPayment={Number(answers.debtPayment || 0)} startBalance={Number(answers.debtStartBalance || debtBalance)} />}
+    <DebtSummaryCard />
   </div>;
 }
 
-function DebtPayoffCard({ balance, monthlyPayment, startBalance }: { balance: number; monthlyPayment: number; startBalance: number }) {
-  const [extra, setExtra] = useState(0);
-  const now = new Date();
-  const payment = monthlyPayment + extra;
-  const date = balance > 0 && payment > 0 ? new Date(now.getFullYear(), now.getMonth() + Math.ceil(balance / payment), 1) : null;
-  const paidPct = startBalance > 0 ? Math.min(100, Math.max(4, (1 - balance / startBalance) * 100)) : 4;
+/** Home summary of the debt plan; the full plan lives on /debt. */
+function DebtSummaryCard() {
+  const { debts, answers, loading } = useDebts();
+  if (loading || !debts.length) return null;
+  const strategy = answers.debtStrategy === 'snowball' ? 'snowball' : 'avalanche';
+  const extra = Number(answers.debtExtra || 0);
+  const plan = payoffPlan(debts, extra, strategy);
+  const total = debts.reduce((sum, debt) => sum + debt.balance, 0);
+  const target = plan.firstMonth.find((row) => row.isTarget);
   return <section className="m-section" data-testid="card-debt-payoff">
     <h2>Debt payoff</h2>
-    <div className="m-card m-stack">
-      <div className="m-line"><strong>Debt</strong><span className="m-muted">{money(balance)} left</span></div>
-      <div className="m-bar"><i className="olive" style={{ width: `${paidPct}%` }} /></div>
-      <span data-testid="text-debt-free-date">{date ? <>Debt-free by <strong>{new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date)}</strong></> : !balance ? 'Add your debt balance in Settings to see a date.' : 'Add a monthly payment in Settings to see a date.'}</span>
-      <div className="m-chips" role="group" aria-label="Monthly payoff pace">
-        {[0, 50, 100].map((amount) => <button type="button" key={amount} className={`m-chip square ${extra === amount ? 'on' : ''}`} aria-pressed={extra === amount} onClick={() => setExtra(amount)} data-testid={`button-debt-extra-${amount}`}>{amount === 0 ? 'Current pace' : `+$${amount}/mo`}</button>)}
-      </div>
-      <span className="m-muted small">Try paying a little extra each month to see your new date. Estimates leave out interest.</span>
-    </div>
+    <Link href="/debt" className="m-card m-stack m-debt-summary">
+      <div className="m-line"><strong>{money(total)}</strong><span className="m-muted">{debts.length} {debts.length === 1 ? 'debt' : 'debts'}</span></div>
+      <span data-testid="text-debt-free-date">{plan.payable ? <>Debt-free by <strong>{monthLabel(plan.months)}</strong>, about {money(plan.totalInterest)} in interest</> : <strong>At this pace the debt won't go down. Let's fix the plan.</strong>}</span>
+      {target && <span className="m-muted small">This month: put the extra on {target.name}.</span>}
+      <span className="m-link">See your plan<ChevronRight aria-hidden="true" /></span>
+    </Link>
+  </section>;
+}
+
+/** Cash, savings and debt at a glance, from connected banks. */
+function MoneyTiles() {
+  const accounts = useAccounts();
+  const list = accounts.data?.accounts ?? [];
+  if (!list.length) return null;
+  const cash = list.filter((a) => a.type === 'depository' && !a.isSavings).reduce((sum, a) => sum + (a.available ?? a.current ?? 0), 0);
+  const savings = accounts.data?.savings;
+  const debt = list.filter((a) => a.isDebt).reduce((sum, a) => sum + Math.max(0, a.current ?? 0), 0);
+  return <section className="m-money-tiles" aria-label="Your money">
+    <div><small>Cash</small><strong>{money(cash)}</strong><span>checking</span></div>
+    <div><small>Savings</small><strong>{savings ? money(savings.total) : '—'}</strong><span className={savings && savings.changeThisMonth > 0 ? 'up' : ''}>{savings ? `${savings.changeThisMonth >= 0 ? '+' : '−'}${money(Math.abs(savings.changeThisMonth))} ${savings.sinceConnected ? 'since connected' : 'this month'}` : 'no savings account'}</span></div>
+    <Link href="/debt"><small>Debt</small><strong>{money(debt)}</strong><span>see plan</span></Link>
   </section>;
 }
 
