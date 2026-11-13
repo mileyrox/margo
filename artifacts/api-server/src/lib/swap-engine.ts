@@ -178,7 +178,7 @@ export function affiliate(link: string): string {
 
 const storeBrands = "Target: Up & Up, Good & Gather, Favorite Day, Everspring. Walmart: Great Value, Equate, Mainstays. Kroger: Kroger, Simple Truth, Private Selection. Costco: Kirkland Signature. Amazon: Amazon Basics, Solimo, Amazon Elements. CVS: CVS Health. Walgreens: Walgreens brand. Aldi: Aldi exclusive brands. Trader Joe's: Trader Joe's. Ulta: Ulta Beauty Collection. Sephora: Sephora Collection. Whole Foods: 365 by Whole Foods Market.";
 
-export async function askAi(product: ProductInput): Promise<{ category: string; sizeText: string; typicalPrice: number | null; originalPageUrl?: string; suggestions: Array<Omit<EngineSuggestion, "url" | "upVotes" | "downVotes"> & { productUrl: string; photoPageUrl?: string }> } | null> {
+export async function askAi(product: ProductInput, evidence: Evidence[] = [], strict = false): Promise<{ category: string; sizeText: string; typicalPrice: number | null; originalPageUrl?: string; traits: string[]; suggestions: Array<Omit<EngineSuggestion, "url" | "upVotes" | "downVotes"> & { productUrl: string; photoPageUrl?: string; evidenceIndex: number | null; whyItsADupe: string }> } | null> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey || !baseUrl) return null;
@@ -191,12 +191,22 @@ Price paid: ${product.price ? `$${product.price.toFixed(2)}` : "unknown"}
 
 Suggest the ONE best cheaper option that a normal shopper can buy in the US today. Return at most one suggestion.
 Rules:
-- Only suggest real products that exist and are widely sold. Nearly every name-brand product has a store-brand or cheaper equivalent, so give one whenever you reasonably can. Return none only when the product is already a store brand or already the cheapest of its kind.
-- Prefer, in order: the same store's own brand, then another store's own brand, then a cheaper name brand known as a dupe.
+- First, work out the 2 or 3 things that make the original what it is: its key ingredient or technology, its main claim, and its scent, finish or texture when they matter (for example "bond-building repair", "sulfate-free", "vanilla coconut scent"). Put them in "traits". A swap must share ALL of them. Same category and size is not enough: there are thousands of 10 oz daily shampoos, and a random one is not a dupe.
+- Only suggest real products that exist and are widely sold.
+${strict
+  ? `- This is a product where formula, scent and finish matter, so only a REAL dupe counts: a product that people or reviewers specifically call a dupe or alternative for THIS exact product. It must be named in one of the search results below. Put that result's number in "evidenceIndex". If none of the results names a cheaper dupe for this exact product, return "suggestions": []. Saying nothing is much better than a generic match.`
+  : `- For everyday basics (paper goods, cleaning, groceries, medicine), the same store's own brand or another store's own brand is a fine swap when it is the direct equivalent (labeled "compare to" this product, or the same active ingredient and strength). Otherwise use a cheaper product that the search results below name as a dupe, and put that result's number in "evidenceIndex". Return none when the product is already a store brand or already the cheapest of its kind.`}
+${evidence.length ? `
+Search results for "${product.brand ? `${product.brand} ` : ""}${product.name} dupe" (real pages; only trust what they actually say):
+${evidence.map((item, i) => `[${i}] ${item.site}: ${item.title}. ${item.snippet}`).join("\n")}
+` : strict ? `
+No search results were found. Only suggest a dupe if it is very widely known as a dupe for this exact product (for example in beauty press), otherwise return none.
+` : ""}
 - Store brands: ${storeBrands}
 - Match the type, form and size class (for example 6 rolls vs 6 rolls, 12 oz vs 10 to 14 oz). Same form: stick for stick, spray for spray, pods for pods, liquid for liquid. Same scent or flavor family when it matters (for example unscented for unscented).
 - It must be cheaper per unit, not just a smaller package.
-- "matchType": "Dupe" only when key ingredients or specs closely match a well-known product. Otherwise "Cheaper option".
+- "matchType": "Dupe" when it is named as a dupe for this exact product. Otherwise "Cheaper option".
+- "whyItsADupe": one short sentence on what the source said, in your own words.
 - "whySimilar": 2 or 3 short, specific, checkable facts (form, size, key ingredients, specs). No marketing words, no claims that it is made by the same company, no "identical".
 - "shortReason": 2 to 4 lowercase words for a shelf label, like "same 6 rolls" or "similar formula". Never "same formula" unless the maker says so.
 - "differences": one short sentence with the honest trade-off, or "".
@@ -205,11 +215,11 @@ Rules:
 - For medicine, supplements, baby formula and allergy-related food, only suggest store-brand equivalents with the same active ingredient and strength.
 
 Return JSON only:
-{"category": string, "sizeText": string, "typicalPrice": number|null,
- "suggestions": [{"name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "shortReason": string, "differences": string, "confidence": "high"|"medium"|"low"}]}`;
+{"category": string, "sizeText": string, "typicalPrice": number|null, "traits": string[],
+ "suggestions": [{"evidenceIndex": number|null, "name": string, "brand": string, "retailer": string, "matchType": "Dupe"|"Cheaper option", "sizeText": string, "typicalPrice": number|null, "whySimilar": string[], "shortReason": string, "differences": string, "confidence": "high"|"medium"|"low"}]}`;
   // First choice: search the web for "dupe for ..." so the swap is current and links to the exact product page.
   const searched = await webSearchSwap(product, prompt, baseUrl, apiKey).catch((error) => { console.error("[swap-engine] web search", (error as Error).message); return null; });
-  if (searched) return parseAnswer(searched.text, product, searched.cited);
+  if (searched) return parseAnswer(searched.text, product, searched.cited, evidence);
   const call = (extra: Record<string, unknown>) => fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -233,7 +243,7 @@ Return JSON only:
   const content = payload.choices?.[0]?.message?.content?.trim();
   // An empty answer is a failure, not "no swap", so it isn't saved as "nothing found".
   if (!content) throw new Error(`Swap AI returned no answer (${payload.choices?.[0]?.finish_reason || "unknown"})`);
-  return parseAnswer(content, product, null);
+  return parseAnswer(content, product, null, evidence);
 }
 
 /** Asks the AI with web search turned on. Returns null when web search isn't available, so the plain AI is used instead. */
@@ -242,7 +252,7 @@ async function webSearchSwap(product: ProductInput, basePrompt: string, baseUrl:
   const name = `${product.brand ? `${product.brand} ` : ""}${product.name}`;
   const prompt = `${basePrompt}
 
-Before answering, search the web for "dupe for ${name}" and "${name} cheaper alternative", and check the store page of the one you pick.
+Before answering, also search the web for "dupe for ${name}" and "${name} cheaper alternative" (Reddit, TikTok and beauty sites), and check the store page of the one you pick to confirm it shares the traits.
 Then search Amazon for that exact swap. In the suggestion object, also include "productUrl": its Amazon product page (amazon.com/dp/... or amazon.com/.../dp/...), copied from your search results. If it truly isn't sold on Amazon, use its product page at another big store instead. Never a search page, a blog post or a made-up link. Use "" if you can't find the exact page.
 For photos, also include two more links copied from your search results, never Amazon: in the suggestion object "photoPageUrl" (the swap's product page at Target, Walmart, Ulta, CVS, Walgreens or the brand's own site), and at the top level "originalPageUrl" (a product page for the original product at one of those stores or its brand's site). Use "" when you can't find one.
 For "typicalPrice", use the usual price you saw for the swap at stores other than Amazon (for example Target, Walmart or the brand's site), otherwise null. Do not copy Amazon's price.`;
@@ -327,6 +337,42 @@ async function serper<T>(kind: "shopping" | "search", q: string): Promise<T | nu
   } catch { return null; }
 }
 
+/* ---------------- Real dupes: what people actually call a dupe ---------------- */
+export type Evidence = { url: string; site: string; title: string; snippet: string };
+
+/** Products where people care about the exact formula, scent or finish. These need a real, named dupe. */
+export function needsRealDupe(text: string): boolean {
+  return /shampoo|conditioner|hair|curl|scalp|serum|moisturi[sz]er|cream|lotion|cleanser|face|skin|spf|sunscreen|retinol|toner|mask|makeup|foundation|concealer|mascara|lip|blush|bronzer|primer|powder|brow|nail|perfume|fragrance|cologne|eau de|body wash|deodorant|beauty|cosmetic|dry shampoo|oil|balm|leggings|sneaker|bag|candle/i.test(text);
+}
+
+/** Google results for "<product> dupe": real people and sites naming dupes for this exact product. */
+export async function dupeEvidence(name: string, brand: string): Promise<Evidence[]> {
+  if (!process.env.SERPER_API_KEY) return [];
+  const full = `${brand && !name.toLowerCase().startsWith(brand.toLowerCase()) ? `${brand} ` : ""}${name}`.replace(/\s+/g, " ").trim();
+  type Organic = { organic?: Array<{ title?: string; link?: string; snippet?: string }> };
+  const [web, reddit] = await Promise.all([serper<Organic>("search", `${full} dupe`), serper<Organic>("search", `${full} dupe reddit`)]);
+  const seen = new Set<string>();
+  const out: Evidence[] = [];
+  for (const hit of [...(web?.organic ?? []), ...(reddit?.organic ?? [])]) {
+    if (!hit.link || seen.has(hit.link) || !/dupe|alternative|instead|similar|cheaper|same as|vs\.? /i.test(`${hit.title} ${hit.snippet}`)) continue;
+    seen.add(hit.link);
+    let site = "";
+    try { site = new URL(hit.link).hostname.replace(/^www\./, ""); } catch { continue; }
+    out.push({ url: hit.link, site, title: clean(hit.title || "", 160), snippet: clean(hit.snippet || "", 320) });
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+/** True when a search result really names this swap (its brand, plus a word from its name, appear in the result). */
+export function evidenceNames(item: Evidence, swapBrand: string, swapName: string): boolean {
+  const text = `${item.title} ${item.snippet}`.toLowerCase();
+  const brandWord = firstWord(swapBrand);
+  if (!brandWord || brandWord.length < 2 || !text.includes(brandWord)) return false;
+  const words = swapName.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 3 && w !== brandWord && !/^(with|for|and|the|shampoo|conditioner|cream|serum|lotion|spray|ounce|pack)$/.test(w));
+  return !words.length || words.some((w) => text.includes(w));
+}
+
 const firstWord = (value: string) => value.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").trim().split(/\s+/)[0] || "";
 const dollars = (value?: string) => { const n = Number(String(value || "").replace(/[^0-9.]/g, "")); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
 
@@ -368,7 +414,7 @@ export function chooseLink(productUrl: string, photoPageUrl: string, item: { nam
 }
 
 /** A quick second opinion from the AI (no web search): is this swap really the same kind of product, and cheaper? */
-export async function checkMatch(product: ProductInput, swap: { name: string; brand: string; sizeText: string; typicalPrice: number | null; whySimilar: string[]; matchType: string }, originalSize: string): Promise<{ ok: boolean; note: string } | null> {
+export async function checkMatch(product: ProductInput, swap: { name: string; brand: string; sizeText: string; typicalPrice: number | null; whySimilar: string[]; matchType: string }, originalSize: string, traits: string[] = [], strict = false, proof = ""): Promise<{ ok: boolean; note: string } | null> {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey || !baseUrl || process.env.SWAP_CHECK === "off") return null;
@@ -377,8 +423,8 @@ export async function checkMatch(product: ProductInput, swap: { name: string; br
 Original: ${product.brand ? `${product.brand} ` : ""}${product.name}${originalSize ? ` (${originalSize})` : ""}${product.price ? `, paid $${product.price.toFixed(2)}` : ""}
 Swap: ${swap.brand ? `${swap.brand} ` : ""}${swap.name}${swap.sizeText ? ` (${swap.sizeText})` : ""}${swap.typicalPrice != null ? `, about $${swap.typicalPrice.toFixed(2)}` : ""}
 Claimed: ${swap.whySimilar.join("; ")}
-
-Reject if ANY is true: a different kind of product; a different form (for example stick vs spray, liquid vs pods, wipes vs spray); a size more than about 40% smaller or bigger without saying so; a different scent or flavor family that matters for this product; not actually cheaper per unit; for medicine or supplements, a different active ingredient or strength; a product you don't believe exists.
+${traits.length ? `What makes the original what it is: ${traits.join("; ")}. The swap must share every one of these.\n` : ""}${proof ? `A source calling it a dupe: ${proof}\n` : ""}
+Reject if ANY is true: a different kind of product; a different form (for example stick vs spray, liquid vs pods, wipes vs spray); a size more than about 40% smaller or bigger without saying so; a different scent or flavor family that matters for this product; not actually cheaper per unit; for medicine or supplements, a different active ingredient or strength; a product you don't believe exists; it is missing one of the original's defining traits${strict ? "; it is just a generic product of the same type rather than a real dupe people name for this exact product" : ""}.
 Reply with JSON only: {"ok": true|false, "note": "under 12 words, plain"}`;
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
     method: "POST",
@@ -393,7 +439,7 @@ Reply with JSON only: {"ok": true|false, "note": "under 12 words, plain"}`;
   return { ok: raw.ok, note: clean(String(raw.note || ""), 120) };
 }
 
-function parseAnswer(content: string, product: ProductInput, cited: string[] | null) {
+function parseAnswer(content: string, product: ProductInput, cited: string[] | null, evidence: Evidence[] = []) {
   const json = content.slice(content.indexOf("{"), content.lastIndexOf("}") + 1);
   const raw = JSON.parse(json || "{}") as Record<string, unknown>;
   const price = (value: unknown) => { const n = Number(value); return Number.isFinite(n) && n > 0 && n < 5000 ? Math.round(n * 100) / 100 : null; };
@@ -404,7 +450,10 @@ function parseAnswer(content: string, product: ProductInput, cited: string[] | n
     sizeText: clean(String(raw.sizeText || ""), 60),
     typicalPrice: price(raw.typicalPrice),
     originalPageUrl: photoPage(raw.originalPageUrl, cited),
+    traits: (Array.isArray(raw.traits) ? raw.traits : []).map((line) => clean(String(line), 60)).filter(Boolean).slice(0, 3),
     suggestions: list.slice(0, 1).map((item) => ({
+      evidenceIndex: Number.isInteger(item.evidenceIndex) && Number(item.evidenceIndex) >= 0 && Number(item.evidenceIndex) < evidence.length ? Number(item.evidenceIndex) : null,
+      whyItsADupe: clean(String(item.whyItsADupe || ""), 200),
       name: clean(String(item.name || ""), 160),
       brand: clean(String(item.brand || ""), 100),
       retailer: clean(String(item.retailer || product.retailer || ""), 80),
@@ -476,23 +525,40 @@ export async function findSwaps(input: ProductInput, userId: string | null, opti
   const job = (async () => {
     let status: SwapLookup["status"] = "ready";
     let result: Awaited<ReturnType<typeof askAi>> = null;
-    try { result = await askAi({ ...input, name, brand }); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
+    // Real dupes: what Reddit, TikTok and beauty sites call a dupe for this exact product.
+    const strict = needsRealDupe(`${brand} ${name} ${input.category || ""}`);
+    const evidence = await dupeEvidence(name, brand).catch(() => [] as Evidence[]);
+    try { result = await askAi({ ...input, name, brand }, evidence, strict); } catch (error) { status = "error"; console.error("[swap-engine]", (error as Error).message); }
     if (status !== "error" && !result) return existing ?? null; // AI not configured
+    // Keep a swap only if a real page names it (required for beauty, hair, skin and the like).
+    let proof: Evidence | null = null;
+    if (result?.suggestions?.[0]) {
+      const top = result.suggestions[0];
+      const picked = top.evidenceIndex != null ? evidence[top.evidenceIndex] : undefined;
+      proof = picked && evidenceNames(picked, top.brand, top.name) ? picked : evidence.find((item) => evidenceNames(item, top.brand, top.name)) ?? null;
+      if (strict && !proof && evidence.length) {
+        console.warn("[swap-engine] no source names this dupe", name, "->", top.name);
+        result.suggestions = [];
+      }
+    }
     // A second look: drop a swap that isn't truly the same kind of product, or isn't cheaper.
     if (result?.suggestions?.[0]) {
-      const verdict = await checkMatch({ ...input, name, brand }, result.suggestions[0], result.sizeText).catch(() => null);
+      const verdict = await checkMatch({ ...input, name, brand }, result.suggestions[0], result.sizeText, result.traits, strict, proof ? `${proof.site}: ${proof.title}. ${proof.snippet}` : "").catch(() => null);
       if (verdict && !verdict.ok) { console.warn("[swap-engine] check rejected", name, "->", result.suggestions[0].name, verdict.note); result.suggestions = []; }
       else if (verdict) result.suggestions[0] = { ...result.suggestions[0], check: verdict.note };
     }
     const firstPage = result?.suggestions?.[0]?.productUrl || "";
     const swapPhotoPage = result?.suggestions?.[0]?.photoPageUrl || "";
-    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl, ...item }) => {
+    const suggestions: EngineSuggestion[] = (result?.suggestions ?? []).map(({ productUrl, photoPageUrl, evidenceIndex: _index, whyItsADupe, ...item }) => {
       const chosen = chooseLink(productUrl, photoPageUrl || "", item);
       return {
         ...item,
         // A typical price from other stores' pages, never Amazon's own price (Amazon only allows prices from its API).
         typicalPrice: item.typicalPrice,
         ...chosen,
+        matchType: proof ? "Dupe" as const : item.matchType,
+        evidence: proof ? { url: proof.url, site: proof.site, quote: whyItsADupe || clean(proof.snippet, 160) } : null,
+        traits: result?.traits ?? [],
         upVotes: 0,
         downVotes: 0,
       };

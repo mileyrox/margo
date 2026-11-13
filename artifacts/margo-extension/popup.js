@@ -123,7 +123,7 @@ function photo(url, label) {
 function result(data, product, conn) {
   const item = data.suggestions && data.suggestions[0];
   if (!item) {
-    return show(h('h1', {}, 'No swap this time'), h('p', { class: 'muted' }, `I didn't find a swap I'm confident in for ${product.name}. It may already be a good deal.`));
+    return show(h('h1', {}, 'No swap this time'), h('p', { class: 'muted' }, `I couldn't find a real dupe for ${product.name} yet. I only show swaps people actually call a dupe for it.`));
   }
   const fromPrice = product.price || data.price;
   const saved = fromPrice && item.typicalPrice != null ? fromPrice - item.typicalPrice : null;
@@ -142,6 +142,7 @@ function result(data, product, conn) {
       ),
       h('p', {}, h('b', {}, item.name), item.sizeText ? `, ${item.sizeText}` : '', h('span', { class: 'muted' }, item.shortReason ? ` · ${item.shortReason}` : '')),
       item.whySimilar && item.whySimilar.length ? h('ul', { class: 'why' }, item.whySimilar.slice(0, 3).map((line) => h('li', {}, line))) : null,
+      item.evidence && /^https:/.test(item.evidence.url || '') ? h('a', { class: 'proof', href: item.evidence.url, target: '_blank', rel: 'noreferrer' }, h('span', {}, 'Called a dupe on ', h('b', {}, item.evidence.site)), item.evidence.quote ? h('small', {}, item.evidence.quote) : null) : null,
       h('a', { class: 'btn', href: item.url, target: '_blank', rel: 'noreferrer sponsored' }, `Shop ${toBrand} on ${store} ↗`),
     ),
     h('div', { class: 'row' }, h('a', { class: 'link small', href: conn.u + '/swaps', target: '_blank' }, 'Saved to your Swaps in Margo')),

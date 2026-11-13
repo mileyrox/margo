@@ -20,6 +20,10 @@ export type EngineSuggestion = {
   linkKind?: "amazon-page" | "store-page" | "search";
   /** The second-pass AI check's one-line note on whether this is a true match. */
   check?: string;
+  /** A real page (Reddit, TikTok, a beauty site) that calls this a dupe for the original, and what it said. */
+  evidence?: { url: string; site: string; quote: string } | null;
+  /** The 2 to 3 things that make the original what it is, which the swap also has. */
+  traits?: string[];
   upVotes: number;
   downVotes: number;
 };
