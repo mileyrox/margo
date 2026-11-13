@@ -127,6 +127,8 @@ export function TermsPage() {
     <ul>
       <li><strong>Not financial, tax, legal or investment advice.</strong> Budgets, tax set-aside amounts, debt payoff dates and swap savings are estimates based on the information you and your bank provide. Check important decisions with a qualified professional.</li>
       <li><strong>Not a bank.</strong> Margo does not hold, move or transfer money, and cannot make payments for you.</li>
+      <li><strong>Not a credit counselor or tax preparer.</strong> Debt payoff plans use the balances, rates and minimums you or your bank provide, and leave out fees, new charges and rate changes. Tax set-aside amounts are a rough percentage, not a calculation of what you owe.</li>
+      <li><strong>Brands and dupes.</strong> Brand and product names belong to their owners. Margo is not affiliated with or endorsed by them. When Margo calls something a dupe, it means other people or publications have compared the two, and Margo shows where that came from. It does not mean the products are the same or made by the same company.</li>
       <li><strong>Not a guarantee.</strong> We can't promise any amount of savings, or that a tax estimate matches what you will owe.</li>
     </ul>
 

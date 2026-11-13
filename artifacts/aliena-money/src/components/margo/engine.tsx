@@ -113,7 +113,7 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
     } catch { /* try again later */ }
   };
   const fromName = `${data.productName}${data.sizeText ? `, ${data.sizeText}` : ''}`;
-  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a real dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet. I only show swaps that people actually call a dupe for it.`}</p>;
+  if (!item) return <p className="m-muted small" role="status">{data.status === 'error' ? "I couldn't check that one right now. Try again later." : `I couldn't find a swap that people call a dupe for ${data.brand ? `${data.brand} ` : ''}${fromName} yet, so I'm not suggesting one.`}</p>;
   const amazon = /amazon/i.test(item.retailer) || /amazon\./i.test(item.url);
   const toName = `${item.name}${item.sizeText ? `, ${item.sizeText}` : ''}`;
   const savings = data.price && item.typicalPrice != null ? data.price - item.typicalPrice : null;
@@ -138,8 +138,8 @@ export function EngineResult({ lookup, onRemove }: { lookup: EngineLookup; onRem
       </a>
     </div>
     <p className="m-plinth-line"><strong>{fromBrand}</strong> to <strong>{toBrand}</strong><span> · {reason}</span><br /><span>{toName}</span></p>
-    <section className="m-dupe-chat" aria-label={item.evidence ? 'Why it is a real dupe' : 'Why it is a good swap'}>
-      <p className="m-chat-me">{item.evidence ? 'Why is it a real dupe?' : 'Why is it a good swap?'}</p>
+    <section className="m-dupe-chat" aria-label={item.evidence ? 'Why people call it a dupe' : 'Why it could be a good swap'}>
+      <p className="m-chat-me">{item.evidence ? 'Why is it a dupe?' : 'Why is it a good swap?'}</p>
       <MargoSays size={36} className="m-chat-margo">
         {item.evidence
           ? <p>I heard it on <a href={item.evidence.url} target="_blank" rel="noreferrer">{siteName(item.evidence.site)}</a>{item.evidence.quote ? <>: “{item.evidence.quote.replace(/^["“]|["”]$/g, '')}”</> : '.'}</p>

@@ -46,7 +46,7 @@ export function DebtPage() {
     {!debts.length ? <MargoSays>
       <strong>No debts here yet.</strong> {hasBankDebts ? '' : 'Connect your bank in Settings and I\'ll bring in your cards and loans, or add one by hand below.'}
     </MargoSays> : plan.payable ? <MargoSays>
-      Paying <b>{money(minimums + extra)}</b> a month, you'll be <b>debt-free by {monthLabel(plan.months)}</b> ({duration(plan.months)}) and pay about <b>{money(plan.totalInterest)}</b> in interest.
+      Paying <b>{money(minimums + extra)}</b> a month, you could be <b>debt-free around {monthLabel(plan.months)}</b> ({duration(plan.months)}) and pay about <b>{money(plan.totalInterest)}</b> in interest.
       {extra > 0 && plans.base.payable && <> That's <b>{duration(Math.max(0, plans.base.months - plan.months))} sooner</b> and <b>{money(Math.max(0, plans.base.totalInterest - plan.totalInterest))} less interest</b> than with no extra.</>}
     </MargoSays> : <MargoSays>
       <strong>At this pace the debt won't go down.</strong> The payments don't cover the interest. Try adding a little extra below, even $25 helps.
@@ -58,7 +58,7 @@ export function DebtPage() {
         <div className="m-plan-pick" role="radiogroup" aria-label="Payoff strategy">
           {(['avalanche', 'snowball'] as const).map((key) => <button key={key} type="button" role="radio" aria-checked={strategy === key} className={strategy === key ? 'on' : ''} onClick={() => { setStrategy(key); remember({ debtStrategy: key }); }}>
             <strong>{key === 'avalanche' ? 'Avalanche' : 'Snowball'}</strong>
-            <small>{key === 'avalanche' ? 'Highest interest first. Saves the most money.' : 'Smallest balance first. Quick wins keep you going.'}</small>
+            <small>{key === 'avalanche' ? 'Highest interest first. Usually costs the least interest.' : 'Smallest balance first. Quick wins keep you going.'}</small>
             <span>{plans[key].payable ? <>{monthLabel(plans[key].months)} · {money(plans[key].totalInterest)} interest</> : 'Not paid off at this pace'}</span>
           </button>)}
         </div>
@@ -87,7 +87,7 @@ export function DebtPage() {
       {debts.map((debt) => <DebtRow key={debt.id} debt={debt} onSave={(changes) => void saveDebt(debt, changes)} onRemove={debt.source === 'manual' && debt.id !== 'setup' ? () => void removeDebt(debt.id) : undefined} />)}
       {adding ? <AddDebt onCancel={() => setAdding(false)} onAdd={async (item) => { await saveManual([...manual, item]); setAdding(false); }} />
         : <button type="button" className="m-btn outline" onClick={() => setAdding(true)}><Plus aria-hidden="true" />Add a debt</button>}
-      <small className="m-muted">Banks don't share interest rates, so rates marked "estimate" are typical ones. Check your statement and tap to fix them for a sharper plan. {hasBankDebts ? '' : <Link href="/settings" className="m-link">Connect a bank</Link>}</small>
+      <small className="m-muted">These are estimates, not financial advice. They leave out fees, new charges and rate changes. Banks don't share interest rates, so rates marked "estimate" are typical ones. Check your statement and tap to fix them. {hasBankDebts ? '' : <Link href="/settings" className="m-link">Connect a bank</Link>}</small>
     </section>
   </main>;
 }

@@ -126,10 +126,10 @@ export function HomePage() {
     const amount = Number(item.amount) * taxRate / 100;
     cards.push({
       key: `income-${item.id}`, tag: 'New income', title: `${money(item.amount)} from ${item.label}`,
-      body: `Not your usual paycheck. Many people set aside 25 to 30% of side income for taxes. Want to plan for ${money(amount)}?`,
+      body: `Not your usual paycheck. Side income usually isn't taxed when you're paid, and many people set aside around 25 to 30% (a rough guide, not tax advice). Want to plan for ${money(amount)}?`,
       yes: { label: `Plan ${money(amount)}`, run: async () => {
         await review.mutateAsync({ id: item.id, data: { decision: 'set-aside' } }); await refreshMoney();
-        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "It's in your tax set-aside now, so it won't count as money to spend. Move it to savings whenever you're ready.", done: 'Got it' });
+        setConfirmation({ key: `income-${item.id}`, tag: 'Tax set-aside', title: `${money(amount)} planned for taxes`, body: "I added it to your tax set-aside total. Margo doesn't move money, so move it to a separate savings account when you can and leave it there for tax time.", done: 'Got it' });
       } },
       no: { label: 'Not taxable', run: async () => { await review.mutateAsync({ id: item.id, data: { decision: 'not-taxable' } }); await refreshMoney(); } },
     });
@@ -286,7 +286,7 @@ function DebtSummaryCard() {
     <h2>Debt payoff</h2>
     <Link href="/debt" className="m-card m-stack m-debt-summary">
       <div className="m-line"><strong>{money(total)}</strong><span className="m-muted">{debts.length} {debts.length === 1 ? 'debt' : 'debts'}</span></div>
-      <span data-testid="text-debt-free-date">{plan.payable ? <>Debt-free by <strong>{monthLabel(plan.months)}</strong>, about {money(plan.totalInterest)} in interest</> : <strong>At this pace the debt won't go down. Let's fix the plan.</strong>}</span>
+      <span data-testid="text-debt-free-date">{plan.payable ? <>On track to be debt-free around <strong>{monthLabel(plan.months)}</strong>, about {money(plan.totalInterest)} in interest (estimate)</> : <strong>At this pace the debt won't go down. Let's fix the plan.</strong>}</span>
       {target && <span className="m-muted small">This month: put the extra on {target.name}.</span>}
       <span className="m-link">See your plan<ChevronRight aria-hidden="true" /></span>
     </Link>
