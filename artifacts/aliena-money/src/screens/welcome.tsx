@@ -1,4 +1,3 @@
-import { MargoMascot } from '@/components/margo/mascot';
 import { MargoSays } from '@/components/margo/characters';
 import { Link } from 'wouter';
 import { useLocation } from 'wouter';
@@ -12,7 +11,7 @@ export function WelcomePage() {
     { icon: PiggyBank, text: 'Know what to set aside from side gigs' },
   ];
   return <main className="m-welcome">
-    <div className="m-welcome-hero"><MargoMascot className="m-welcome-mascot" label="Margo" /></div>
+    <img className="m-welcome-logo" src={`${import.meta.env.BASE_URL}margo-wordmark.png`} alt="Margo" width="240" height="72" />
     <h1>Keep what you love. Spend less on it.</h1>
     <MargoSays size={40} className="m-welcome-say">Hi, I'm Margo! I find cheaper versions of things you already buy, and show you where your money goes.</MargoSays>
     <div className="m-welcome-list">{benefits.map(({ icon: Icon, text }) => <div key={text}><span><Icon aria-hidden="true" /></span><p>{text}</p></div>)}</div>

@@ -949,3 +949,5 @@ body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
 /* Flat-mark Margo: full body sits on the bottom of the welcome circle */
 .m-welcome-hero { align-items: flex-end; overflow: hidden; }
 .m-welcome-hero .m-welcome-mascot { width: 180px; height: auto; }
+/* Welcome opens with the Margo logo (seal and wordmark) */
+.m-welcome-logo { display: block; width: 240px; height: auto; margin: 8px auto 0; }
