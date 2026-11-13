@@ -1,6 +1,6 @@
 import { InstallTip } from '@/components/margo/install-tip';
-import { MargoFace, MargoSays } from '@/components/margo/characters';
-import { useEffect, useMemo, useState } from 'react';
+import { MargoSays } from '@/components/margo/characters';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@clerk/react';
@@ -33,6 +33,45 @@ const readDismissed = (): string[] => { try { return JSON.parse(window.localStor
 const writeDismissed = (keys: string[]) => { try { window.localStorage.setItem(todayKey(), JSON.stringify(keys)); } catch { /* fine without storage */ } };
 
 /** Army green that only gets darker as a budget fills up. It never turns red. */
+/* ---------- Spending circles you can drag around (positions are remembered on this device) ---------- */
+type Spot = { x: number; y: number };
+const SPOTS_KEY = 'margo-bubble-spots';
+function useDraggableBubbles() {
+  const [spots, setSpots] = useState<Record<string, Spot>>(() => { try { return JSON.parse(localStorage.getItem(SPOTS_KEY) || '{}') as Record<string, Spot>; } catch { return {}; } });
+  const [active, setActive] = useState<string | null>(null);
+  const start = useRef<{ name: string; px: number; py: number; x: number; y: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
+  const save = (next: Record<string, Spot>) => { try { localStorage.setItem(SPOTS_KEY, JSON.stringify(next)); } catch { /* private mode */ } };
+  const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+  return {
+    spots, active,
+    wasDragged: () => { const value = dragged.current; dragged.current = false; return value; },
+    reset: () => { setSpots({}); save({}); },
+    handlers: (name: string) => ({
+      onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => {
+        const spot = spots[name] || { x: 0, y: 0 };
+        start.current = { name, px: event.clientX, py: event.clientY, x: spot.x, y: spot.y, moved: false };
+        dragged.current = false;
+        event.currentTarget.setPointerCapture(event.pointerId);
+      },
+      onPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => {
+        const s = start.current;
+        if (!s || s.name !== name) return;
+        const dx = event.clientX - s.px, dy = event.clientY - s.py;
+        if (!s.moved && Math.hypot(dx, dy) < 6) return;
+        s.moved = true; setActive(name);
+        setSpots((prev) => ({ ...prev, [name]: { x: clamp(s.x + dx, 170), y: clamp(s.y + dy, 160) } }));
+      },
+      onPointerUp: () => {
+        const s = start.current;
+        if (s?.moved) { dragged.current = true; setSpots((prev) => { save(prev); return prev; }); }
+        start.current = null; setActive(null);
+      },
+      onPointerCancel: () => { start.current = null; setActive(null); },
+    }),
+  };
+}
+
 function bubbleShade(used: number): [string, string] {
   // A smooth army green: every percent gets its own shade, light when barely used, deepest when over. Never red.
   const t = Math.min(1, Math.max(0, used / 1.2));
@@ -54,6 +93,7 @@ export function HomePage() {
   const [, setLocation] = useLocation();
   const [period, setPeriod] = useState<'month' | 'week'>('month');
   const [selected, setSelected] = useState<string | null>(null);
+  const drag = useDraggableBubbles();
   const [showKey, setShowKey] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [confirmation, setConfirmation] = useState<TodayCard | null>(null);
@@ -192,7 +232,6 @@ export function HomePage() {
         <div className="m-segment on-navy" role="group" aria-label="Budget period">
           {(['week', 'month'] as const).map((value) => <button type="button" key={value} className={period === value ? 'on' : ''} aria-pressed={period === value} onClick={() => setPeriod(value)} data-testid={`button-period-${value}`}>{value === 'month' ? 'Month' : 'Week'}</button>)}
         </div>
-        <MargoFace size={52} label="" />
       </div>
       <span className="m-hero2-label">Left to spend {period === 'month' ? `in ${monthName}` : 'this week'}</span>
       <strong className="m-hero2-amount" data-testid="text-left-to-spend">{loading ? '…' : money(left)}</strong>
@@ -238,8 +277,9 @@ export function HomePage() {
             const pct = Math.max(0, used);
             const size = 84 + 70 * Math.min(1, pct) + (pct > 1 ? 36 * (1 - Math.exp(-(pct - 1) * 2)) : 0);
             const on = sel?.name === row.name;
-            return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''}`} style={{ width: size, height: size, background: bg, color }} aria-pressed={on}
-              aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} onClick={() => setSelected(row.name)} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
+            const spot = drag.spots[row.name] || { x: 0, y: 0 };
+            return <button type="button" key={row.name} className={`m-bubble ${on ? 'on' : ''} ${drag.active === row.name ? 'dragging' : ''}`} style={{ width: size, height: size, background: bg, color, transform: `translate(${spot.x}px, ${spot.y}px)` }} aria-pressed={on}
+              aria-label={`${row.name}, ${Math.round(used * 100)}% of budget used`} {...drag.handlers(row.name)} onClick={() => { if (!drag.wasDragged()) setSelected(row.name); }} data-testid={`category-${row.name.toLowerCase().replaceAll(' ', '-')}`}>
               <strong style={{ fontSize: size >= 120 ? 15 : size >= 95 ? 13 : 11 }}>{row.name}</strong>
               <small>{Math.round(used * 100)}% used</small>
             </button>;
@@ -251,6 +291,7 @@ export function HomePage() {
           {sel.items.length ? sel.items.slice(0, 3).map((tx) => <div className="m-line" key={tx.id}><span>{tx.label} <span className="m-muted">· {shortDate(tx.date)}</span></span><strong>{money(tx.amount)}</strong></div>)
             : <span className="m-muted small">No purchases here yet this {period}.</span>}
         </div>}
+        <span className="m-muted small m-bubble-hint">Drag the circles to move them around.{Object.keys(drag.spots).length > 0 && <> <button type="button" className="m-link-button inline" onClick={drag.reset}>Put them back</button></>}</span>
         <button type="button" className="m-link-button small-link" aria-expanded={showKey} onClick={() => setShowKey((value) => !value)}>{showKey ? 'Hide key' : 'What do the sizes and colors mean?'}</button>
         {showKey && <div className="m-key"><span><i style={{ background: '#DFE3C8' }} />Small and light: plenty left</span><span><i style={{ background: '#4F5320' }} />Big and dark: close to the limit</span><span><i style={{ background: '#33360F' }} />Biggest and darkest: over</span></div>}
       </div>}

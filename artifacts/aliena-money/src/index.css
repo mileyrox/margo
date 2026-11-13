@@ -951,3 +951,15 @@ body { background: var(--m-cream); font-feature-settings: "tnum" 1, "lnum" 1; }
 .m-welcome-hero .m-welcome-mascot { width: 180px; height: auto; }
 /* Welcome opens with the Margo logo (seal and wordmark) */
 .m-welcome-logo { display: block; width: 240px; height: auto; margin: 8px auto 0; }
+
+/* Really light red page (Nov 13) */
+:root { --m-cream: #FCEAEA; --m-cream-2: #F8DFDF; --m-line: #F0D9D9; }
+body { background: var(--m-cream); }
+.m-header { background: rgba(252, 234, 234, .94); }
+
+/* Spending circles you can drag */
+.m-bubbles { position: relative; }
+.m-bubble { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.m-bubble.dragging { cursor: grabbing; z-index: 5; box-shadow: 0 12px 26px rgba(11, 31, 75, .22); transition: none; }
+.m-bubble-hint { text-align: center; display: block; }
+.m-recap-times { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
