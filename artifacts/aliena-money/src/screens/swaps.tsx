@@ -1,7 +1,8 @@
+import { openReceiptCamera } from '@/components/margo/receipt-camera';
 import { MargoSays } from '@/components/margo/characters';
 import { customFetch } from '@workspace/api-client-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useGetProductComparisons } from '@workspace/api-client-react';
 import { ArrowRight, Bookmark, BookmarkCheck, Check, ScanBarcode, Upload } from 'lucide-react';
@@ -48,6 +49,7 @@ function SavingsReceipt({ swaps, total }: { swaps: Awaited<ReturnType<typeof fet
 }
 
 export function SwapsPage() {
+  const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const mine = useQuery({ queryKey: ['my-swaps'], queryFn: fetchMySwaps, refetchInterval: 30_000 });
   const swaps = mine.data || [];
@@ -71,7 +73,7 @@ export function SwapsPage() {
       : <div className="m-card m-empty-swaps">
         <h2>Your swaps show up here</h2>
         <p className="m-muted">Scan a receipt or a barcode and I'll find a cheaper version of what you bought.</p>
-        <Link href="/receipts?scan=receipt" className="m-btn burgundy"><Upload aria-hidden="true" />Scan a receipt</Link>
+        <Link href="/receipts?scan=receipt" className="m-btn burgundy" onClick={(event) => { event.preventDefault(); openReceiptCamera(() => setLocation('/receipts?scan=receipt')); }}><Upload aria-hidden="true" />Scan a receipt</Link>
         <Link href="/receipts?scan=barcode" className="m-btn outline"><ScanBarcode aria-hidden="true" />Scan a barcode</Link>
       </div>}
     <p className="m-fine">Tap the swap to open the store. Swaps come from product facts; prices change, so check the label and price. Some links earn us a commission. <Link href="/disclosures">Learn more</Link></p>

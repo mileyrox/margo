@@ -25,6 +25,8 @@ type Step = {
   total?: boolean;
   placeholder?: string;
   skip?: string;
+  /** "I'm not sure": Margo fills in a suggested monthly amount instead. */
+  suggest?: (a: Answers) => number;
   none?: string;
   otherInput?: boolean;
   show?: (a: Answers) => boolean;
@@ -44,8 +46,14 @@ const steps: Step[] = [
   { id: 'hi', type: 'choice', say: () => ["Hi, I'm Margo.", "I'll ask a few quick questions and build you a budget. Takes about two minutes."], options: ["Let's go"] },
   { id: 'takeHome', type: 'amount', units: ['month', 'year'], placeholder: '3,200', say: () => ['First up: how much do you take home after taxes?', 'A rough number is fine.'] },
   { id: 'sideGig', type: 'choice', say: (a) => [`Got it, about ${money(monthly(a, 'takeHome'))} a month.`, 'Do you also earn from side gigs? Shifts, rideshare, freelancing, anything like that.'], options: ['Yes', 'No'] },
-  { id: 'savingsGoal', type: 'amount', units: ['year', 'month'], placeholder: '6,000', say: (a) => [...(a.sideGig === 'Yes' ? ["Nice. I'll flag gig money and suggest setting aside 25% for taxes."] : []), 'How much do you want to save?'] },
-  { id: 'savingFor', type: 'choice', say: (a) => { const income = monthly(a, 'takeHome'); const pct = income ? Math.round(monthly(a, 'savingsGoal') / income * 100) : 0; return [`That's ${money(monthly(a, 'savingsGoal'))} a month, about ${pct}% of your take-home.`, "What's your biggest money goal right now?"]; }, options: ['Build an emergency fund', 'Pay off debt', 'Save for something big', 'Buy a home', 'Invest for later', 'Just spend less'] },
+  { id: 'savingsGoal', type: 'amount', units: ['year', 'month'], placeholder: '6,000', suggest: (a) => Math.round(monthly(a, 'takeHome') * 0.2 / 10) * 10, say: (a) => [...(a.sideGig === 'Yes' ? ["Nice. I'll flag gig money and suggest setting aside 25% for taxes."] : []), 'How much do you want to save?'] },
+  { id: 'savingFor', type: 'choice', say: (a) => {
+    const income = monthly(a, 'takeHome'); const pct = income ? Math.round(monthly(a, 'savingsGoal') / income * 100) : 0;
+    const first = a.savingsGoalSuggested === 'yes'
+      ? `No problem. A common goal is about 20% of take-home, so let's start with ${money(monthly(a, 'savingsGoal'))} a month. If that feels like a stretch, you can lower it anytime.`
+      : `That's ${money(monthly(a, 'savingsGoal'))} a month, about ${pct}% of your take-home.`;
+    return [first, "What's your biggest money goal right now?"];
+  }, options: ['Build an emergency fund', 'Pay off debt', 'Save for something big', 'Buy a home', 'Invest for later', 'Just spend less'] },
   { id: 'nonNegotiables', type: 'multi', say: () => ['Good one. Now the important part.', "What will you never give up? I won't suggest swaps for these."], options: swapOptions, otherInput: true, none: "Nothing, I'm flexible" },
   { id: 'swapCategories', type: 'multi', say: () => ['Noted.', 'Where should I look for cheaper options?'], options: swapOptions, otherInput: true },
   { id: 'rent', type: 'amount', units: ['month'], placeholder: '1,450', say: () => ["Now your regular bills. What's your rent or mortgage?"], skip: "I don't pay rent" },
@@ -81,6 +89,7 @@ function budgetFor(a: Answers) {
 
 function reply(step: Step, a: Answers) {
   const value = a[step.id];
+  if (step.type === 'amount' && a[`${step.id}Suggested`] === 'yes') return "I'm not sure";
   if (step.type === 'amount') return value === 'skipped' ? step.skip : step.total ? `About ${money(value)}` : `${money(value)} a ${a[`${step.id}Period`] || step.units?.[0] || 'month'}`;
   if (step.type === 'multi') { const list = parseList(value); return list.length ? list.join(', ') : step.none || 'None'; }
   return value;
@@ -132,6 +141,28 @@ export function OnboardingPage() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [current.id, error]);
 
+  // Phones: when the keyboard opens, fit the chat to the space above it, so the newest message and the
+  // text box both stay on screen (instead of the page jumping around).
+  const shellRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const view = window.visualViewport;
+    const root = document.documentElement;
+    root.classList.add('m-chat-open');
+    if (!view) return () => root.classList.remove('m-chat-open');
+    const fit = () => {
+      const shell = shellRef.current;
+      if (!shell) return;
+      shell.style.setProperty('--vv-h', `${Math.round(view.height)}px`);
+      shell.style.setProperty('--vv-top', `${Math.round(view.offsetTop)}px`);
+      const el = chatRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    };
+    fit();
+    view.addEventListener('resize', fit);
+    view.addEventListener('scroll', fit);
+    return () => { view.removeEventListener('resize', fit); view.removeEventListener('scroll', fit); root.classList.remove('m-chat-open'); };
+  }, []);
+
   const advance = (next: Answers) => {
     const list = steps.filter((step) => !step.show || step.show(next));
     const i = list.findIndex((step) => step.id === current.id);
@@ -145,7 +176,7 @@ export function OnboardingPage() {
   const sendAmount = () => {
     const value = Number(draft.replace(/[$,\s]/g, ''));
     if (!draft.trim() || !Number.isFinite(value) || value < 0) { setError('Enter an amount, even a rough one.'); return; }
-    answer(String(value), { [`${current.id}Period`]: unit });
+    answer(String(value), { [`${current.id}Period`]: unit, [`${current.id}Suggested`]: '' });
   };
   const sendMulti = () => {
     if (current.otherInput && selected.includes('Other')) {
@@ -211,7 +242,7 @@ export function OnboardingPage() {
   }
   const plan = budgetFor(answers);
 
-  return <main className="m-chat">
+  return <main className="m-chat" ref={shellRef}>
     <header className="m-chat-head">
       <div className="m-line">
         {index > 0 ? <button className="m-icon-button" aria-label="Go to previous onboarding step" onClick={goBack}><ArrowLeft aria-hidden="true" /></button> : <span className="m-chat-back-spacer" />}
@@ -240,7 +271,7 @@ export function OnboardingPage() {
       {current.type === 'multi' && <>
         <span className="m-muted small">Tap all that apply</span>
         <div className="m-dock-choices left">{(current.options || []).map((option) => { const on = selected.includes(option); return <button key={option} className={`m-choice ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => setSelected((list) => on ? list.filter((item) => item !== option) : [...list, option])}>{on && <Check aria-hidden="true" />}{option}</button>; })}</div>
-        {current.otherInput && selected.includes('Other') && <label className="m-amount"><input autoFocus type="text" maxLength={100} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What would you never give up?" aria-label="Your other non-negotiable" onKeyDown={(event) => { if (event.key === 'Enter') sendMulti(); }} /></label>}
+        {current.otherInput && selected.includes('Other') && <label className="m-amount"><input autoFocus={typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches} type="text" autoComplete="off" maxLength={100} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What would you never give up?" aria-label="Your other non-negotiable" onKeyDown={(event) => { if (event.key === 'Enter') sendMulti(); }} /></label>}
         <button className="m-btn navy" onClick={sendMulti} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
       </>}
       {current.type === 'amount' && <>
@@ -254,6 +285,9 @@ export function OnboardingPage() {
           onSubmit={sendAmount}
         />
         {current.skip && <button className="m-link-button" onClick={() => answer('skipped')}>{current.skip}</button>}
+        {current.suggest && (current.suggest(answers) > 0
+          ? <button className="m-btn outline m-unsure" onClick={() => answer(String(current.suggest!(answers)), { [`${current.id}Period`]: 'month', [`${current.id}Suggested`]: 'yes' })}>I'm not sure, suggest one</button>
+          : null)}
       </>}
       {current.type === 'bank' && <><BankConnect compact onConnected={() => answer('Connected', { connect: 'Connected' })} /><button className="m-btn outline" onClick={() => answer('Not now', { connect: 'Not now' })}>Not now</button></>}
       {current.type === 'end' && <button className="m-btn burgundy" disabled={busy} onClick={() => void finish()}>{busy ? 'Saving your plan…' : 'Go to my home'}</button>}
