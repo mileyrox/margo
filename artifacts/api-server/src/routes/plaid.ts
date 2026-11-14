@@ -404,7 +404,8 @@ router.post("/plaid/sync-all", async (req, res): Promise<void> => {
   const items = await db.select().from(plaidItemsTable).where(eq(plaidItemsTable.userId, req.dbUser.id));
   let imported = 0, refreshed = 0, failed = 0;
   for (const item of items) {
-    if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore) {
+    // A bank whose history hasn't been sorted with the newest rules syncs now, even if it synced recently.
+    if (item.lastSyncAt && item.lastSyncAt.getTime() > staleBefore && (item.sortVersion ?? 0) >= PLAID_SORT_VERSION) {
       // Transactions are fresh, but make sure there's a balance snapshot for today.
       const [account] = await db.select({ id: bankAccountsTable.id }).from(bankAccountsTable).where(eq(bankAccountsTable.plaidItemId, item.id)).limit(1);
       const [snap] = account ? await db.select().from(balanceSnapshotsTable).where(and(eq(balanceSnapshotsTable.accountId, account.id), eq(balanceSnapshotsTable.day, today()))).limit(1) : [];

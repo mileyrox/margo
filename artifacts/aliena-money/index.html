@@ -23,9 +23,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Margo" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      <style>
+      /* Shown the moment the app opens, before anything else loads. */
+      html, body { background: #FCEAEA; margin: 0; }
+      .m-splash { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #FCEAEA; color: #5A0F1A; font: 600 34px Georgia, "Times New Roman", serif; z-index: 100; }
+      .m-splash svg { animation: m-splash-in .5s ease-out both; }
+      .m-splash span { animation: m-splash-in .5s .08s ease-out both; }
+      @keyframes m-splash-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .m-splash svg, .m-splash span { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="m-splash" role="status" aria-label="Loading Margo"><svg width="76" height="76" viewBox="0 0 100 100" aria-hidden="true"><g fill="#5A0F1A"><circle cx="50" cy="50" r="40"/><circle cx="90" cy="50" r="9"/><circle cx="84.6" cy="70" r="9"/><circle cx="70" cy="84.6" r="9"/><circle cx="50" cy="90" r="9"/><circle cx="30" cy="84.6" r="9"/><circle cx="15.4" cy="70" r="9"/><circle cx="10" cy="50" r="9"/><circle cx="15.4" cy="30" r="9"/><circle cx="30" cy="15.4" r="9"/><circle cx="50" cy="10" r="9"/><circle cx="70" cy="15.4" r="9"/><circle cx="84.6" cy="30" r="9"/></g><text x="50" y="64" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="42" font-weight="500" fill="#FBF6E4">M</text></svg><span>Margo</span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
