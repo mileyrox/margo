@@ -271,7 +271,7 @@ export function OnboardingPage() {
       {current.type === 'multi' && <>
         <span className="m-muted small">Tap all that apply</span>
         <div className="m-dock-choices left">{(current.options || []).map((option) => { const on = selected.includes(option); return <button key={option} className={`m-choice ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => setSelected((list) => on ? list.filter((item) => item !== option) : [...list, option])}>{on && <Check aria-hidden="true" />}{option}</button>; })}</div>
-        {current.otherInput && selected.includes('Other') && <label className="m-amount"><input autoFocus type="text" autoComplete="off" maxLength={100} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What would you never give up?" aria-label="Your other non-negotiable" onKeyDown={(event) => { if (event.key === 'Enter') sendMulti(); }} /></label>}
+        {current.otherInput && selected.includes('Other') && <label className="m-amount"><input autoFocus={typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches} type="text" autoComplete="off" maxLength={100} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="What would you never give up?" aria-label="Your other non-negotiable" onKeyDown={(event) => { if (event.key === 'Enter') sendMulti(); }} /></label>}
         <button className="m-btn navy" onClick={sendMulti} disabled={!selected.length && !current.none}>{selected.length ? 'Done' : current.none || 'Pick at least one'}</button>
       </>}
       {current.type === 'amount' && <>

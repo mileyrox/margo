@@ -1,3 +1,4 @@
+import { openReceiptCamera, ReceiptCameraInput } from '@/components/margo/receipt-camera';
 import { type ReactNode, useEffect, useState } from 'react';
 import { MargoMascot, type MascotPose } from '@/components/margo/mascot';
 import { Link, useLocation } from 'wouter';
@@ -47,6 +48,7 @@ export function AddSheet({ open, onClose }: { open: boolean; onClose: () => void
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+  const [, setLocation] = useLocation();
   if (!open) return null;
   const options = [
     { href: '/receipts?scan=receipt', title: 'Scan a receipt', sub: "I'll read it and look for cheaper swaps", icon: ReceiptText, tone: 'burgundy' },
@@ -57,7 +59,11 @@ export function AddSheet({ open, onClose }: { open: boolean; onClose: () => void
     <div className="m-sheet" role="dialog" aria-modal="true" aria-label="What are we adding?" onClick={(event) => event.stopPropagation()}>
       <span className="m-sheet-handle" aria-hidden="true" />
       <h2>What are we adding?</h2>
-      {options.map(({ href, title, sub, icon: Icon, tone }) => <Link key={href} href={href} className="m-sheet-option" onClick={onClose}>
+      {options.map(({ href, title, sub, icon: Icon, tone }) => <Link key={href} href={href} className="m-sheet-option" onClick={(event) => {
+        // Receipts: open the camera straight from this tap.
+        if (href === '/receipts?scan=receipt') { event.preventDefault(); onClose(); openReceiptCamera(() => setLocation(href)); return; }
+        onClose();
+      }}>
         <span className={`m-sheet-icon ${tone}`}><Icon aria-hidden="true" /></span>
         <span><strong>{title}</strong><small>{sub}</small></span>
       </Link>)}
@@ -73,6 +79,7 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => { setSheet(false); }, [path]);
   if (fullscreen) return <div className="m-app m-fullscreen">{children}</div>;
   return <div className="m-app">
+    <ReceiptCameraInput />
     <Header />
     <main className="m-main">{children}</main>
     <BottomNav onPlus={() => setSheet(true)} />

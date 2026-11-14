@@ -1,3 +1,4 @@
+import { openReceiptCamera } from '@/components/margo/receipt-camera';
 import { isIncome, isSpending, needsALook } from '@/lib/money-kinds';
 import { SortQuestions } from '@/components/margo/sort-question';
 import { useAccounts, useDebts } from '@/lib/accounts';
@@ -239,7 +240,7 @@ export function HomePage() {
             {current.no && <button className="m-btn outline" disabled={review.isPending} onClick={() => void act(current, 'no')}>{current.no.label}</button>}
           </div>}
       </MargoSays> : <MargoSays>
-        <strong>You're all caught up.</strong> Scan a receipt and I'll look for cheaper swaps. <Link href="/receipts?scan=receipt" className="m-link">Scan a receipt</Link>
+        <strong>You're all caught up.</strong> Scan a receipt and I'll look for cheaper swaps. <Link href="/receipts?scan=receipt" className="m-link" onClick={(event) => { event.preventDefault(); openReceiptCamera(() => setLocation('/receipts?scan=receipt')); }}>Scan a receipt</Link>
       </MargoSays>}
     </section>
 

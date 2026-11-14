@@ -1056,3 +1056,5 @@ html.m-chat-open, html.m-chat-open body { overflow: hidden; overscroll-behavior:
 .m-amount-row .m-amount input { min-width: 0; }
 .m-amount-row .m-send { flex: 0 0 52px; width: 52px; }
 .m-unsure { align-self: flex-start; min-height: 40px; font-size: 14px; padding: 0 16px; }
+/* The answer area keeps the same height whether it shows a text box or buttons, so the chat doesn't jump */
+.m-chat > :last-child { min-height: 152px; box-sizing: border-box; justify-content: flex-end; }

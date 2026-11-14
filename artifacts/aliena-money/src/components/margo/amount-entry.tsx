@@ -42,7 +42,8 @@ export function AmountEntry({
     <div className="m-amount-row">
       <label className="m-amount"><span>$</span><input autoComplete="off" autoCorrect="off" name="margo-amount" data-1p-ignore data-lpignore="true"
         ref={inputRef}
-        autoFocus
+        // On phones the keyboard only opens when the box is tapped, so the screen doesn't jump on every question.
+        autoFocus={typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches}
         inputMode="decimal"
         value={amount}
         onChange={(event) => onAmountChange(event.target.value)}

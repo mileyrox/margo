@@ -1,3 +1,4 @@
+import { RECEIPT_EVENT, takeReceiptPhoto } from '@/components/margo/receipt-camera';
 import { useEffect, useRef, useState } from 'react';
 import { useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,7 +32,8 @@ export function ReceiptPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [cameraActive, setCameraActive] = useState(false);
+  // Barcode: the camera starts as soon as the page opens.
+  const [cameraActive, setCameraActive] = useState(barcodeMode);
   const [barcode, setBarcode] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
   const [barcodeResult, setBarcodeResult] = useState<EngineLookup | null>(null);
@@ -48,6 +50,22 @@ export function ReceiptPage() {
     return () => { cancelled = true; };
   }, [barcode]);
   const fileInput = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [autoScan, setAutoScan] = useState(false);
+  useEffect(() => {
+    const pickUp = () => { const photo = takeReceiptPhoto(); if (photo) { choose(photo); setAutoScan(true); } };
+    pickUp();
+    window.addEventListener(RECEIPT_EVENT, pickUp);
+    return () => window.removeEventListener(RECEIPT_EVENT, pickUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // A photo taken from "Scan a receipt" is read right away, no extra tap.
+  useEffect(() => {
+    if (!autoScan || !file) return;
+    setAutoScan(false);
+    formRef.current?.requestSubmit();
+  }, [autoScan, file]);
+  // On the receipts page itself, the photo button also reads the photo right away.
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -148,10 +166,10 @@ export function ReceiptPage() {
     </section>}
     {barcodeMode && barcodeResult && <><EngineResult lookup={barcodeResult} /><p className="m-fine">Product details from <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer">Open Food Facts</a> and Open Beauty Facts, available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">Open Database License</a>. As an Amazon Associate I earn from qualifying purchases.</p></>}
 
-    <form className="m-card m-stack" onSubmit={saveReceipt}>
+    <form className="m-card m-stack" ref={formRef} onSubmit={saveReceipt}>
       <h2 className="m-h2">{scanResult ? 'Check what I found' : 'Start with a photo'}</h2>
       <label className="m-picker" htmlFor="receipt-photo">
-        <input ref={fileInput} id="receipt-photo" type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => choose(event.target.files?.[0])} />
+        <input ref={fileInput} id="receipt-photo" type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => { const picked = event.target.files?.[0]; event.target.value = ''; choose(picked); if (picked && !scanResult) setAutoScan(true); }} />
         {preview ? <img src={preview} alt="Receipt preview" /> : <span className="m-sheet-icon burgundy"><Upload aria-hidden="true" /></span>}
         <strong>{file?.name || 'Take a photo or upload'}</strong>
         <small className="m-muted">JPG or PNG, up to 10 MB</small>
