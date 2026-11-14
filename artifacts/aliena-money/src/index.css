@@ -1045,3 +1045,14 @@ body { background: var(--m-cream); }
 .m-sort-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .m-sort-choices .m-chip { font-size: 13.5px; }
 .m-moves-note { text-align: center; margin: -4px 0 0; }
+
+/* Onboarding chat on phones: pinned to the visible area above the keyboard */
+html.m-chat-open, html.m-chat-open body { overflow: hidden; overscroll-behavior: none; }
+.m-chat { position: fixed; left: 0; right: 0; top: var(--vv-top, 0px); height: var(--vv-h, 100dvh); }
+.m-chat-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.m-chat > :last-child { flex-shrink: 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.m-amount-row { display: flex; align-items: stretch; gap: 10px; }
+.m-amount-row .m-amount { flex: 1; min-width: 0; }
+.m-amount-row .m-amount input { min-width: 0; }
+.m-amount-row .m-send { flex: 0 0 52px; width: 52px; }
+.m-unsure { align-self: flex-start; min-height: 40px; font-size: 14px; padding: 0 16px; }

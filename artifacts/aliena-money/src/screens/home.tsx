@@ -279,7 +279,15 @@ export function HomePage() {
 /** Home summary of the debt plan; the full plan lives on /debt. */
 function DebtSummaryCard() {
   const { debts, answers, loading } = useDebts();
-  if (loading || !debts.length) return null;
+  if (loading) return null;
+  // No debts found yet (no bank linked, nothing added): still show that the payoff plan exists.
+  if (!debts.length) return <section className="m-section" data-testid="card-debt-payoff">
+    <h2>Debt payoff</h2>
+    <Link href="/debt" className="m-card m-stack m-debt-summary">
+      <span>Have a credit card, car loan or student loan? Add it, or link your bank, and I'll build you a plan to pay it off.</span>
+      <span className="m-link">Make a payoff plan<ChevronRight aria-hidden="true" /></span>
+    </Link>
+  </section>;
   const strategy = answers.debtStrategy === 'snowball' ? 'snowball' : 'avalanche';
   const extra = Number(answers.debtExtra || 0);
   const plan = payoffPlan(debts, extra, strategy);

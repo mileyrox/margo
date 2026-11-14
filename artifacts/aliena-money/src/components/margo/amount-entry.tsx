@@ -40,7 +40,7 @@ export function AmountEntry({
       onClick={() => selectPeriod(value)}
     >{value === 'month' ? 'Per month' : 'Per year'}</button>)}</div>}
     <div className="m-amount-row">
-      <label className="m-amount"><span>$</span><input
+      <label className="m-amount"><span>$</span><input autoComplete="off" autoCorrect="off" name="margo-amount" data-1p-ignore data-lpignore="true"
         ref={inputRef}
         autoFocus
         inputMode="decimal"
